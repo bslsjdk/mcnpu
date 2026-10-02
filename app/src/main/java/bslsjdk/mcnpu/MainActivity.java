@@ -51,7 +51,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
         findViewById(R.id.shareLog).setOnClickListener(v -> shareLog());
-        findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLogOnly());
+        findViewById(R.id.refreshLog).setOnClickListener(v -> refreshServiceLogIncremental());
         refreshLogOnly();
 
         startNpuService();
