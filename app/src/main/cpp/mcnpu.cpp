@@ -99,10 +99,9 @@ static std::string probeSystemRpc() {
         out += std::string("path=")+p+" stat="+(rc==0?"FOUND":"MISSING")+
                " errno="+std::to_string(rc==0?0:errno)+" size="+(rc==0?std::to_string((long long)st.st_size):"0")+"\n";
         if(rc==0) {
-            dlerror();
-            void* h=dlopen(p,RTLD_NOW|RTLD_LOCAL);
-            const char* e=dlerror();
-            out += std::string("  dlopen=")+(h?"OK":"FAIL")+" err="+(e?e:"<none>")+"\n";
+            // Diagnostic probe only: stat() confirms presence without creating
+            // a transient loader handle that could affect QNN/RPC lifetimes.
+            out += "  dlopen=SKIPPED (stat-only probe)\n";
         }
     }
     return out;
