@@ -33,7 +33,7 @@ public final class NpuService extends Service {
         if (!NpuRuntime.init()) updateNotification("MC NPU: HTP init failed");
         else updateNotification("MC NPU: HTP V73 ready");
         try {
-            server = new LocalServerSocket(new LocalSocketAddress(SOCKET_NAME, LocalSocketAddress.Namespace.ABSTRACT));
+            server = new LocalServerSocket(SOCKET_NAME);
             while (running) {
                 LocalSocket socket = server.accept();
                 clients.execute(() -> handle(socket));
