@@ -63,6 +63,53 @@ static std::string statFile(const std::string& p) {
            " size="+std::to_string((long long)st.st_size);
 }
 
+
+static std::string probeSystemRpc() {
+    const char* paths[] = {
+        "/vendor/lib64/libcdsprpc.so",
+        "/vendor/lib64/libadsprpc.so",
+        "/vendor/lib64/libsdsprpc.so",
+        "/vendor/lib/rfsa/adsp/libcdsprpc.so",
+        "/vendor/lib/rfsa/adsp/libadsprpc.so",
+        "/system/lib64/libcdsprpc.so",
+        "/system/lib64/libadsprpc.so",
+        "/odm/lib64/libcdsprpc.so",
+        "/odm/lib64/libadsprpc.so"
+    };
+    std::string out;
+    for (const char* p : paths) {
+        struct stat st{};
+        int rc=stat(p,&st);
+        out += std::string("path=")+p+" stat="+(rc==0?"FOUND":"MISSING")+
+               " errno="+std::to_string(rc==0?0:errno)+" size="+(rc==0?std::to_string((long long)st.st_size):"0")+"\\n";
+        if(rc==0) {
+            dlerror();
+            void* h=dlopen(p,RTLD_NOW|RTLD_LOCAL);
+            const char* e=dlerror();
+            out += std::string("  dlopen=")+(h?"OK":"FAIL")+" err="+(e?e:"<none>")+"\\n";
+            if(h) dlclose(h);
+        }
+    }
+    return out;
+}
+
+static std::string mapsSummary() {
+    std::ifstream in("/proc/self/maps");
+    if(!in) return "maps=UNREADABLE";
+    int qnn=0, rpc=0, stub=0, skel=0, prepare=0;
+    std::string line;
+    while(std::getline(in,line)) {
+        if(line.find("libQnnHtp.so")!=std::string::npos) qnn++;
+        if(line.find("libQnnHtpV73Stub.so")!=std::string::npos) stub++;
+        if(line.find("libQnnHtpV73Skel.so")!=std::string::npos) skel++;
+        if(line.find("libQnnHtpPrepare.so")!=std::string::npos) prepare++;
+        if(line.find("rpc")!=std::string::npos || line.find("Rpc")!=std::string::npos) rpc++;
+    }
+    return "maps_qnnhtp="+std::to_string(qnn)+" maps_stub="+std::to_string(stub)+
+           " maps_skel="+std::to_string(skel)+" maps_prepare="+std::to_string(prepare)+
+           " maps_rpc="+std::to_string(rpc);
+}
+
 static std::string mapsForQnn() {
     std::ifstream in("/proc/self/maps");
     if(!in) return "MAPS_UNREADABLE";
@@ -177,7 +224,7 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
 
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     if(f.logCreate){
-        rc=f.logCreate(nullptr,QNN_LOG_LEVEL_INFO,&g.logger);
+        rc=f.logCreate(nullptr,QNN_LOG_LEVEL_VERBOSE,&g.logger);
         if(rc!=QNN_SUCCESS) g.logger=nullptr;
     }
 
