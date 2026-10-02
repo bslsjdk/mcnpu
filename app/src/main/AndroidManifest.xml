@@ -2,8 +2,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
     <application android:allowBackup="false" android:label="MC NPU" android:supportsRtl="true">
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <uses-native-library android:name="libadsprpc.so" android:required="false" />
         <meta-data android:name="moe.shizuku.client.V3_SUPPORT" android:value="true" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
