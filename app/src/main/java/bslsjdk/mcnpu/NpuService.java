@@ -38,7 +38,7 @@ public final class NpuService extends Service {
 
     private void serverLoop() {
         log("服务线程启动");
-        boolean ok = NpuRuntime.init();
+        boolean ok = NpuRuntime.init(getApplicationContext());
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
         try {
