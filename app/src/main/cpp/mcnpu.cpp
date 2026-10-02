@@ -47,25 +47,17 @@ bool loadRuntime() {
 
     std::string adsp=dir+";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp";
     setenv("ADSP_LIBRARY_PATH",adsp.c_str(),1);
-    setenv("LD_LIBRARY_PATH",(dir+":/vendor/dsp/cdsp").c_str(),1);
+    setenv("LD_LIBRARY_PATH",(dir+":/vendor/dsp/cdsp:/vendor/lib64/").c_str(),1);
     if(chdir(dir.c_str())!=0){g.err="chdir failed errno="+std::to_string(errno);return false;}
 
-    const char* rpcPaths[]={"/vendor/lib64/libcdsprpc.so","/vendor/lib64/libadsprpc.so","libcdsprpc.so","libadsprpc.so"};
-    std::string rpcErr;
-    for(const char* p:rpcPaths){
-        dlerror();
-        void* h=dlopen(p,RTLD_NOW|RTLD_GLOBAL);
-        if(h){g.rpc.push_back(h);I((std::string("FASTRPC_OK ")+p).c_str());}
-        else { const char* e=dlerror(); if(e) rpcErr += std::string(p)+": "+e+"; "; }
-    }
-    if(g.rpc.empty()){g.err="FastRPC unavailable: "+rpcErr;return false;}
-
+    // 与已在同一台设备成功跑通 HTP 的 npu_probe 完全对齐：
+    // 先加载 QNN HTP，再让 QNN/HTP 自己解析 FastRPC；不要预先 dlopen FastRPC。
     g.qnn=dlopen((dir+"/libQnnHtp.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
     if(!g.qnn){
-        const char* alt[]={"/odm/lib64/aiframe/libQnnHtp.so","/odm/lib64/libQnnHtp.so"};
-        for(const char* p:alt){g.qnn=dlopen(p,RTLD_NOW|RTLD_GLOBAL);if(g.qnn)break;}
+        const char* x=dlerror();
+        g.err=std::string("QNN load failed: ")+(x?x:"?");
+        return false;
     }
-    if(!g.qnn){const char* x=dlerror();g.err=std::string("QNN load failed: ")+(x?x:"?");return false;}
     return true;
 }
 
