@@ -88,8 +88,7 @@ jobs:
           cat app/src/main/assets/qnn-stack-sha256.txt
           ls -lh app/src/main/assets/qnnlibs
 
-      - name: Build native
-        run: |
+      # Gradle externalNativeBuild also compiles this library for the APK. Keep this\n      # standalone native build as an early CMake/compiler smoke check.\n      - name: Build native (early CMake check)\n        run: |
           set -eux
           rm -rf build/native
           cmake -S app/src/main/cpp -B build/native -G Ninja             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"             -DANDROID_ABI=arm64-v8a             -DANDROID_PLATFORM=android-35             -DCMAKE_BUILD_TYPE=Release             -DANDROID_STL=c++_static             -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
