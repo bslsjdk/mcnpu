@@ -57,7 +57,9 @@ static std::mutex gRuntimeMutex;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
 
-static std::string errnoText(int e) { char buf[128] = {}; strerror_r(e, buf, sizeof(buf)); return std::string(buf); }\n\nstatic std::string envv(const char* n) {
+static std::string errnoText(int e) { char buf[128] = {}; strerror_r(e, buf, sizeof(buf)); return std::string(buf); }
+
+static std::string envv(const char* n) {
     const char* v=getenv(n);
     return v?v:"<unset>";
 }
