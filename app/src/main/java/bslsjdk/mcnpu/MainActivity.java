@@ -22,11 +22,13 @@ import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private TextView npuState, npuDetail, shizukuState, log;
+    private String lastServiceLog = "";
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable refresher = new Runnable() {
         @Override public void run() {
             refreshStatus();
-            handler.postDelayed(this, 2000);
+            refreshServiceLogIncremental();
+            handler.postDelayed(this, 1000);
         }
     };
 
@@ -202,8 +204,29 @@ public final class MainActivity extends Activity {
         if (log == null) return;
         String s = readLocalLog();
         if (s.isEmpty()) s = "暂无持久日志";
+        lastServiceLog = s;
         log.setText(s);
         log.post(() -> log.scrollTo(0, log.getBottom()));
+    }
+
+    private void refreshServiceLogIncremental() {
+        if (log == null) return;
+        new Thread(() -> {
+            String current = readLocalLog();
+            if (current.isEmpty() || current.equals(lastServiceLog)) return;
+            final String delta;
+            if (!lastServiceLog.isEmpty() && current.startsWith(lastServiceLog)) {
+                delta = current.substring(lastServiceLog.length());
+            } else {
+                // 服务日志被截断/轮转时，从当前尾部重新同步，而不是静默清空。
+                delta = "\n[日志重新同步]\n" + current;
+            }
+            lastServiceLog = current;
+            runOnUiThread(() -> {
+                log.append(delta);
+                log.post(() -> log.scrollTo(0, log.getBottom()));
+            });
+        }).start();
     }
 
     private String readLocalLog() {
