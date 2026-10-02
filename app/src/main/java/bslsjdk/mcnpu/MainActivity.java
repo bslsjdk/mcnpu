@@ -116,7 +116,6 @@ public final class MainActivity extends Activity {
             String ping = NpuServiceClient.request("PING");
             String npu = NpuServiceClient.request("STATUS");
             String sz = ShizukuHelper.status();
-            String localLog = readLocalLog();
             runOnUiThread(() -> {
                 boolean online = ping.startsWith("PONG");
                 npuState.setText(online ? "● NPU 服务：在线" : "● NPU 服务：离线");
