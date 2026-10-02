@@ -7,7 +7,6 @@ import android.os.IBinder;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.Credentials;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import java.io.*;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +36,9 @@ public final class NpuService extends Service {
         }
     }
 
-    @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_STICKY; }
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
+    }
 
     private void serverLoop() {
         log("服务线程启动");
@@ -50,7 +51,11 @@ public final class NpuService extends Service {
             updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
             while (running) {
                 LocalSocket socket = server.accept();
-                if (!isTrustedPeer(socket)) { log("IPC rejected untrusted peer"); try { socket.close(); } catch (Throwable ignored) {} continue; }
+                if (!isTrustedPeer(socket)) {
+                    log("IPC rejected untrusted peer");
+                    try { socket.close(); } catch (Throwable ignored) {}
+                    continue;
+                }
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
@@ -59,7 +64,24 @@ public final class NpuService extends Service {
         }
     }
 
-    private boolean isTrustedPeer(LocalSocket socket) {\n        try {\n            Credentials peer = socket.getPeerCredentials();\n            int uid = peer.getUid();\n            if (uid == android.os.Process.myUid()) return true;\n            String[] packages = getPackageManager().getPackagesForUid(uid);\n            if (packages != null) for (String p : packages) {\n                if ("com.movtery.zalithlauncher.v2".equals(p)) return true;\n            }\n        } catch (Throwable t) { log("IPC peer credential check failed: " + t); }\n        return false;\n    }\n\n    private void handle(LocalSocket socket) {
+    private boolean isTrustedPeer(LocalSocket socket) {
+        try {
+            Credentials peer = socket.getPeerCredentials();
+            int uid = peer.getUid();
+            if (uid == android.os.Process.myUid()) return true;
+            String[] packages = getPackageManager().getPackagesForUid(uid);
+            if (packages != null) {
+                for (String p : packages) {
+                    if ("com.movtery.zalithlauncher.v2".equals(p)) return true;
+                }
+            }
+        } catch (Throwable t) {
+            log("IPC peer credential check failed: " + t);
+        }
+        return false;
+    }
+
+    private void handle(LocalSocket socket) {
         try (LocalSocket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
@@ -71,60 +93,84 @@ public final class NpuService extends Service {
                 if (cmd.equals("PING")) reply = "PONG MCNPU/1";
                 else if (cmd.equals("STATUS")) reply = NpuRuntime.status();
                 else if (cmd.equals("SMOKE")) {
-                    long t=System.nanoTime();
+                    long t = System.nanoTime();
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
-                    log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime()-t)/1_000_000.0));
-                } else if (cmd.equals("CAPABILITIES")) reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD max_elements=1024";
-                else if (cmd.startsWith("EXEC_ADD ")) reply = handleAdd(cmd.substring(9));
-                else if (cmd.startsWith("ADD ")) reply = handleAdd(cmd.substring(4));
-                else if (cmd.equals("QUIT")) { reply(out, "BYE"); break; }
-                else reply = "ERR UNKNOWN_COMMAND";
+                    log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
+                } else if (cmd.equals("CAPABILITIES")) {
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD max_elements=1024";
+                } else if (cmd.startsWith("EXEC_ADD ")) {
+                    reply = handleAdd(cmd.substring(9));
+                } else if (cmd.startsWith("ADD ")) {
+                    reply = handleAdd(cmd.substring(4));
+                } else if (cmd.equals("QUIT")) {
+                    reply(out, "BYE");
+                    break;
+                } else {
+                    reply = "ERR UNKNOWN_COMMAND";
+                }
                 reply(out, reply);
                 log("IPC -> " + reply);
             }
-        } catch (Throwable t) { log("IPC client closed: " + t); }
+        } catch (Throwable t) {
+            log("IPC client closed: " + t);
+        }
     }
 
     private String handleAdd(String payload) {
-        long t0=System.nanoTime();
+        long t0 = System.nanoTime();
         try {
-            String[] parts = payload.split("\\|");
+            String[] parts = payload.split("\\|", -1);
             if (parts.length != 2) return "ERR ADD_FORMAT";
-            String[] as = parts[0].split(",");
-            String[] bs = parts[1].split(",");
+            String[] as = parts[0].split(",", -1);
+            String[] bs = parts[1].split(",", -1);
             if (as.length == 0 || as.length != bs.length || as.length > 1024) return "ERR ADD_SIZE";
             float[] a = new float[as.length], b = new float[bs.length];
-            for (int i=0;i<as.length;i++) { a[i]=Float.parseFloat(as[i]); b[i]=Float.parseFloat(bs[i]); }
-            String result=NpuRuntime.add(a,b);
-            log("EXEC ADD n=" + a.length + " result=" + result + " elapsed_ms=" + ((System.nanoTime()-t0)/1_000_000.0));
+            for (int i = 0; i < as.length; i++) {
+                a[i] = Float.parseFloat(as[i]);
+                b[i] = Float.parseFloat(bs[i]);
+                if (!Float.isFinite(a[i]) || !Float.isFinite(b[i])) return "ERR ADD_NONFINITE";
+            }
+            String result = NpuRuntime.add(a, b);
+            log("EXEC ADD n=" + a.length + " result=" + result +
+                    " elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0));
             return result;
         } catch (Throwable t) {
-            String result="ERR ADD_EXCEPTION " + t.getClass().getSimpleName();
+            String result = "ERR ADD_EXCEPTION " + t.getClass().getSimpleName();
             log("EXEC ADD exception=" + t);
             return result;
         }
     }
 
     private static void reply(BufferedWriter out, String s) throws IOException {
-        out.write(s); out.write("\n"); out.flush();
+        out.write(s);
+        out.write("\n");
+        out.flush();
     }
 
     private void createChannel() {
-        if (Build.VERSION.SDK_INT >= 26)
+        if (Build.VERSION.SDK_INT >= 26) {
             getSystemService(NotificationManager.class).createNotificationChannel(
-                new NotificationChannel(CHANNEL, "MC NPU", NotificationManager.IMPORTANCE_LOW));
+                    new NotificationChannel(CHANNEL, "MC NPU", NotificationManager.IMPORTANCE_LOW));
+        }
     }
 
     private Notification notification(String text) {
-        Notification.Builder b = Build.VERSION.SDK_INT >= 26 ?
-                new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
-        return b.setContentTitle("MC NPU").setContentText(text)
-                .setSmallIcon(android.R.drawable.stat_sys_download_done).setOngoing(true).build();
+        Notification.Builder b = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(this, CHANNEL)
+                : new Notification.Builder(this);
+        return b.setContentTitle("MC NPU")
+                .setContentText(text)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setOngoing(true)
+                .build();
     }
 
     private void updateNotification(String text) {
-        try { getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(text)); }
-        catch (Throwable t) { android.util.Log.e("MCNPU", "notification failed", t); }
+        try {
+            getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(text));
+        } catch (Throwable t) {
+            android.util.Log.e("MCNPU", "notification failed", t);
+        }
     }
 
     private synchronized void log(String s) {
@@ -135,16 +181,16 @@ public final class NpuService extends Service {
         } catch (Throwable ignored) {}
     }
 
-
-
     @Override public void onDestroy() {
-        running=false;
-        try { if(server!=null) server.close(); } catch(Throwable ignored){}
+        running = false;
+        try { if (server != null) server.close(); } catch (Throwable ignored) {}
         clients.shutdownNow();
         NpuRuntime.shutdown();
         log("服务停止");
         super.onDestroy();
     }
 
-    @Override public IBinder onBind(Intent intent) { return null; }
+    @Override public IBinder onBind(Intent intent) {
+        return null;
+    }
 }
