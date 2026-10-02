@@ -122,19 +122,13 @@ static std::string deepReport() {
     return r;
 }
 
-bool loadRuntime() {
-    Dl_info di{};
-    if(!dladdr((void*)&loadRuntime,&di)||!di.dli_fname){
-        g.err="dladdr failed";
+bool loadRuntime(const std::string& qnnDir) {
+    g.libDir=qnnDir;
+    struct stat qnnStat{};
+    if(g.libDir.empty() || stat(g.libDir.c_str(), &qnnStat)!=0 || !S_ISDIR(qnnStat.st_mode)){
+        g.err="qnnDir invalid: "+g.libDir+" errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
         return false;
     }
-    g.libDir=di.dli_fname;
-    size_t slash=g.libDir.find_last_of('/');
-    if(slash==std::string::npos){
-        g.err="library directory missing";
-        return false;
-    }
-    g.libDir.resize(slash);
 
     std::string adsp=g.libDir+";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp";
     setenv("ADSP_LIBRARY_PATH",adsp.c_str(),1);
@@ -154,9 +148,9 @@ bool loadRuntime() {
     return true;
 }
 
-bool initRuntime(){
+bool initRuntime(const std::string& qnnDir){
     if(g.ready)return true;
-    if(!loadRuntime())return false;
+    if(!loadRuntime(qnnDir))return false;
     auto gp=(GetProviders)dlsym(g.qnn,"QnnInterface_getProviders");
     if(!gp){
         g.err="QnnInterface_getProviders missing";
@@ -289,8 +283,12 @@ extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeConfigure(
     const char* p=e->GetStringUTFChars(s,nullptr);
     if(p){setenv("MCNPU_TUNING",p,1);e->ReleaseStringUTFChars(s,p);}
 }
-extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv*,jclass){
-    return initRuntime()?JNI_TRUE:JNI_FALSE;
+extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring js){
+    if(!js) return JNI_FALSE;
+    const char* p=e->GetStringUTFChars(js,nullptr);
+    std::string qnnDir=p?p:"";
+    if(p) e->ReleaseStringUTFChars(js,p);
+    return initRuntime(qnnDir)?JNI_TRUE:JNI_FALSE;
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
     return e->NewStringUTF((g.ready?g.info:deepReport()).c_str());
