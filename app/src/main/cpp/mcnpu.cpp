@@ -29,6 +29,7 @@
 
 namespace {
 struct Runtime {
+    uint64_t diagCount=0;
     void* qnn=nullptr;
     const QnnInterface_t* api=nullptr;
     Qnn_BackendHandle_t backend=nullptr;
@@ -141,7 +142,10 @@ static std::string verbose(Qnn_ErrorHandle_t rc) {
 
 static std::string deepReport() {
     std::string r;
+    const auto diagStart = std::chrono::steady_clock::now();
+    const uint64_t diagNo = ++g.diagCount;
     r += "MCNPU_DEEP_DIAGNOSTIC\n";
+    r += "diag_no="+std::to_string(diagNo)+"\n";
     r += "uid="+std::to_string((int)getuid())+" euid="+std::to_string((int)geteuid())+
          " pid="+std::to_string((int)getpid())+"\n";
     r += "cwd=";
@@ -165,7 +169,11 @@ static std::string deepReport() {
     r += "deviceHandle="+std::to_string((uintptr_t)g.device)+" rc="+std::to_string((int)g.deviceRc)+
          " "+g.deviceVerbose+"\n";
     r += "contextHandle="+std::to_string((uintptr_t)g.context)+" ready="+(g.ready?"true":"false")+"\n";
+    r += "maps_summary="+mapsSummary()+"\n";
+    r += "SYSTEM_RPC_PROBE:\n"+probeSystemRpc();
     r += "QNN/RPC memory mappings:\n"+mapsForQnn();
+    const auto diagMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-diagStart).count();
+    r += "diag_time_ms="+std::to_string((long long)diagMs)+"\n";
     return r;
 }
 
