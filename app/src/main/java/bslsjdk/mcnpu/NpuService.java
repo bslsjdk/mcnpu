@@ -59,7 +59,7 @@ public final class NpuService extends Service {
     }
 
     private void handle(Socket socket) {
-        try (LocalSocket s = socket;
+        try (Socket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
             String line;
