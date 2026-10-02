@@ -332,7 +332,8 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->c);
         if(rc!=QNN_SUCCESS){
-            if(ag->graph) f.graphFree(ag->graph,nullptr);
+            // QNN 2.27 exposes no graphFree in QnnInterface. The graph is
+            // owned by the context and is released by contextFree.
             g.addGraphs.erase(n);
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
@@ -358,7 +359,6 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
 
         rc=f.graphAddNode(ag->graph,op);
         if(rc!=QNN_SUCCESS){
-            if(ag->graph) f.graphFree(ag->graph,nullptr);
             g.addGraphs.erase(n);
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
@@ -368,7 +368,6 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tFinalize0).count();
         if(rc!=QNN_SUCCESS){
-            if(ag->graph) f.graphFree(ag->graph,nullptr);
             g.addGraphs.erase(n);
             return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+
@@ -421,14 +420,9 @@ void shutdownRuntime(){
         return;
     }
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
-    // Graphs belong to the current QNN context and must be freed before the
-    // context itself. This is essential across START_STICKY reinitialization.
-    if(f.graphFree){
-        for(auto& entry:g.addGraphs){
-            if(entry.second.graph) f.graphFree(entry.second.graph,nullptr);
-            entry.second.graph=nullptr;
-        }
-    }
+    // QNN 2.27 has no graphFree entry point. Graphs are owned by the context
+    // and are released when contextFree() is called. Drop our cached handles
+    // before releasing that context so a restart can never reuse stale data.
     g.addGraphs.clear();
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
