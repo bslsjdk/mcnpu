@@ -10,10 +10,13 @@ import java.util.Date;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
-    private TextView npuState, shizukuState, log;
+    private TextView npuState, npuDetail, shizukuState, log;
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable refresher = new Runnable() {
-        @Override public void run() { refreshStatus(); handler.postDelayed(this, 2000); }
+        @Override public void run() {
+            refreshStatus();
+            handler.postDelayed(this, 2000);
+        }
     };
 
     @Override protected void onCreate(Bundle b) {
@@ -23,6 +26,7 @@ public final class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         npuState = findViewById(R.id.npuState);
+        npuDetail = findViewById(R.id.npuDetail);
         shizukuState = findViewById(R.id.shizukuState);
         log = findViewById(R.id.log);
 
@@ -32,7 +36,6 @@ public final class MainActivity extends Activity {
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
 
         startNpuService();
-        refreshStatus();
     }
 
     @Override protected void onResume() {
@@ -51,7 +54,7 @@ public final class MainActivity extends Activity {
             Intent i = new Intent(this, NpuService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
             else startService(i);
-            appendLog("已请求启动独立 NPU 服务");
+            appendLog("请求启动独立 NPU 服务");
         } catch (Throwable t) {
             appendLog("启动失败: " + t);
         }
@@ -60,23 +63,23 @@ public final class MainActivity extends Activity {
     private void runSmoke() {
         new Thread(() -> {
             String s = NpuServiceClient.request("SMOKE");
-            runOnUiThread(() -> appendLog("HTP 图执行: " + s));
+            runOnUiThread(() -> appendLog("HTP Graph Execute: " + s));
         }).start();
     }
 
     private void requestShizuku() {
         try {
             if (!ShizukuHelper.available()) {
-                appendLog("Shizuku 未运行，正在打开 Shizuku");
+                appendLog("Shizuku 未运行。请先在 Shizuku 中启动服务，再重新点击申请。");
                 openShizuku();
                 return;
             }
             if (ShizukuHelper.granted()) {
-                appendLog("MC NPU 已获得 Shizuku 授权");
+                appendLog("MC NPU 已获得 Shizuku 授权。");
                 return;
             }
             ShizukuHelper.requestPermission();
-            appendLog("已发起授权请求，请在 Shizuku 弹出的“允许 MC NPU 使用 Shizuku”窗口中允许");
+            appendLog("已请求授权。Shizuku 应显示 MC NPU 的授权确认界面。");
         } catch (Throwable t) {
             appendLog("Shizuku 请求异常: " + t);
         }
@@ -86,7 +89,7 @@ public final class MainActivity extends Activity {
         try {
             Intent launch = getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");
             if (launch == null) {
-                appendLog("未安装 Shizuku");
+                appendLog("未安装 Shizuku。");
                 return;
             }
             startActivity(launch);
@@ -100,14 +103,18 @@ public final class MainActivity extends Activity {
             String ping = NpuServiceClient.request("PING");
             String npu = NpuServiceClient.request("STATUS");
             String sz = ShizukuHelper.status();
+            String serviceLog = NpuServiceClient.request("LOG");
             runOnUiThread(() -> {
-                npuState.setText(ping.startsWith("PONG") ? "● NPU 服务：在线" : "● NPU 服务：离线");
-                shizukuState.setText(sz);
-                log.setText("时间 " + new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date())
-                        + "\nPING    " + ping
+                boolean online = ping.startsWith("PONG");
+                npuState.setText(online ? "● NPU 服务：在线" : "● NPU 服务：离线");
+                npuDetail.setText(npu);
+                shizukuState.setText(sz + "    |    授权结果：" + ShizukuHelper.result());
+
+                String now = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
+                log.setText("[" + now + "] PING    " + ping
                         + "\nSTATUS  " + npu
-                        + "\nShizuku " + sz
-                        + "\n授权结果 " + ShizukuHelper.result());
+                        + "\nSHIZUKU " + sz
+                        + "\n\n--- 服务日志 ---\n" + serviceLog.replace("\\n", "\n"));
             });
         }).start();
     }
