@@ -6,6 +6,8 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
+import android.net.Credentials;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import java.io.*;
 import java.util.concurrent.ExecutorService;
@@ -15,7 +17,7 @@ public final class NpuService extends Service {
     private static final String SOCKET_NAME = "mcnpu_ipc_v1";
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
-    private final ExecutorService clients = Executors.newCachedThreadPool();
+    private final ExecutorService clients = Executors.newFixedThreadPool(8);
     private volatile boolean running;
     private LocalServerSocket server;
 
@@ -48,6 +50,7 @@ public final class NpuService extends Service {
             updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
             while (running) {
                 LocalSocket socket = server.accept();
+                if (!isTrustedPeer(socket)) { log("IPC rejected untrusted peer"); try { socket.close(); } catch (Throwable ignored) {} continue; }
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
@@ -56,7 +59,7 @@ public final class NpuService extends Service {
         }
     }
 
-    private void handle(LocalSocket socket) {
+    private boolean isTrustedPeer(LocalSocket socket) {\n        try {\n            Credentials peer = socket.getPeerCredentials();\n            int uid = peer.getUid();\n            if (uid == android.os.Process.myUid()) return true;\n            String[] packages = getPackageManager().getPackagesForUid(uid);\n            if (packages != null) for (String p : packages) {\n                if ("com.movtery.zalithlauncher.v2".equals(p)) return true;\n            }\n        } catch (Throwable t) { log("IPC peer credential check failed: " + t); }\n        return false;\n    }\n\n    private void handle(LocalSocket socket) {
         try (LocalSocket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
@@ -73,7 +76,6 @@ public final class NpuService extends Service {
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime()-t)/1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD max_elements=1024";
                 else if (cmd.startsWith("EXEC_ADD ")) reply = handleAdd(cmd.substring(9));
-                else if (cmd.equals("LOG")) reply = readLog();
                 else if (cmd.startsWith("ADD ")) reply = handleAdd(cmd.substring(4));
                 else if (cmd.equals("QUIT")) { reply(out, "BYE"); break; }
                 else reply = "ERR UNKNOWN_COMMAND";
@@ -133,19 +135,7 @@ public final class NpuService extends Service {
         } catch (Throwable ignored) {}
     }
 
-    private synchronized String readLog() {
-        try (FileInputStream in = openFileInput("mcnpu.log");
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-            String s = out.toString("UTF-8");
-            if (s.length() > 12000) s = s.substring(s.length() - 12000);
-            return s.replace("\n", "\\n");
-        } catch (Throwable t) {
-            return "LOG_EMPTY";
-        }
-    }
+
 
     @Override public void onDestroy() {
         running=false;
