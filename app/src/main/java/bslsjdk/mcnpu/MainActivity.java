@@ -44,6 +44,8 @@ public final class MainActivity extends Activity {
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
         findViewById(R.id.shareLog).setOnClickListener(v -> shareLog());
+        findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLogOnly());
+        refreshLogOnly();
 
         startNpuService();
     }
@@ -121,14 +123,16 @@ public final class MainActivity extends Activity {
                 npuDetail.setText(online ? npu : "服务未在线，下面显示本地持久诊断日志");
                 shizukuState.setText(sz + "    |    授权结果：" + ShizukuHelper.result());
 
-                String now = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
-                log.setText("[" + now + "] PING    " + ping
-                        + "\nSTATUS  " + npu
-                        + "\nSHIZUKU " + sz
-                        + "\n\n--- MC NPU 持久日志 ---\n"
-                        + (localLog.isEmpty() ? "暂无日志" : localLog));
-            });
+                // 状态轮询绝不重写日志框，避免用户刚看到的日志被覆盖。\n                // 日志由独立的“刷新日志”按钮或启动/测试操作更新。\n            });
         }).start();
+    }
+
+    private void refreshLogOnly() {
+        if (log == null) return;
+        String s = readLocalLog();
+        if (s.isEmpty()) s = "暂无持久日志";
+        log.setText(s);
+        log.post(() -> log.scrollTo(0, log.getBottom()));
     }
 
     private String readLocalLog() {
