@@ -3,6 +3,7 @@ plugins { id "com.android.application" }
 android {
     namespace "bslsjdk.mcnpu"
     compileSdk 35
+    ndkVersion "27.0.12077973"
     defaultConfig {
         applicationId "bslsjdk.mcnpu"
         minSdk 28
