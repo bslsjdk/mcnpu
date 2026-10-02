@@ -16,7 +16,7 @@ jobs:
           java-version: "21"
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools"
+          packages: "platform-tools build-tools;35.0.0"
       - name: Install NDK
         run: sdkmanager "ndk;27.2.12479018"
       - uses: gradle/actions/setup-gradle@v4
@@ -38,13 +38,33 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
         run: |
+          set -eux
           cmake -S app/src/main/cpp -B build/native -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-35 -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
           cmake --build build/native --config Release
           cp build/native/libmcnpu.so app/src/main/jniLibs/arm64-v8a/libmcnpu.so
-      - name: Build APK
+      - name: Build unsigned release APK
         run: gradle :app:assembleRelease --no-daemon
+      - name: Sign APK
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p build/signing
+          if [ -n "${MCNPU_KEYSTORE_B64:-}" ]; then
+            echo "$MCNPU_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-release.jks
+            KEY_PASS="$MCNPU_KEYSTORE_PASSWORD"
+          else
+            keytool -genkeypair -v               -keystore build/signing/mcnpu-release.jks               -storepass changeit -keypass changeit               -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000               -dname "CN=MCNPU,O=bslsjdk"
+            KEY_PASS=changeit
+          fi
+          zipalign -f 4             app/build/outputs/apk/release/app-release-unsigned.apk             build/signing/mcnpu-aligned.apk
+          apksigner sign             --ks build/signing/mcnpu-release.jks             --ks-key-alias mcnpu             --ks-pass pass:"$KEY_PASS"             --key-pass pass:"$KEY_PASS"             --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk             build/signing/mcnpu-aligned.apk
+          apksigner verify --verbose app/build/outputs/apk/release/MCNPU-arm64-signed.apk
+          sha256sum app/build/outputs/apk/release/MCNPU-arm64-signed.apk
+        env:
+          MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
+          MCNPU_KEYSTORE_PASSWORD: ${{ secrets.MCNPU_KEYSTORE_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
-          name: MCNPU-arm64
-          path: app/build/outputs/apk/release/*.apk
+          name: MCNPU-arm64-signed
+          path: app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           if-no-files-found: error
