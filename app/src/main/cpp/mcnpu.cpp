@@ -365,6 +365,15 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         auto inserted=g.addGraphs.emplace(n,std::move(fresh));
         ag=&inserted.first->second;
 
+        // The tensor descriptors store a pointer to the dimensions array.
+        // fresh.dims was a member of the temporary object above, so after the
+        // move/emplace that pointer would otherwise dangle. Rebind every
+        // registered tensor descriptor to the dimensions owned by the cached
+        // AddGraph object before the first execute.
+        ag->a.v1.dimensions=ag->dims;
+        ag->b.v1.dimensions=ag->dims;
+        ag->c.v1.dimensions=ag->dims;
+
         I("ADD GRAPH READY n=%u a_id=%u b_id=%u c_id=%u",
           (unsigned)n,(unsigned)ag->a.v1.id,(unsigned)ag->b.v1.id,(unsigned)ag->c.v1.id);
     }
