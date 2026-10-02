@@ -49,16 +49,33 @@ jobs:
         run: |
           set -eux
           mkdir -p build/signing
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+          test -x "$ZIPALIGN"
+          test -x "$APKSIGNER"
           if [ -n "${MCNPU_KEYSTORE_B64:-}" ]; then
             echo "$MCNPU_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-release.jks
             KEY_PASS="$MCNPU_KEYSTORE_PASSWORD"
           else
-            keytool -genkeypair -v               -keystore build/signing/mcnpu-release.jks               -storepass changeit -keypass changeit               -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000               -dname "CN=MCNPU,O=bslsjdk"
+            keytool -genkeypair -v \
+              -keystore build/signing/mcnpu-release.jks \
+              -storepass changeit -keypass changeit \
+              -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=MCNPU,O=bslsjdk"
             KEY_PASS=changeit
           fi
-          zipalign -f 4             app/build/outputs/apk/release/app-release-unsigned.apk             build/signing/mcnpu-aligned.apk
-          apksigner sign             --ks build/signing/mcnpu-release.jks             --ks-key-alias mcnpu             --ks-pass pass:"$KEY_PASS"             --key-pass pass:"$KEY_PASS"             --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk             build/signing/mcnpu-aligned.apk
-          apksigner verify --verbose app/build/outputs/apk/release/MCNPU-arm64-signed.apk
+          "$ZIPALIGN" -f 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            build/signing/mcnpu-aligned.apk
+          "$APKSIGNER" sign \
+            --ks build/signing/mcnpu-release.jks \
+            --ks-key-alias mcnpu \
+            --ks-pass pass:"$KEY_PASS" \
+            --key-pass pass:"$KEY_PASS" \
+            --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk \
+            build/signing/mcnpu-aligned.apk
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           sha256sum app/build/outputs/apk/release/MCNPU-arm64-signed.apk
         env:
           MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
