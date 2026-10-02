@@ -32,13 +32,13 @@ jobs:
       - name: Cache Android NDK
         uses: actions/cache@v4
         with:
-          path: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
-          key: ${{ runner.os }}-android-ndk-27.2.12479018-v1
+          path: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
+          key: ${{ runner.os }}-android-ndk-27.0.12077973-v1
 
       - name: Install NDK if cache missed
         run: |
-          if [ ! -d "$ANDROID_SDK_ROOT/ndk/27.2.12479018" ]; then
-            sdkmanager "ndk;27.2.12479018"
+          if [ ! -d "$ANDROID_SDK_ROOT/ndk/27.0.12077973" ]; then
+            sdkmanager "ndk;27.0.12077973"
           else
             echo "NDK cache hit"
           fi
@@ -63,14 +63,14 @@ jobs:
       - name: Stage QNN HTP V73 libraries
         run: |
           set -eux
-          mkdir -p app/src/main/jniLibs/arm64-v8a
+          mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/qnnlibs
           cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libc++_shared.so app/src/main/jniLibs/arm64-v8a/
-          cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so app/src/main/jniLibs/arm64-v8a/
-          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Stub.so app/src/main/jniLibs/arm64-v8a/
-          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Skel.so app/src/main/jniLibs/arm64-v8a/
-          cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpV73.so app/src/main/jniLibs/arm64-v8a/
-          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnSystem.so app/src/main/jniLibs/arm64-v8a/
-          gzip -dc qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpPrepare.so.gz > app/src/main/jniLibs/arm64-v8a/libQnnHtpPrepare.so
+          cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so app/src/main/assets/qnnlibs/
+          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Stub.so app/src/main/assets/qnnlibs/
+          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Skel.so app/src/main/assets/qnnlibs/
+          cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpV73.so app/src/main/assets/qnnlibs/
+          cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnSystem.so app/src/main/assets/qnnlibs/
+          cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpPrepare.so.gz app/src/main/assets/qnnlibs/
       - name: Cache native CMake build
         uses: actions/cache@v4
         with:
@@ -81,7 +81,7 @@ jobs:
 
       - name: Build native
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
+          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
         run: |
           set -eux
           cmake -S app/src/main/cpp -B build/native -G Ninja -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-35 -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
