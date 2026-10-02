@@ -55,7 +55,7 @@ static std::mutex gRuntimeMutex;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
 
-static std::string envv(const char* n) {
+static std::string errnoText(int e) { char buf[128] = {}; strerror_r(e, buf, sizeof(buf)); return std::string(buf); }\n\nstatic std::string envv(const char* n) {
     const char* v=getenv(n);
     return v?v:"<unset>";
 }
@@ -63,7 +63,7 @@ static std::string envv(const char* n) {
 static std::string statFile(const std::string& p) {
     struct stat st{};
     if(stat(p.c_str(),&st)!=0)
-        return "MISSING errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+        return "MISSING errno="+std::to_string(errno)+"("+errnoText(errno)+")";
     return "OK mode="+std::to_string((unsigned)(st.st_mode&07777))+
            " size="+std::to_string((long long)st.st_size);
 }
@@ -351,11 +351,6 @@ void shutdownRuntime(){
 
 }
 
-extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeConfigure(JNIEnv* e,jclass,jstring s){
-    if(!s)return;
-    const char* p=e->GetStringUTFChars(s,nullptr);
-    if(p){setenv("MCNPU_TUNING",p,1);e->ReleaseStringUTFChars(s,p);}
-}
 extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring jq,jstring jw){
     if(!jq || !jw) return JNI_FALSE;
     const char* p=e->GetStringUTFChars(jq,nullptr);
