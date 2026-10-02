@@ -30,6 +30,7 @@
 namespace {
 struct Runtime {
     uint64_t diagCount=0;
+    uint64_t graphSeq=0;
     void* qnn=nullptr;
     const QnnInterface_t* api=nullptr;
     Qnn_BackendHandle_t backend=nullptr;
