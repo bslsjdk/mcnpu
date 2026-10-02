@@ -80,6 +80,14 @@
             android:textSize="16sp"
             android:layout_marginTop="8dp" />
 
+        <Button
+            android:id="@+id/ipcWhitelist"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="配置 IPC 客户端白名单"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
