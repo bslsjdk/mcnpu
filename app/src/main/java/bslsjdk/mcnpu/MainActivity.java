@@ -29,7 +29,6 @@ public final class MainActivity extends Activity {
     private final Runnable refresher = new Runnable() {
         @Override public void run() {
             refreshStatus();
-            refreshServiceLogIncremental();
             handler.postDelayed(this, 1000);
         }
     };
