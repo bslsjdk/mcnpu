@@ -65,7 +65,6 @@ public final class NpuService extends Service {
             String line;
             while ((line = in.readLine()) != null) {
                 String cmd = line.trim();
-                log("IPC <- " + cmd);
                 String reply;
                 if (cmd.equals("PING")) reply = "PONG MCNPU/1";
                 else if (cmd.equals("STATUS")) reply = NpuRuntime.status();
@@ -86,7 +85,6 @@ public final class NpuService extends Service {
                     reply = "ERR UNKNOWN_COMMAND";
                 }
                 reply(out, reply);
-                log("IPC -> " + reply);
             }
         } catch (Throwable t) {
             log("IPC client closed: " + t);
@@ -108,8 +106,6 @@ public final class NpuService extends Service {
                 if (!Float.isFinite(a[i]) || !Float.isFinite(b[i])) return "ERR ADD_NONFINITE";
             }
             String result = NpuRuntime.add(a, b);
-            log("EXEC ADD n=" + a.length + " result=" + result +
-                    " elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0));
             return result;
         } catch (Throwable t) {
             String result = "ERR ADD_EXCEPTION " + t.getClass().getSimpleName();
