@@ -54,7 +54,8 @@ public final class NpuService extends Service {
             while (running) {
                 LocalSocket socket = server.accept();
                 if (!isTrustedPeer(socket)) {
-                    log("IPC rejected untrusted peer");
+                    log("IPC rejected untrusted peer uid=" + peerUid(socket));
+                    updateNotification("IPC 拒绝未授权客户端 uid=" + peerUid(socket));
                     try { socket.close(); } catch (Throwable ignored) {}
                     continue;
                 }
@@ -95,6 +96,10 @@ public final class NpuService extends Service {
                     (packages == null ? "<none>" : String.join(",", packages)) + ": " + t);
         }
         return false;
+    }
+
+    private int peerUid(LocalSocket socket) {
+        try { return socket.getPeerCredentials().getUid(); } catch (Throwable ignored) { return -1; }
     }
 
     private void handle(LocalSocket socket) {
