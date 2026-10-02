@@ -141,7 +141,8 @@ public final class MainActivity extends Activity {
                 StringBuilder a = new StringBuilder(), b = new StringBuilder();
                 for (int i=0;i<aa.length();i++) {
                     if(i>0){a.append(',');b.append(',');}
-                    double av = aa.getDouble(i), bv = bb.getDouble(i);\n                    if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");
+                    double av = aa.getDouble(i), bv = bb.getDouble(i);
+                    if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");
                     a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
                 }
                 String reply = NpuServiceClient.request("ADD " + a + "|" + b);
