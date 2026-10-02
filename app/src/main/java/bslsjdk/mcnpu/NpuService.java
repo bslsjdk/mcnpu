@@ -23,7 +23,7 @@ public final class NpuService extends Service {
         try {
             createChannel();
             Notification n = notification("MC NPU: starting");
-            if (Build.VERSION.SDK_INT >= 29) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             } else {
                 startForeground(NOTIFICATION_ID, n);
