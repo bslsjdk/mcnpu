@@ -68,7 +68,12 @@ public final class NpuService extends Service {
                 String reply;
                 if (cmd.equals("PING")) reply = "PONG MCNPU/1";
                 else if (cmd.equals("STATUS")) reply = NpuRuntime.status();
-                else if (cmd.equals("SMOKE")) reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
+                else if (cmd.equals("SMOKE")) {
+                    long t=System.nanoTime();
+                    reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
+                    log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime()-t)/1_000_000.0));
+                } else if (cmd.equals("CAPABILITIES")) reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD max_elements=1024";
+                else if (cmd.startsWith("EXEC_ADD ")) reply = handleAdd(cmd.substring(9));
                 else if (cmd.equals("LOG")) reply = readLog();
                 else if (cmd.startsWith("ADD ")) reply = handleAdd(cmd.substring(4));
                 else if (cmd.equals("QUIT")) { reply(out, "BYE"); break; }
@@ -80,6 +85,7 @@ public final class NpuService extends Service {
     }
 
     private String handleAdd(String payload) {
+        long t0=System.nanoTime();
         try {
             String[] parts = payload.split("\\|");
             if (parts.length != 2) return "ERR ADD_FORMAT";
@@ -88,8 +94,14 @@ public final class NpuService extends Service {
             if (as.length == 0 || as.length != bs.length || as.length > 1024) return "ERR ADD_SIZE";
             float[] a = new float[as.length], b = new float[bs.length];
             for (int i=0;i<as.length;i++) { a[i]=Float.parseFloat(as[i]); b[i]=Float.parseFloat(bs[i]); }
-            return NpuRuntime.add(a,b);
-        } catch (Throwable t) { return "ERR ADD_EXCEPTION " + t.getClass().getSimpleName(); }
+            String result=NpuRuntime.add(a,b);
+            log("EXEC ADD n=" + a.length + " result=" + result + " elapsed_ms=" + ((System.nanoTime()-t0)/1_000_000.0));
+            return result;
+        } catch (Throwable t) {
+            String result="ERR ADD_EXCEPTION " + t.getClass().getSimpleName();
+            log("EXEC ADD exception=" + t);
+            return result;
+        }
     }
 
     private static void reply(BufferedWriter out, String s) throws IOException {
