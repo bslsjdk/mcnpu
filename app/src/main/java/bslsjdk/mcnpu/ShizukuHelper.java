@@ -51,7 +51,11 @@ public final class ShizukuHelper {
     public static String status() {
         if (!available()) return "Shizuku：未运行";
         if (granted()) return "Shizuku：MC NPU 已授权";
-        try {\n            if (Shizuku.shouldShowRequestPermissionRationale()) return "Shizuku：曾拒绝，请重新授权";\n        } catch (Throwable ignored) {\n            return "Shizuku：已连接，授权状态暂不可用";\n        }
+        try {
+            if (Shizuku.shouldShowRequestPermissionRationale()) return "Shizuku：曾拒绝，请重新授权";
+        } catch (Throwable ignored) {
+            return "Shizuku：已连接，授权状态暂不可用";
+        }
         return "Shizuku：已连接，等待授权";
     }
 
