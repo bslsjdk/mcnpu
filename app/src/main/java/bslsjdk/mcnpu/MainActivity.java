@@ -22,6 +22,8 @@ import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private TextView npuState, npuDetail, shizukuState, log;
+    private ScrollView logScroll;
+    private final Object logLock = new Object();
     private String lastServiceLog = "";
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable refresher = new Runnable() {
@@ -42,6 +44,7 @@ public final class MainActivity extends Activity {
         npuDetail = findViewById(R.id.npuDetail);
         shizukuState = findViewById(R.id.shizukuState);
         log = findViewById(R.id.log);
+        logScroll = findViewById(R.id.logScroll);
         log.setMovementMethod(ScrollingMovementMethod.getInstance());
 
         findViewById(R.id.start).setOnClickListener(v -> startNpuService());
@@ -206,7 +209,7 @@ public final class MainActivity extends Activity {
         if (s.isEmpty()) s = "暂无持久日志";
         lastServiceLog = s;
         log.setText(s);
-        log.post(() -> log.scrollTo(0, log.getBottom()));
+        scrollLogToBottom();
     }
 
     private void refreshServiceLogIncremental() {
@@ -286,10 +289,28 @@ public final class MainActivity extends Activity {
         }).start();
     }
 
+    private void appendRawLogDelta(String delta) {
+        if (log == null || delta == null || delta.isEmpty()) return;
+        log.append(delta);
+        trimVisibleLog();
+        scrollLogToBottom();
+    }
+
     private void appendLog(String s) {
         if (log == null) return;
-        String old = log.getText().toString();
-        log.setText(old + "\n[" +
-                new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s);
+        String line = "\n[" +
+                new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s;
+        appendRawLogDelta(line);
     }
-}
+
+    private void trimVisibleLog() {
+        if (log == null) return;
+        CharSequence cs = log.getText();
+        if (cs.length() <= 20000) return;
+        log.setText(cs.subSequence(cs.length() - 20000, cs.length()));
+    }
+
+    private void scrollLogToBottom() {
+        if (logScroll == null) return;
+        logScroll.post(() -> logScroll.fullScroll(ScrollView.FOCUS_DOWN));
+    }}
