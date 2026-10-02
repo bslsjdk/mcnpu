@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "17"
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -27,21 +27,21 @@ jobs:
 
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools build-tools;35.0.0 cmake;3.22.1"
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0 cmake;3.22.1"
 
       - name: Cache Android NDK
         uses: actions/cache@v4
         with:
           path: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
-          key: ${{ runner.os }}-android-ndk-27.0.12077973-v1
+          key: ${{ runner.os }}-android-ndk-27.0.12077973-v2
 
       - name: Install NDK if cache missed
         run: |
+          set -eux
           if [ ! -d "$ANDROID_SDK_ROOT/ndk/27.0.12077973" ]; then
-            sdkmanager "ndk;27.0.12077973"
-          else
-            echo "NDK cache hit"
+            yes | sdkmanager "ndk;27.0.12077973"
           fi
+          test -f "$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -55,14 +55,17 @@ jobs:
 
       - name: Fetch verified QNN stack if cache missed
         run: |
+          set -eux
           if [ ! -d qnn_probe/app/src/main/assets/qnnlibs ]; then
             git clone --depth 1 https://github.com/bslsjdk/npu_probe.git qnn_probe
-          else
-            echo "QNN probe cache hit"
           fi
+          test -f qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so
+          test -f qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Skel.so
+
       - name: Stage QNN HTP V73 libraries
         run: |
           set -eux
+          rm -rf app/src/main/assets/qnnlibs
           mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets/qnnlibs
           cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libc++_shared.so app/src/main/jniLibs/arm64-v8a/
           cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so app/src/main/assets/qnnlibs/
@@ -71,22 +74,29 @@ jobs:
           cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpV73.so app/src/main/assets/qnnlibs/
           cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnSystem.so app/src/main/assets/qnnlibs/
           cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpPrepare.so.gz app/src/main/assets/qnnlibs/
-      - name: Cache native CMake build
-        uses: actions/cache@v4
-        with:
-          path: build/native
-          key: ${{ runner.os }}-cmake-${{ hashFiles('app/src/main/cpp/**', 'app/src/main/cpp/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-cmake-
+          ls -lh app/src/main/assets/qnnlibs
 
       - name: Build native
         run: |
           set -eux
-          cmake -S app/src/main/cpp -B build/native -G Ninja -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-30 -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
+          rm -rf build/native
+          cmake -S app/src/main/cpp -B build/native -G Ninja             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"             -DANDROID_ABI=arm64-v8a             -DANDROID_PLATFORM=android-30             -DANDROID_STL=c++_static             -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
           cmake --build build/native --config Release --parallel 2
+          test -f build/native/libmcnpu.so
           cp build/native/libmcnpu.so app/src/main/jniLibs/arm64-v8a/libmcnpu.so
+          file app/src/main/jniLibs/arm64-v8a/libmcnpu.so
+
       - name: Build unsigned release APK
         run: gradle :app:assembleRelease --no-daemon --parallel --build-cache
+
+      - name: Verify APK contents
+        run: |
+          set -eux
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$APK"
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/libmcnpu.so|assets/qnnlibs/libQnnHtp.so|assets/qnnlibs/libQnnHtpV73Skel.so|assets/qnnlibs/libQnnHtpV73Stub.so'
+          ls -lh "$APK"
+
       - name: Sign APK
         shell: bash
         run: |
@@ -101,28 +111,17 @@ jobs:
             echo "$MCNPU_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-release.jks
             KEY_PASS="$MCNPU_KEYSTORE_PASSWORD"
           else
-            keytool -genkeypair -v \
-              -keystore build/signing/mcnpu-release.jks \
-              -storepass changeit -keypass changeit \
-              -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=MCNPU,O=bslsjdk"
+            keytool -genkeypair -v               -keystore build/signing/mcnpu-release.jks               -storepass changeit -keypass changeit               -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000               -dname "CN=MCNPU,O=bslsjdk"
             KEY_PASS=changeit
           fi
-          "$ZIPALIGN" -f 4 \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            build/signing/mcnpu-aligned.apk
-          "$APKSIGNER" sign \
-            --ks build/signing/mcnpu-release.jks \
-            --ks-key-alias mcnpu \
-            --ks-pass pass:"$KEY_PASS" \
-            --key-pass pass:"$KEY_PASS" \
-            --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk \
-            build/signing/mcnpu-aligned.apk
+          "$ZIPALIGN" -f 4             app/build/outputs/apk/release/app-release-unsigned.apk             build/signing/mcnpu-aligned.apk
+          "$APKSIGNER" sign             --ks build/signing/mcnpu-release.jks             --ks-key-alias mcnpu             --ks-pass pass:"$KEY_PASS"             --key-pass pass:"$KEY_PASS"             --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk             build/signing/mcnpu-aligned.apk
           "$APKSIGNER" verify --verbose app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           sha256sum app/build/outputs/apk/release/MCNPU-arm64-signed.apk
         env:
           MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
           MCNPU_KEYSTORE_PASSWORD: ${{ secrets.MCNPU_KEYSTORE_PASSWORD }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: MCNPU-arm64-signed
