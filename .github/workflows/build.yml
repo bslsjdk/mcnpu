@@ -1,4 +1,5 @@
 name: MCNPU Android
+# CI smoke check: keep native compiler validation before Gradle packaging.
 on:
   push:
     branches: [main]
