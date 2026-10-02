@@ -102,8 +102,7 @@ static std::string probeSystemRpc() {
             dlerror();
             void* h=dlopen(p,RTLD_NOW|RTLD_LOCAL);
             const char* e=dlerror();
-            out += std::string("  dlopen=")+(h?"OK":"FAIL")+" err="+(e?e:"<none>")+"\\n";
-            if(h) dlclose(h);
+            out += std::string("  dlopen=")+(h?"OK":"FAIL")+" err="+(e?e:"<none>")+"\n";
         }
     }
     return out;
@@ -196,7 +195,7 @@ bool loadRuntime(const std::string& qnnDir, const std::string& workDir) {
     g.libDir=qnnDir;
     struct stat qnnStat{};
     if(g.libDir.empty() || stat(g.libDir.c_str(), &qnnStat)!=0 || !S_ISDIR(qnnStat.st_mode)){
-        g.err="qnnDir invalid: "+g.libDir+" errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+        g.err="qnnDir invalid: "+g.libDir+" errno="+std::to_string(errno)+"("+errnoText(errno)+")";
         return false;
     }
 
@@ -204,7 +203,7 @@ bool loadRuntime(const std::string& qnnDir, const std::string& workDir) {
     setenv("ADSP_LIBRARY_PATH",adsp.c_str(),1);
     setenv("LD_LIBRARY_PATH",(g.libDir+":/vendor/dsp/cdsp:/vendor/lib64/").c_str(),1);
     if(workDir.empty() || chdir(workDir.c_str())!=0){
-        g.err="chdir workDir failed errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+        g.err="chdir workDir failed errno="+std::to_string(errno)+"("+errnoText(errno)+")";
         return false;
     }
 
@@ -333,8 +332,11 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         rc=f.tensorCreateGraphTensor(ag->graph,&ag->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->c);
-        if(rc!=QNN_SUCCESS)
+        if(rc!=QNN_SUCCESS){
+            if(ag->graph) f.graphFree(ag->graph,nullptr);
+            g.addGraphs.erase(n);
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
 
         Qnn_Scalar_t scalar=QNN_SCALAR_INIT;
         scalar.dataType=QNN_DATATYPE_UINT_32;
@@ -356,17 +358,23 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         op.v1.outputTensors=&ag->c;
 
         rc=f.graphAddNode(ag->graph,op);
-        if(rc!=QNN_SUCCESS)
+        if(rc!=QNN_SUCCESS){
+            if(ag->graph) f.graphFree(ag->graph,nullptr);
+            g.addGraphs.erase(n);
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
 
         auto tFinalize0=std::chrono::steady_clock::now();
         rc=f.graphFinalize(ag->graph,nullptr,nullptr);
         finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tFinalize0).count();
-        if(rc!=QNN_SUCCESS)
+        if(rc!=QNN_SUCCESS){
+            if(ag->graph) f.graphFree(ag->graph,nullptr);
+            g.addGraphs.erase(n);
             return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+
                    " finalize_us="+std::to_string(finalizeUs)+" "+verbose(rc);
+        }
 
         I("ADD GRAPH READY n=%u a_id=%u b_id=%u c_id=%u",
           (unsigned)n,(unsigned)ag->a.v1.id,(unsigned)ag->b.v1.id,(unsigned)ag->c.v1.id);
@@ -409,8 +417,20 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
 
 void shutdownRuntime(){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
-    if(!g.api)return;
+    if(!g.api){
+        g.addGraphs.clear();
+        return;
+    }
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    // Graphs belong to the current QNN context and must be freed before the
+    // context itself. This is essential across START_STICKY reinitialization.
+    if(f.graphFree){
+        for(auto& entry:g.addGraphs){
+            if(entry.second.graph) f.graphFree(entry.second.graph,nullptr);
+            entry.second.graph=nullptr;
+        }
+    }
+    g.addGraphs.clear();
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
