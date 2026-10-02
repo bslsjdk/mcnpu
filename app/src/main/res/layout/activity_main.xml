@@ -72,6 +72,14 @@
             android:textSize="16sp"
             android:layout_marginTop="8dp" />
 
+        <Button
+            android:id="@+id/importTest"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="导入 NPU 测试任务"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
