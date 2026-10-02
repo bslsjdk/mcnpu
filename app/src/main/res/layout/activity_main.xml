@@ -147,7 +147,9 @@
             android:orientation="horizontal"
             android:layout_marginTop="8dp">
 
-            <Button
+<Button android:id="@+id/refreshLog" android:layout_width="match_parent" android:layout_height="50dp" android:text="刷新日志" android:textSize="14sp" android:layout_marginTop="8dp" />
+
+                    <Button
                 android:id="@+id/copyLog"
                 android:layout_width="0dp"
                 android:layout_height="50dp"
