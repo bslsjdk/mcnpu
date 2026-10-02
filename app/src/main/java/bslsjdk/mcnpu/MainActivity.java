@@ -19,19 +19,23 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
     private TextView npuState, npuDetail, shizukuState, log;
     private ScrollView logScroll;
     private final Object logLock = new Object();
     private String lastServiceLog = "";
-    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-    private final Runnable refresher = new Runnable() {
-        @Override public void run() {
-            refreshStatus();
-            handler.postDelayed(this, 1000);
-        }
-    };
+    private final ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "mcnpu-ui-status");
+        t.setDaemon(true);
+        return t;
+    });
+    private final AtomicBoolean statusInFlight = new AtomicBoolean();
+
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -61,12 +65,11 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        handler.removeCallbacks(refresher);
-        handler.post(refresher);
+        statusExecutor.scheduleAtFixedRate(this::refreshStatus, 0, 1, TimeUnit.SECONDS);
     }
 
     @Override protected void onPause() {
-        handler.removeCallbacks(refresher);
+        statusExecutor.shutdownNow();
         super.onPause();
     }
 
@@ -76,7 +79,7 @@ public final class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
             else startService(i);
             appendLog("请求启动独立 NPU 服务");
-            handler.postDelayed(this::refreshStatus, 800);
+            statusExecutor.schedule(this::refreshStatus, 800, TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
             appendLog("启动失败: " + t);
         }
@@ -131,10 +134,10 @@ public final class MainActivity extends Activity {
                 StringBuilder a = new StringBuilder(), b = new StringBuilder();
                 for (int i=0;i<aa.length();i++) {
                     if(i>0){a.append(',');b.append(',');}
-                    a.append(aa.getDouble(i)); b.append(bb.getDouble(i));
+                    double av = aa.getDouble(i), bv = bb.getDouble(i);\n                    if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");\n                    a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
                 }
                 String reply = NpuServiceClient.request("ADD " + a + "|" + b);
-                boolean ok = reply.startsWith("OK HTP graphExecute");
+                boolean ok = reply.startsWith("OK HTP_GRAPH_EXECUTE");
                 if(ok) pass++;
                 result.append("CASE ").append(k).append(": ").append(reply).append("\n");
             }
@@ -186,20 +189,22 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshStatus() {
+        if (!statusInFlight.compareAndSet(false, true)) return;
         new Thread(() -> {
-            String ping = NpuServiceClient.request("PING");
-            String npu = NpuServiceClient.request("STATUS");
-            String sz = ShizukuHelper.status();
-            runOnUiThread(() -> {
-                boolean online = ping.startsWith("PONG");
-                npuState.setText(online ? "● NPU 服务：在线" : "● NPU 服务：离线");
-                npuDetail.setText(online ? npu : "服务未在线，下面显示本地持久诊断日志");
-                shizukuState.setText(sz + "    |    授权结果：" + ShizukuHelper.result());
-
-                // 状态轮询绝不重写日志框，避免用户刚看到的日志被覆盖。
-                // 日志由独立的“刷新日志”按钮或启动/测试操作更新。
-            });
-        }).start();
+            try {
+                String ping = NpuServiceClient.request("PING");
+                String npu = NpuServiceClient.request("STATUS");
+                String sz = ShizukuHelper.status();
+                runOnUiThread(() -> {
+                    boolean online = ping.startsWith("PONG");
+                    npuState.setText(online ? "● NPU 服务：在线" : "● NPU 服务：离线");
+                    npuDetail.setText(online ? npu : "服务未在线，下面显示本地持久诊断日志");
+                    shizukuState.setText(sz + "    |    授权结果：" + ShizukuHelper.result());
+                });
+            } finally {
+                statusInFlight.set(false);
+            }
+        }, "mcnpu-status").start();
     }
 
     private void refreshLogOnly() {
@@ -226,7 +231,8 @@ public final class MainActivity extends Activity {
             lastServiceLog = current;
             runOnUiThread(() -> {
                 log.append(delta);
-                log.post(() -> log.scrollTo(0, log.getBottom()));
+                trimVisibleLog();
+                scrollLogToBottom();
             });
         }).start();
     }
