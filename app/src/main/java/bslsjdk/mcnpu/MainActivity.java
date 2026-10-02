@@ -8,6 +8,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.widget.*;
+import android.text.method.ScrollingMovementMethod;
 import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +36,7 @@ public final class MainActivity extends Activity {
         npuDetail = findViewById(R.id.npuDetail);
         shizukuState = findViewById(R.id.shizukuState);
         log = findViewById(R.id.log);
+        log.setMovementMethod(ScrollingMovementMethod.getInstance());
 
         findViewById(R.id.start).setOnClickListener(v -> startNpuService());
         findViewById(R.id.test).setOnClickListener(v -> runSmoke());
@@ -125,7 +127,6 @@ public final class MainActivity extends Activity {
                         + "\nSHIZUKU " + sz
                         + "\n\n--- MC NPU 持久日志 ---\n"
                         + (localLog.isEmpty() ? "暂无日志" : localLog));
-                log.setSelection(log.length());
             });
         }).start();
     }
@@ -182,6 +183,5 @@ public final class MainActivity extends Activity {
         String old = log.getText().toString();
         log.setText(old + "\n[" +
                 new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s);
-        log.setSelection(log.length());
     }
 }
