@@ -34,17 +34,13 @@ public final class NpuService extends Service {
         else updateNotification("MC NPU: HTP V73 ready");
         try {
             server = new LocalServerSocket(new LocalSocketAddress(SOCKET_NAME, LocalSocketAddress.Namespace.ABSTRACT));
-            while (running) clients.execute(() -> acceptOne());
+            while (running) {
+                LocalSocket socket = server.accept();
+                clients.execute(() -> handle(socket));
+            }
         } catch (Throwable t) {
-            updateNotification("MC NPU: IPC stopped " + t.getClass().getSimpleName());
+            if (running) updateNotification("MC NPU: IPC stopped " + t.getClass().getSimpleName());
         }
-    }
-
-    private void acceptOne() {
-        try {
-            LocalSocket socket = server.accept();
-            clients.execute(() -> handle(socket));
-        } catch (Throwable ignored) {}
     }
 
     private void handle(LocalSocket socket) {
