@@ -2,6 +2,7 @@ package bslsjdk.mcnpu;
 
 import android.app.*;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.Build;
 import java.io.*;
@@ -19,10 +20,20 @@ public final class NpuService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
-        createChannel();
-        startForeground(NOTIFICATION_ID, notification("MC NPU: starting"));
-        running = true;
-        clients.execute(this::serverLoop);
+        try {
+            createChannel();
+            Notification n = notification("MC NPU: starting");
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(NOTIFICATION_ID, n);
+            }
+            running = true;
+            clients.execute(this::serverLoop);
+        } catch (Throwable t) {
+            android.util.Log.e("MCNPU", "service start failed", t);
+            stopSelf();
+        }
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_STICKY; }
@@ -34,11 +45,13 @@ public final class NpuService extends Service {
             server = new ServerSocket();
             server.setReuseAddress(true);
             server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT), 32);
+            updateNotification("MC NPU: IPC 127.0.0.1:" + PORT);
             while (running) {
                 Socket socket = server.accept();
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
+            android.util.Log.e("MCNPU", "IPC stopped", t);
             if (running) updateNotification("MC NPU: IPC stopped " + t.getClass().getSimpleName());
         }
     }
@@ -57,7 +70,9 @@ public final class NpuService extends Service {
                 else if (cmd.equals("QUIT")) { reply(out, "BYE"); break; }
                 else reply(out, "ERR UNKNOWN_COMMAND");
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            android.util.Log.w("MCNPU", "IPC client closed", t);
+        }
     }
 
     private String handleAdd(String payload) {
@@ -89,8 +104,10 @@ public final class NpuService extends Service {
         return b.setContentTitle("MC NPU").setContentText(text)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done).setOngoing(true).build();
     }
+
     private void updateNotification(String text) {
-        getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(text));
+        try { getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(text)); }
+        catch (Throwable t) { android.util.Log.e("MCNPU", "notification failed", t); }
     }
 
     @Override public void onDestroy() {
@@ -100,5 +117,6 @@ public final class NpuService extends Service {
         NpuRuntime.shutdown();
         super.onDestroy();
     }
+
     @Override public IBinder onBind(Intent intent) { return null; }
 }
