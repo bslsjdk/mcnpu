@@ -277,7 +277,8 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     if(!g.ready)return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     Qnn_GraphHandle_t graph=nullptr;
-    Qnn_ErrorHandle_t rc=f.graphCreate(g.context,"mcnpu_add",nullptr,&graph);
+    const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
+    Qnn_ErrorHandle_t rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&graph);
     if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
     uint32_t dims[1]={n};
     Qnn_Tensor_t a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
