@@ -51,11 +51,14 @@ bool loadRuntime() {
     if(chdir(dir.c_str())!=0){g.err="chdir failed errno="+std::to_string(errno);return false;}
 
     const char* rpcPaths[]={"/vendor/lib64/libcdsprpc.so","/vendor/lib64/libadsprpc.so","libcdsprpc.so","libadsprpc.so"};
+    std::string rpcErr;
     for(const char* p:rpcPaths){
+        dlerror();
         void* h=dlopen(p,RTLD_NOW|RTLD_GLOBAL);
         if(h){g.rpc.push_back(h);I((std::string("FASTRPC_OK ")+p).c_str());}
+        else { const char* e=dlerror(); if(e) rpcErr += std::string(p)+": "+e+"; "; }
     }
-    if(g.rpc.empty()){g.err="FastRPC library not visible";return false;}
+    if(g.rpc.empty()){g.err="FastRPC unavailable: "+rpcErr;return false;}
 
     g.qnn=dlopen((dir+"/libQnnHtp.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
     if(!g.qnn){
