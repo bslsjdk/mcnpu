@@ -27,7 +27,19 @@ jobs:
 
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools platforms;android-35 build-tools;35.0.0 cmake;3.22.1"
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Prepare CMake
+        run: |
+          set -eux
+          if [ ! -d "$ANDROID_SDK_ROOT/cmake/3.22.1" ]; then
+            mkdir -p "$ANDROID_SDK_ROOT/cmake"
+            curl -L --retry 5 --retry-all-errors -o /tmp/cmake.zip "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-x86_64.zip"
+            unzip -q /tmp/cmake.zip -d "$ANDROID_SDK_ROOT/cmake"
+            mv "$ANDROID_SDK_ROOT/cmake/cmake-3.22.1-linux-x86_64" "$ANDROID_SDK_ROOT/cmake/3.22.1"
+          fi
+          test -x "$ANDROID_SDK_ROOT/cmake/3.22.1/bin/cmake"
+          echo "$ANDROID_SDK_ROOT/cmake/3.22.1/bin" >> "$GITHUB_PATH"
 
       - name: Cache Android NDK
         uses: actions/cache@v4
