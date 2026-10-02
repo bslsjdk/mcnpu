@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstdio>
+#include <fstream>
+#include <sys/stat.h>
 #include "QnnInterface.h"
 #include "QnnLog.h"
 #include "QnnBackend.h"
@@ -30,34 +32,121 @@ struct Runtime {
     Qnn_BackendHandle_t backend=nullptr;
     Qnn_DeviceHandle_t device=nullptr;
     Qnn_ContextHandle_t context=nullptr;
-    std::vector<void*> rpc;
     bool ready=false;
     std::string info;
     std::string err;
     Qnn_LogHandle_t logger=nullptr;
+    std::string libDir;
+    std::string loadError;
+    uint32_t providerCount=0;
+    uint32_t selectedBackend=0;
+    Qnn_ErrorHandle_t backendRc=QNN_SUCCESS;
+    Qnn_ErrorHandle_t deviceRc=QNN_SUCCESS;
+    std::string backendVerbose;
+    std::string deviceVerbose;
 } g;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
 
+static std::string envv(const char* n) {
+    const char* v=getenv(n);
+    return v?v:"<unset>";
+}
+
+static std::string statFile(const std::string& p) {
+    struct stat st{};
+    if(stat(p.c_str(),&st)!=0)
+        return "MISSING errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+    return "OK mode="+std::to_string((unsigned)(st.st_mode&07777))+
+           " size="+std::to_string((long long)st.st_size);
+}
+
+static std::string mapsForQnn() {
+    std::ifstream in("/proc/self/maps");
+    if(!in) return "MAPS_UNREADABLE";
+    std::string line,out;
+    while(std::getline(in,line)) {
+        if(line.find("Qnn")!=std::string::npos ||
+           line.find("qnn")!=std::string::npos ||
+           line.find("rpc")!=std::string::npos ||
+           line.find("cdsp")!=std::string::npos) {
+            out += line+"\n";
+            if(out.size()>10000) break;
+        }
+    }
+    return out.empty()?"<no QNN/RPC mappings>":out;
+}
+
+static std::string verbose(Qnn_ErrorHandle_t rc) {
+    if(!g.api) return "";
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const char* msg=nullptr;
+    if(f.errorGetVerboseMessage) {
+        Qnn_ErrorHandle_t vr=f.errorGetVerboseMessage(rc,&msg);
+        if(msg && *msg)
+            return std::string("verbose_rc=")+std::to_string((int)vr)+" msg="+msg;
+        return "verbose_rc="+std::to_string((int)vr)+" msg=<empty>";
+    }
+    return "errorGetVerboseMessage=<unavailable>";
+}
+
+static std::string deepReport() {
+    std::string r;
+    r += "MCNPU_DEEP_DIAGNOSTIC\n";
+    r += "uid="+std::to_string((int)getuid())+" euid="+std::to_string((int)geteuid())+
+         " pid="+std::to_string((int)getpid())+"\n";
+    r += "cwd=";
+    char cwd[1024];
+    r += getcwd(cwd,sizeof(cwd))?cwd:"<getcwd failed>";
+    r += "\n";
+    r += "libDir="+g.libDir+"\n";
+    r += "LD_LIBRARY_PATH="+envv("LD_LIBRARY_PATH")+"\n";
+    r += "ADSP_LIBRARY_PATH="+envv("ADSP_LIBRARY_PATH")+"\n";
+    r += "MCNPU_TUNING="+envv("MCNPU_TUNING")+"\n";
+    r += "qnnHandle="+std::to_string((uintptr_t)g.qnn)+" dlerror="+(g.loadError.empty()?"<none>":g.loadError)+"\n";
+    if(!g.libDir.empty()) {
+        const char* libs[]={"libQnnHtp.so","libQnnHtpV73.so","libQnnHtpV73Stub.so",
+                            "libQnnHtpV73Skel.so","libQnnHtpPrepare.so","libQnnSystem.so",
+                            "libcdsprpc.so","libadsprpc.so"};
+        for(const char* n:libs) r += std::string(n)+" "+statFile(g.libDir+"/"+n)+"\n";
+    }
+    r += "providers="+std::to_string(g.providerCount)+" selectedBackendId="+std::to_string(g.selectedBackend)+"\n";
+    r += "backendHandle="+std::to_string((uintptr_t)g.backend)+" rc="+std::to_string((int)g.backendRc)+
+         " "+g.backendVerbose+"\n";
+    r += "deviceHandle="+std::to_string((uintptr_t)g.device)+" rc="+std::to_string((int)g.deviceRc)+
+         " "+g.deviceVerbose+"\n";
+    r += "contextHandle="+std::to_string((uintptr_t)g.context)+" ready="+(g.ready?"true":"false")+"\n";
+    r += "QNN/RPC memory mappings:\n"+mapsForQnn();
+    return r;
+}
+
 bool loadRuntime() {
     Dl_info di{};
-    if(!dladdr((void*)&loadRuntime,&di)||!di.dli_fname){g.err="dladdr failed";return false;}
-    std::string dir=di.dli_fname;
-    size_t slash=dir.find_last_of('/');
-    if(slash==std::string::npos){g.err="library directory missing";return false;}
-    dir.resize(slash);
+    if(!dladdr((void*)&loadRuntime,&di)||!di.dli_fname){
+        g.err="dladdr failed";
+        return false;
+    }
+    g.libDir=di.dli_fname;
+    size_t slash=g.libDir.find_last_of('/');
+    if(slash==std::string::npos){
+        g.err="library directory missing";
+        return false;
+    }
+    g.libDir.resize(slash);
 
-    std::string adsp=dir+";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp";
+    std::string adsp=g.libDir+";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp";
     setenv("ADSP_LIBRARY_PATH",adsp.c_str(),1);
-    setenv("LD_LIBRARY_PATH",(dir+":/vendor/dsp/cdsp:/vendor/lib64/").c_str(),1);
-    if(chdir(dir.c_str())!=0){g.err="chdir failed errno="+std::to_string(errno);return false;}
+    setenv("LD_LIBRARY_PATH",(g.libDir+":/vendor/dsp/cdsp:/vendor/lib64/").c_str(),1);
+    if(chdir(g.libDir.c_str())!=0){
+        g.err="chdir failed errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+        return false;
+    }
 
-    // 与已在同一台设备成功跑通 HTP 的 npu_probe 完全对齐：
-    // 先加载 QNN HTP，再让 QNN/HTP 自己解析 FastRPC；不要预先 dlopen FastRPC。
-    g.qnn=dlopen((dir+"/libQnnHtp.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
+    g.qnn=dlopen((g.libDir+"/libQnnHtp.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
     if(!g.qnn){
         const char* x=dlerror();
-        g.err=std::string("QNN load failed: ")+(x?x:"?");
+        g.loadError=x?x:"<unknown>";
+        g.err="QNN load failed: "+g.loadError;
         return false;
     }
     return true;
@@ -67,36 +156,56 @@ bool initRuntime(){
     if(g.ready)return true;
     if(!loadRuntime())return false;
     auto gp=(GetProviders)dlsym(g.qnn,"QnnInterface_getProviders");
-    if(!gp){g.err="QnnInterface_getProviders missing";return false;}
-    const QnnInterface_t** providers=nullptr; uint32_t count=0;
+    if(!gp){
+        g.err="QnnInterface_getProviders missing";
+        return false;
+    }
+    const QnnInterface_t** providers=nullptr;
+    uint32_t count=0;
     Qnn_ErrorHandle_t rc=gp(&providers,&count);
-    if(rc!=QNN_SUCCESS||!providers||count==0){g.err="getProviders rc="+std::to_string((int)rc);return false;}
-    for(uint32_t i=0;i<count;i++) if(providers[i]&&providers[i]->backendId==HTP_ID){g.api=providers[i];break;}
-    if(!g.api){g.err="HTP provider backendId=6 not found";return false;}
+    g.providerCount=count;
+    if(rc!=QNN_SUCCESS||!providers||count==0){
+        g.err="getProviders rc="+std::to_string((int)rc)+" "+verbose(rc);
+        return false;
+    }
+    for(uint32_t i=0;i<count;i++)
+        if(providers[i]&&providers[i]->backendId==HTP_ID){
+            g.api=providers[i];
+            g.selectedBackend=providers[i]->backendId;
+            break;
+        }
+    if(!g.api){
+        g.err="HTP provider backendId=6 not found";
+        return false;
+    }
+
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     if(f.logCreate){
         rc=f.logCreate(nullptr,QNN_LOG_LEVEL_INFO,&g.logger);
         if(rc!=QNN_SUCCESS) g.logger=nullptr;
     }
+
     rc=f.backendCreate(g.logger,nullptr,&g.backend);
+    g.backendRc=rc;
     if(rc!=QNN_SUCCESS||!g.backend){
-        const char* msg=nullptr;
-        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
-        g.err="backendCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        g.backendVerbose=verbose(rc);
+        g.err="backendCreate rc="+std::to_string((int)rc)+" "+g.backendVerbose;
         return false;
     }
+
     rc=f.deviceCreate(g.logger,nullptr,&g.device);
+    g.deviceRc=rc;
     if(rc!=QNN_SUCCESS||!g.device){
-        const char* msg=nullptr;
-        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
-        g.err="deviceCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        g.deviceVerbose=verbose(rc);
+        g.err="deviceCreate rc="+std::to_string((int)rc)+" "+g.deviceVerbose;
+        E("DEVICE_CREATE_FAIL %s",g.err.c_str());
+        E("%s",deepReport().c_str());
         return false;
     }
+
     rc=f.contextCreate(g.backend,g.device,nullptr,&g.context);
     if(rc!=QNN_SUCCESS||!g.context){
-        const char* msg=nullptr;
-        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
-        g.err="contextCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        g.err="contextCreate rc="+std::to_string((int)rc)+" "+verbose(rc);
         return false;
     }
     g.info="QNN HTP ready backendId=6 providers="+std::to_string(count);
@@ -117,16 +226,16 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     if(!g.ready)return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     Qnn_GraphHandle_t graph=nullptr;
-    if(f.graphCreate(g.context,"mcnpu_add",nullptr,&graph)!=QNN_SUCCESS)return "ERR GRAPH_CREATE";
+    Qnn_ErrorHandle_t rc=f.graphCreate(g.context,"mcnpu_add",nullptr,&graph);
+    if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
     uint32_t dims[1]={n};
     Qnn_Tensor_t a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
     Qnn_Tensor_t b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
     Qnn_Tensor_t c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,dims);
-    Qnn_ErrorHandle_t rc=f.tensorCreateGraphTensor(graph,&a);
+    rc=f.tensorCreateGraphTensor(graph,&a);
     if(rc==QNN_SUCCESS)rc=f.tensorCreateGraphTensor(graph,&b);
     if(rc==QNN_SUCCESS)rc=f.tensorCreateGraphTensor(graph,&c);
-    if(rc!=QNN_SUCCESS)return "ERR TENSOR_CREATE rc="+std::to_string((int)rc);
-
+    if(rc!=QNN_SUCCESS)return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
     Qnn_Scalar_t scalar=QNN_SCALAR_INIT;
     scalar.dataType=QNN_DATATYPE_UINT_32;
     scalar.uint32Value=QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD;
@@ -140,10 +249,9 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     op.v1.numOfParams=1;op.v1.params=&param;op.v1.numOfInputs=2;op.v1.inputTensors=ins;
     op.v1.numOfOutputs=1;op.v1.outputTensors=&c;
     rc=f.graphAddNode(graph,op);
-    if(rc!=QNN_SUCCESS)return "ERR GRAPH_NODE rc="+std::to_string((int)rc);
+    if(rc!=QNN_SUCCESS)return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
     rc=f.graphFinalize(graph,nullptr,nullptr);
-    if(rc!=QNN_SUCCESS)return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc);
-
+    if(rc!=QNN_SUCCESS)return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+" "+verbose(rc);
     std::vector<float> out(n,-999.f);
     Qnn_Tensor_t ea=a,eb=b,ec=c;
     ea.v1.clientBuf.data=(void*)av;ea.v1.clientBuf.dataSize=n*sizeof(float);
@@ -153,9 +261,10 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     auto t0=std::chrono::steady_clock::now();
     rc=f.graphExecute(graph,execIn,2,execOut,1,nullptr,nullptr);
     auto us=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
-    if(rc!=QNN_SUCCESS)return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc);
+    if(rc!=QNN_SUCCESS)return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
     for(uint32_t i=0;i<n;i++)if(out[i] != av[i]+bv[i])return "ERR OUTPUT_VERIFY";
-    char buf[256];std::snprintf(buf,sizeof(buf),"OK HTP graphExecute n=%u elapsed_us=%lld first=%g",(unsigned)n,(long long)us,(double)out[0]);
+    char buf[256];
+    std::snprintf(buf,sizeof(buf),"OK HTP graphExecute n=%u elapsed_us=%lld first=%g",(unsigned)n,(long long)us,(double)out[0]);
     return buf;
 }
 
@@ -167,25 +276,36 @@ void shutdownRuntime(){
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
     if(f.logFree&&g.logger)f.logFree(g.logger);
     g.context=nullptr;g.device=nullptr;g.backend=nullptr;g.logger=nullptr;g.ready=false;g.api=nullptr;
-    if(g.qnn)dlclose(g.qnn);g.qnn=nullptr;
-    for(void* h:g.rpc)if(h)dlclose(h);g.rpc.clear();
+    if(g.qnn)dlclose(g.qnn);
+    g.qnn=nullptr;
 }
+
 }
 
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeConfigure(JNIEnv* e,jclass,jstring s){
-    if(!s)return;const char* p=e->GetStringUTFChars(s,nullptr);if(p){setenv("MCNPU_TUNING",p,1);e->ReleaseStringUTFChars(s,p);}
+    if(!s)return;
+    const char* p=e->GetStringUTFChars(s,nullptr);
+    if(p){setenv("MCNPU_TUNING",p,1);e->ReleaseStringUTFChars(s,p);}
 }
-extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv*,jclass){return initRuntime()?JNI_TRUE:JNI_FALSE;}
-extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){return e->NewStringUTF((g.ready?g.info:g.err).c_str());}
+extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv*,jclass){
+    return initRuntime()?JNI_TRUE:JNI_FALSE;
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
+    return e->NewStringUTF((g.ready?g.info:deepReport()).c_str());
+}
 extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTest(JNIEnv*,jclass){
-    float a[16],b[16];for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
+    float a[16],b[16];
+    for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
     return runAdd(a,b,16).rfind("OK ",0)==0?JNI_TRUE:JNI_FALSE;
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb){
     if(!ja||!jb)return e->NewStringUTF("ERR NULL");
     jsize n=e->GetArrayLength(ja);
     if(n<=0||n!=e->GetArrayLength(jb)||n>1024)return e->NewStringUTF("ERR SIZE");
-    std::vector<float>a(n),b(n);e->GetFloatArrayRegion(ja,0,n,a.data());e->GetFloatArrayRegion(jb,0,n,b.data());
-    std::string r=runAdd(a.data(),b.data(),(uint32_t)n);return e->NewStringUTF(r.c_str());
+    std::vector<float>a(n),b(n);
+    e->GetFloatArrayRegion(ja,0,n,a.data());
+    e->GetFloatArrayRegion(jb,0,n,b.data());
+    std::string r=runAdd(a.data(),b.data(),(uint32_t)n);
+    return e->NewStringUTF(r.c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
