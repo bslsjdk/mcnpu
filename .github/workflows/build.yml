@@ -75,13 +75,13 @@ jobs:
           echo "npu_probe_commit=8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a" > app/src/main/assets/qnn-stack-version.txt
           echo "source=npu_probe@8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a" >> app/src/main/assets/qnn-stack-version.txt
           cat > /tmp/qnn_expected.sha256 <<'EOF'
-ab2c47da90072d3b18c904f5ade34efce32ef27dbee01941e3a9dd17223d76f5  libQnnHtp.so
-d499ebc604319f3214b4197398d2a72203524f5cdd697b9ef90010c181073a49  libQnnHtpPrepare.so.gz
-a0e9f8b303ccd3317be867d1476576593f0f2f00399d505b5664511e726e45ac  libQnnHtpV73.so
-68664240ce331750b0841d62afbb21ff8db6ca723b9c23f3dad894078b481c27  libQnnHtpV73Skel.so
-97c80e62cfe6e10b24860a5a41f3d271cb131b419cee3bf2f8864ed8471109d5  libQnnHtpV73Stub.so
-ec3f3c61e04754645ae2d2d4f97981dfd29d4c91a1b82d3fb4ca40c2c9ab4c37  libQnnSystem.so
-EOF
+          ab2c47da90072d3b18c904f5ade34efce32ef27dbee01941e3a9dd17223d76f5  libQnnHtp.so
+          d499ebc604319f3214b4197398d2a72203524f5cdd697b9ef90010c181073a49  libQnnHtpPrepare.so.gz
+          a0e9f8b303ccd3317be867d1476576593f0f2f00399d505b5664511e726e45ac  libQnnHtpV73.so
+          68664240ce331750b0841d62afbb21ff8db6ca723b9c23f3dad894078b481c27  libQnnHtpV73Skel.so
+          97c80e62cfe6e10b24860a5a41f3d271cb131b419cee3bf2f8864ed8471109d5  libQnnHtpV73Stub.so
+          ec3f3c61e04754645ae2d2d4f97981dfd29d4c91a1b82d3fb4ca40c2c9ab4c37  libQnnSystem.so
+          EOF
           (cd app/src/main/assets/qnnlibs && sha256sum -c /tmp/qnn_expected.sha256)
           sha256sum app/src/main/assets/qnnlibs/* > app/src/main/assets/qnn-stack-sha256.txt
           cat app/src/main/assets/qnn-stack-version.txt
