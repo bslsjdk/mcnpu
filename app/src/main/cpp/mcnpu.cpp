@@ -287,7 +287,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
     auto tCreate0=std::chrono::steady_clock::now();
     Qnn_ErrorHandle_t rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&graph);
-    struct GraphGuard { const decltype(f)* ft; Qnn_GraphHandle_t graph; ~GraphGuard(){ if(graph && ft->graphFree) ft->graphFree(graph,nullptr); } } graphGuard{&f,graph};
+    struct GraphGuard { const QnnInterface_t* api; Qnn_GraphHandle_t graph; ~GraphGuard(){ if(graph && api && api->QNN_INTERFACE_VER_NAME.graphFree) api->QNN_INTERFACE_VER_NAME.graphFree(graph,nullptr); } } graphGuard{g.api,graph};
     auto createUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tCreate0).count();
     if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" create_us="+std::to_string((long long)createUs)+" "+verbose(rc);
     uint32_t dims[1]={n};
