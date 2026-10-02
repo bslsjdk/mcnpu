@@ -13,6 +13,13 @@ android {
     }
     sourceSets { main { jniLibs.srcDirs = ["src/main/jniLibs"] } }
     packaging { jniLibs { useLegacyPackaging true } }
+    externalNativeBuild {
+        cmake {
+            path file("src/main/cpp/CMakeLists.txt")
+            version "3.22.1"
+            arguments "-DQNN_INC=${System.getenv("QNN_INC") ?: "${rootDir}/qnn_inc"}", "-DANDROID_PLATFORM=android-35"
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
