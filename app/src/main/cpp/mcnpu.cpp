@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cstdio>
 #include "QnnInterface.h"
+#include "QnnLog.h"
 #include "QnnBackend.h"
 #include "QnnDevice.h"
 #include "QnnContext.h"
@@ -33,6 +34,7 @@ struct Runtime {
     bool ready=false;
     std::string info;
     std::string err;
+    Qnn_LogHandle_t logger=nullptr;
 } g;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
@@ -72,12 +74,31 @@ bool initRuntime(){
     for(uint32_t i=0;i<count;i++) if(providers[i]&&providers[i]->backendId==HTP_ID){g.api=providers[i];break;}
     if(!g.api){g.err="HTP provider backendId=6 not found";return false;}
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
-    rc=f.backendCreate(nullptr,nullptr,&g.backend);
-    if(rc!=QNN_SUCCESS||!g.backend){g.err="backendCreate rc="+std::to_string((int)rc);return false;}
-    rc=f.deviceCreate(nullptr,nullptr,&g.device);
-    if(rc!=QNN_SUCCESS||!g.device){g.err="deviceCreate rc="+std::to_string((int)rc);return false;}
+    if(f.logCreate){
+        rc=f.logCreate(nullptr,QNN_LOG_LEVEL_INFO,&g.logger);
+        if(rc!=QNN_SUCCESS) g.logger=nullptr;
+    }
+    rc=f.backendCreate(g.logger,nullptr,&g.backend);
+    if(rc!=QNN_SUCCESS||!g.backend){
+        const char* msg=nullptr;
+        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
+        g.err="backendCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        return false;
+    }
+    rc=f.deviceCreate(g.logger,nullptr,&g.device);
+    if(rc!=QNN_SUCCESS||!g.device){
+        const char* msg=nullptr;
+        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
+        g.err="deviceCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        return false;
+    }
     rc=f.contextCreate(g.backend,g.device,nullptr,&g.context);
-    if(rc!=QNN_SUCCESS||!g.context){g.err="contextCreate rc="+std::to_string((int)rc);return false;}
+    if(rc!=QNN_SUCCESS||!g.context){
+        const char* msg=nullptr;
+        if(f.errorGetVerboseMessage) f.errorGetVerboseMessage(rc,&msg);
+        g.err="contextCreate rc="+std::to_string((int)rc)+(msg?(" msg="+std::string(msg)):"");
+        return false;
+    }
     g.info="QNN HTP ready backendId=6 providers="+std::to_string(count);
     g.ready=true;
     I("MCNPU HTP READY");
@@ -144,7 +165,8 @@ void shutdownRuntime(){
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
-    g.context=nullptr;g.device=nullptr;g.backend=nullptr;g.ready=false;g.api=nullptr;
+    if(f.logFree&&g.logger)f.logFree(g.logger);
+    g.context=nullptr;g.device=nullptr;g.backend=nullptr;g.logger=nullptr;g.ready=false;g.api=nullptr;
     if(g.qnn)dlclose(g.qnn);g.qnn=nullptr;
     for(void* h:g.rpc)if(h)dlclose(h);g.rpc.clear();
 }
