@@ -4,23 +4,22 @@ import android.app.*;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.IBinder;
-import android.net.LocalServerSocket;
-import android.net.LocalSocket;
-import android.net.Credentials;
 import android.os.Build;
 import java.io.*;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class NpuService extends Service {
-    private static final String SOCKET_NAME = "mcnpu_ipc_v1";
+    private static final int IPC_PORT = 38761;
+    private static final String AUTH = "MCNPU/1";
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
-    private static final String PREFS = "ipc";
-    private static final String PREF_TRUSTED_PACKAGES = "trusted_packages";
     private final ExecutorService clients = Executors.newFixedThreadPool(8);
     private volatile boolean running;
-    private LocalServerSocket server;
+    private ServerSocket server;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -48,17 +47,11 @@ public final class NpuService extends Service {
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
         try {
-            server = new LocalServerSocket(SOCKET_NAME);
-            log("IPC 监听 LOCAL_ABSTRACT " + SOCKET_NAME);
+            server = new ServerSocket(IPC_PORT, 16, InetAddress.getLoopbackAddress());
+            log("IPC 监听 LOOPBACK 127.0.0.1:" + IPC_PORT);
             updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
             while (running) {
-                LocalSocket socket = server.accept();
-                if (!isTrustedPeer(socket)) {
-                    log("IPC rejected untrusted peer uid=" + peerUid(socket));
-                    updateNotification("IPC 拒绝未授权客户端 uid=" + peerUid(socket));
-                    try { socket.close(); } catch (Throwable ignored) {}
-                    continue;
-                }
+                Socket socket = server.accept();
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
@@ -67,45 +60,16 @@ public final class NpuService extends Service {
         }
     }
 
-    private boolean isTrustedPeer(LocalSocket socket) {
-        int uid = -1;
-        String[] packages = null;
-        try {
-            Credentials peer = socket.getPeerCredentials();
-            uid = peer.getUid();
-            if (uid == android.os.Process.myUid()) return true;
-
-            packages = getPackageManager().getPackagesForUid(uid);
-            String configured = getSharedPreferences(PREFS, MODE_PRIVATE)
-                    .getString(PREF_TRUSTED_PACKAGES, "");
-            if (packages != null && !configured.trim().isEmpty()) {
-                for (String p : packages) {
-                    for (String allowed : configured.split(",")) {
-                        if (p.equals(allowed.trim()) && !allowed.trim().isEmpty()) {
-                            log("IPC accepted configured peer uid=" + uid + " package=" + p);
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            log("IPC rejected peer uid=" + uid + " packages=" +
-                    (packages == null ? "<none>" : String.join(",", packages)));
-        } catch (Throwable t) {
-            log("IPC peer credential check failed uid=" + uid + " packages=" +
-                    (packages == null ? "<none>" : String.join(",", packages)) + ": " + t);
-        }
-        return false;
-    }
-
-    private int peerUid(LocalSocket socket) {
-        try { return socket.getPeerCredentials().getUid(); } catch (Throwable ignored) { return -1; }
-    }
-
-    private void handle(LocalSocket socket) {
-        try (LocalSocket s = socket;
+    private void handle(Socket socket) {
+        try (Socket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
+            String auth = in.readLine();
+            if (!("AUTH " + AUTH).equals(auth)) {
+                reply(out, "ERR AUTH");
+                return;
+            }
+            reply(out, "OK AUTH");
             String line;
             while ((line = in.readLine()) != null) {
                 String cmd = line.trim();
