@@ -11,6 +11,8 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <cstring>
+#include <mutex>
+#include <algorithm>
 #include <cstdint>
 #include "QnnInterface.h"
 #include "QnnLog.h"
@@ -49,6 +51,7 @@ struct Runtime {
     std::string backendVerbose;
     std::string deviceVerbose;
 } g;
+static std::mutex gRuntimeMutex;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
 
@@ -83,7 +86,7 @@ static std::string probeSystemRpc() {
         struct stat st{};
         int rc=stat(p,&st);
         out += std::string("path=")+p+" stat="+(rc==0?"FOUND":"MISSING")+
-               " errno="+std::to_string(rc==0?0:errno)+" size="+(rc==0?std::to_string((long long)st.st_size):"0")+"\\n";
+               " errno="+std::to_string(rc==0?0:errno)+" size="+(rc==0?std::to_string((long long)st.st_size):"0")+"\n";
         if(rc==0) {
             dlerror();
             void* h=dlopen(p,RTLD_NOW|RTLD_LOCAL);
@@ -205,6 +208,7 @@ bool loadRuntime(const std::string& qnnDir, const std::string& workDir) {
 }
 
 bool initRuntime(const std::string& qnnDir, const std::string& workDir){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(g.ready)return true;
     if(!loadRuntime(qnnDir, workDir))return false;
     auto gp=(GetProviders)dlsym(g.qnn,"QnnInterface_getProviders");
@@ -251,7 +255,7 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
         g.deviceVerbose=verbose(rc);
         g.err="deviceCreate rc="+std::to_string((int)rc)+" "+g.deviceVerbose;
         E("DEVICE_CREATE_FAIL %s",g.err.c_str());
-        E("%s",deepReport().c_str());
+        const std::string report = deepReport();\n        E("%s",report.c_str());
         return false;
     }
 
@@ -275,6 +279,7 @@ Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt
 }
 
 std::string runAdd(const float* av,const float* bv,uint32_t n){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
     if(!g.ready)return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
@@ -282,6 +287,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
     auto tCreate0=std::chrono::steady_clock::now();
     Qnn_ErrorHandle_t rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&graph);
+    struct GraphGuard { const decltype(f)* ft; Qnn_GraphHandle_t graph; ~GraphGuard(){ if(graph && ft->graphFree) ft->graphFree(graph,nullptr); } } graphGuard{&f,graph};
     auto createUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tCreate0).count();
     if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" create_us="+std::to_string((long long)createUs)+" "+verbose(rc);
     uint32_t dims[1]={n};
@@ -331,6 +337,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
 }
 
 void shutdownRuntime(){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.api)return;
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
