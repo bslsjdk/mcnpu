@@ -1,16 +1,18 @@
 package bslsjdk.mcnpu;
 
 import java.io.*;
-import android.net.LocalSocket;
-import android.net.LocalSocketAddress;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.InetSocketAddress;
 
 public final class NpuServiceClient {
-    private static final String SOCKET_NAME = "mcnpu_ipc_v1";
+    private static final int IPC_PORT = 38761;
     private NpuServiceClient() {}
 
     public static String request(String command) {
-        try (LocalSocket socket = new LocalSocket()) {
-            socket.connect(new LocalSocketAddress(SOCKET_NAME, LocalSocketAddress.Namespace.ABSTRACT));
+        if (command == null || command.isEmpty()) return "ERR EMPTY_COMMAND";
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), IPC_PORT), 3000);
             socket.setSoTimeout(3000);
             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -20,7 +22,7 @@ public final class NpuServiceClient {
             String line = in.readLine();
             return line == null ? "ERR EMPTY_REPLY" : line;
         } catch (Throwable t) {
-            return "ERR SERVICE_UNAVAILABLE " + t.getClass().getSimpleName();
+            return "ERR SERVICE_UNAVAILABLE " + t.getClass().getSimpleName() + " " + String.valueOf(t.getMessage());
         }
     }
 
