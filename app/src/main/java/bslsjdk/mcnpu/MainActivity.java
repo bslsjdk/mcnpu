@@ -75,7 +75,12 @@ public final class MainActivity extends Activity {
         super.onPause();
     }
 
-    @Override protected void onDestroy() {\n        statusExecutor.shutdownNow();\n        super.onDestroy();\n    }\n\n    private void startNpuService() {
+    @Override protected void onDestroy() {
+        statusExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
+    private void startNpuService() {
         try {
             Intent i = new Intent(this, NpuService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
@@ -136,7 +141,8 @@ public final class MainActivity extends Activity {
                 StringBuilder a = new StringBuilder(), b = new StringBuilder();
                 for (int i=0;i<aa.length();i++) {
                     if(i>0){a.append(',');b.append(',');}
-                    double av = aa.getDouble(i), bv = bb.getDouble(i);\n                    if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");\n                    a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
+                    double av = aa.getDouble(i), bv = bb.getDouble(i);\n                    if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");
+                    a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
                 }
                 String reply = NpuServiceClient.request("ADD " + a + "|" + b);
                 boolean ok = reply.startsWith("OK HTP_GRAPH_EXECUTE");
