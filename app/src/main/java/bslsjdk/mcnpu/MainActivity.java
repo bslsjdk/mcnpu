@@ -4,12 +4,12 @@ import android.app.AlertDialog;
 import android.app.Activity;
 import android.os.Bundle;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.net.Uri;
-import android.provider.OpenableColumns;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import android.widget.*;
@@ -27,9 +27,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
+    private static final int REQ_LOCAL_NETWORK = 5101;
     private TextView npuState, npuDetail, shizukuState, log;
     private ScrollView logScroll;
-    private final Object logLock = new Object();
     private String lastServiceLog = "";
     private final ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "mcnpu-ui-status");
@@ -38,7 +38,6 @@ public final class MainActivity extends Activity {
     });
     private final AtomicBoolean statusInFlight = new AtomicBoolean();
     private ScheduledFuture<?> statusFuture;
-
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -64,7 +63,31 @@ public final class MainActivity extends Activity {
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshServiceLogIncremental());
         refreshLogOnly();
 
-        startNpuService();
+        ensureLocalNetworkPermission();
+    }
+
+    private void ensureLocalNetworkPermission() {
+        if (Build.VERSION.SDK_INT < 33) {
+            startNpuService();
+            return;
+        }
+        if (checkSelfPermission("android.permission.NEARBY_WIFI_DEVICES") == PackageManager.PERMISSION_GRANTED) {
+            appendLog("本地网络权限：已授权");
+            startNpuService();
+            return;
+        }
+        appendLog("本地网络权限未授权，正在申请。Android 16 会阻止本地 socket 时返回 EPERM。");
+        requestPermissions(new String[]{"android.permission.NEARBY_WIFI_DEVICES"}, REQ_LOCAL_NETWORK);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_LOCAL_NETWORK) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            appendLog("本地网络权限结果：" + (granted ? "已授权" : "拒绝"));
+            if (granted) startNpuService();
+            else appendLog("MC NPU IPC 未启动：需要本地网络权限才能监听 127.0.0.1:38761");
+        }
     }
 
     @Override protected void onResume() {
@@ -89,17 +112,15 @@ public final class MainActivity extends Activity {
         input.setText(getSharedPreferences("ipc", MODE_PRIVATE).getString("trusted_packages", ""));
         new AlertDialog.Builder(this)
                 .setTitle("IPC 客户端白名单")
-                .setMessage("默认只允许 MCNPU 自身 UID。这里填写需要连接 MCNPU 的启动器包名，多个包名用英文逗号分隔。")
+                .setMessage("TCP IPC 已限制为本机回环地址。此设置仅保留兼容入口。")
                 .setView(input)
                 .setNegativeButton("取消", null)
                 .setPositiveButton("保存", (d, which) -> {
                     String value = input.getText().toString().trim();
                     getSharedPreferences("ipc", MODE_PRIVATE).edit()
-                            .putString("trusted_packages", value)
-                            .apply();
-                    appendLog("IPC 白名单已保存: " + (value.isEmpty() ? "<仅自身 UID>" : value));
-                })
-                .show();
+                            .putString("trusted_packages", value).apply();
+                    appendLog("IPC 白名单已保存: " + (value.isEmpty() ? "<未设置>" : value));
+                }).show();
     }
 
     private void startNpuService() {
@@ -253,18 +274,10 @@ public final class MainActivity extends Activity {
             String current = readLocalLog();
             if (current.isEmpty() || current.equals(lastServiceLog)) return;
             final String delta;
-            if (!lastServiceLog.isEmpty() && current.startsWith(lastServiceLog)) {
-                delta = current.substring(lastServiceLog.length());
-            } else {
-                // 服务日志被截断/轮转时，从当前尾部重新同步，而不是静默清空。
-                delta = "\n[日志重新同步]\n" + current;
-            }
+            if (!lastServiceLog.isEmpty() && current.startsWith(lastServiceLog)) delta = current.substring(lastServiceLog.length());
+            else delta = "\n[日志重新同步]\n" + current;
             lastServiceLog = current;
-            runOnUiThread(() -> {
-                log.append(delta);
-                trimVisibleLog();
-                scrollLogToBottom();
-            });
+            runOnUiThread(() -> { log.append(delta); trimVisibleLog(); scrollLogToBottom(); });
         }).start();
     }
 
@@ -334,8 +347,7 @@ public final class MainActivity extends Activity {
 
     private void appendLog(String s) {
         if (log == null) return;
-        String line = "\n[" +
-                new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s;
+        String line = "\n[" + new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s;
         appendRawLogDelta(line);
     }
 
@@ -349,4 +361,5 @@ public final class MainActivity extends Activity {
     private void scrollLogToBottom() {
         if (logScroll == null) return;
         logScroll.post(() -> logScroll.fullScroll(ScrollView.FOCUS_DOWN));
-    }}
+    }
+}
