@@ -55,6 +55,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.start).setOnClickListener(v -> startNpuService());
         findViewById(R.id.test).setOnClickListener(v -> runSmoke());
         findViewById(R.id.importTest).setOnClickListener(v -> chooseTestFile());
+        findViewById(R.id.ipcWhitelist).setOnClickListener(v -> editIpcWhitelist());
         findViewById(R.id.shizukuOpen).setOnClickListener(v -> openShizuku());
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
@@ -78,6 +79,26 @@ public final class MainActivity extends Activity {
     @Override protected void onDestroy() {
         statusExecutor.shutdownNow();
         super.onDestroy();
+    }
+
+    private void editIpcWhitelist() {
+        final EditText input = new EditText(this);
+        input.setSingleLine(false);
+        input.setHint("例如：com.movtery.zalithlauncher.v2,net.kdt.pojavlaunch");
+        input.setText(getSharedPreferences("ipc", MODE_PRIVATE).getString("trusted_packages", ""));
+        new AlertDialog.Builder(this)
+                .setTitle("IPC 客户端白名单")
+                .setMessage("默认只允许 MCNPU 自身 UID。这里填写需要连接 MCNPU 的启动器包名，多个包名用英文逗号分隔。")
+                .setView(input)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", (d, which) -> {
+                    String value = input.getText().toString().trim();
+                    getSharedPreferences("ipc", MODE_PRIVATE).edit()
+                            .putString("trusted_packages", value)
+                            .apply();
+                    appendLog("IPC 白名单已保存: " + (value.isEmpty() ? "<仅自身 UID>" : value));
+                })
+                .show();
     }
 
     private void startNpuService() {
