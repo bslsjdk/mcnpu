@@ -232,25 +232,35 @@ public final class MainActivity extends Activity {
     }
 
     private void copyLog() {
-        try {
-            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            cm.setPrimaryClip(ClipData.newPlainText("MC NPU diagnostics", fullDiagnostic()));
-            Toast.makeText(this, "诊断日志已复制，可以直接粘贴给 GPT", Toast.LENGTH_SHORT).show();
-        } catch (Throwable t) {
-            Toast.makeText(this, "复制日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show();
-        }
+        new Thread(() -> {
+            try {
+                String diagnostic = fullDiagnostic();
+                runOnUiThread(() -> {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(ClipData.newPlainText("MC NPU diagnostics", diagnostic));
+                    Toast.makeText(this, "诊断日志已复制，可以直接粘贴给 GPT", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "复制日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     private void shareLog() {
-        try {
-            Intent i = new Intent(Intent.ACTION_SEND);
-            i.setType("text/plain");
-            i.putExtra(Intent.EXTRA_SUBJECT, "MC NPU 诊断日志");
-            i.putExtra(Intent.EXTRA_TEXT, fullDiagnostic());
-            startActivity(Intent.createChooser(i, "发送 MC NPU 诊断日志"));
-        } catch (Throwable t) {
-            Toast.makeText(this, "分享日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show();
-        }
+        new Thread(() -> {
+            try {
+                String diagnostic = fullDiagnostic();
+                runOnUiThread(() -> {
+                    Intent i = new Intent(Intent.ACTION_SEND);
+                    i.setType("text/plain");
+                    i.putExtra(Intent.EXTRA_SUBJECT, "MC NPU 诊断日志");
+                    i.putExtra(Intent.EXTRA_TEXT, diagnostic);
+                    startActivity(Intent.createChooser(i, "发送 MC NPU 诊断日志"));
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "分享日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     private void appendLog(String s) {
