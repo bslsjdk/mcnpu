@@ -308,25 +308,31 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     long long createUs=0, finalizeUs=0;
 
     if(!cached){
-        Runtime::AddGraph fresh;
-        fresh.dims[0]=n;
+        // Insert the cache entry BEFORE creating graph tensors so every tensor
+        // descriptor points at dimensions owned by the final cached object.
+        auto inserted=g.addGraphs.emplace(n, Runtime::AddGraph{});
+        ag=&inserted.first->second;
+        ag->dims[0]=n;
+
         const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
 
         auto tCreate0=std::chrono::steady_clock::now();
-        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&fresh.graph);
+        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&ag->graph);
         createUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tCreate0).count();
-        if(rc!=QNN_SUCCESS || !fresh.graph)
+        if(rc!=QNN_SUCCESS || !ag->graph){
+            g.addGraphs.erase(inserted.first);
             return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+" "+verbose(rc);
+        }
 
-        fresh.a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,fresh.dims);
-        fresh.b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,fresh.dims);
-        fresh.c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,fresh.dims);
+        ag->a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,ag->dims);
+        ag->b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,ag->dims);
+        ag->c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,ag->dims);
 
-        rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.a);
-        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.b);
-        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.c);
+        rc=f.tensorCreateGraphTensor(ag->graph,&ag->a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->c);
         if(rc!=QNN_SUCCESS)
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
 
@@ -337,7 +343,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         param.paramType=QNN_PARAMTYPE_SCALAR;
         param.name=QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION;
         param.scalarParam=scalar;
-        Qnn_Tensor_t ins[2]={fresh.a,fresh.b};
+        Qnn_Tensor_t ins[2]={ag->a,ag->b};
         Qnn_OpConfig_t op=QNN_OPCONFIG_INIT;
         op.v1.name="add";
         op.v1.packageName="qti.aisw";
@@ -347,32 +353,20 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         op.v1.numOfInputs=2;
         op.v1.inputTensors=ins;
         op.v1.numOfOutputs=1;
-        op.v1.outputTensors=&fresh.c;
+        op.v1.outputTensors=&ag->c;
 
-        rc=f.graphAddNode(fresh.graph,op);
+        rc=f.graphAddNode(ag->graph,op);
         if(rc!=QNN_SUCCESS)
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
 
         auto tFinalize0=std::chrono::steady_clock::now();
-        rc=f.graphFinalize(fresh.graph,nullptr,nullptr);
+        rc=f.graphFinalize(ag->graph,nullptr,nullptr);
         finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tFinalize0).count();
         if(rc!=QNN_SUCCESS)
             return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+
                    " finalize_us="+std::to_string(finalizeUs)+" "+verbose(rc);
-
-        auto inserted=g.addGraphs.emplace(n,std::move(fresh));
-        ag=&inserted.first->second;
-
-        // The tensor descriptors store a pointer to the dimensions array.
-        // fresh.dims was a member of the temporary object above, so after the
-        // move/emplace that pointer would otherwise dangle. Rebind every
-        // registered tensor descriptor to the dimensions owned by the cached
-        // AddGraph object before the first execute.
-        ag->a.v1.dimensions=ag->dims;
-        ag->b.v1.dimensions=ag->dims;
-        ag->c.v1.dimensions=ag->dims;
 
         I("ADD GRAPH READY n=%u a_id=%u b_id=%u c_id=%u",
           (unsigned)n,(unsigned)ag->a.v1.id,(unsigned)ag->b.v1.id,(unsigned)ag->c.v1.id);
