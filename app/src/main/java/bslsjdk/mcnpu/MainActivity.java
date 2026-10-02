@@ -5,62 +5,45 @@ import android.os.Bundle;
 import android.content.Intent;
 import android.os.Build;
 import android.widget.*;
-import android.view.Gravity;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public final class MainActivity extends Activity {
-    private TextView status;
+    private TextView npuState, shizukuState, log;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable refresher = new Runnable() {
+        @Override public void run() { refreshStatus(); handler.postDelayed(this, 2000); }
+    };
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-
         ShizukuHelper.init();
+        ShizukuHelper.setCallback(this::refreshStatus);
+        setContentView(R.layout.activity_main);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(32, 32, 32, 32);
+        npuState = findViewById(R.id.npuState);
+        shizukuState = findViewById(R.id.shizukuState);
+        log = findViewById(R.id.log);
 
-        TextView title = new TextView(this);
-        title.setText("MC NPU\nQNN / HTP V73");
-        title.setTextSize(24);
-        root.addView(title);
+        findViewById(R.id.start).setOnClickListener(v -> startNpuService());
+        findViewById(R.id.test).setOnClickListener(v -> runSmoke());
+        findViewById(R.id.shizukuOpen).setOnClickListener(v -> openShizuku());
+        findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
 
-        Button start = new Button(this);
-        start.setText("启动 NPU 服务");
-        start.setOnClickListener(v -> startNpuService());
-        root.addView(start);
-
-        Button shizukuOpen = new Button(this);
-        shizukuOpen.setText("打开 Shizuku");
-        shizukuOpen.setOnClickListener(v -> openShizuku());
-        root.addView(shizukuOpen);
-
-        Button shizuku = new Button(this);
-        shizuku.setText("向 Shizuku 请求 MC NPU 授权");
-        shizuku.setOnClickListener(v -> requestShizuku());
-        root.addView(shizuku);
-
-        Button test = new Button(this);
-        test.setText("检测 HTP / 服务");
-        test.setOnClickListener(v -> new Thread(() -> {
-            String s = NpuServiceClient.request("STATUS");
-            runOnUiThread(() -> setStatus(s + "\n" + ShizukuHelper.status()));
-        }).start());
-        root.addView(test);
-
-        status = new TextView(this);
-        status.setGravity(Gravity.TOP);
-        status.setText("正在启动服务...");
-        status.setPadding(0, 24, 0, 0);
-        root.addView(status);
-
-        setContentView(root);
         startNpuService();
         refreshStatus();
     }
 
     @Override protected void onResume() {
         super.onResume();
-        if (status != null) refreshStatus();
+        handler.removeCallbacks(refresher);
+        handler.post(refresher);
+    }
+
+    @Override protected void onPause() {
+        handler.removeCallbacks(refresher);
+        super.onPause();
     }
 
     private void startNpuService() {
@@ -68,26 +51,34 @@ public final class MainActivity extends Activity {
             Intent i = new Intent(this, NpuService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
             else startService(i);
-            setStatus("正在启动 MC NPU...\n" + ShizukuHelper.status());
+            appendLog("已请求启动独立 NPU 服务");
         } catch (Throwable t) {
-            setStatus("启动服务失败\n" + t.getClass().getSimpleName() + ": " + t.getMessage());
+            appendLog("启动失败: " + t);
         }
+    }
+
+    private void runSmoke() {
+        new Thread(() -> {
+            String s = NpuServiceClient.request("SMOKE");
+            runOnUiThread(() -> appendLog("HTP 图执行: " + s));
+        }).start();
     }
 
     private void requestShizuku() {
         try {
             if (!ShizukuHelper.available()) {
-                setStatus("Shizuku 未运行。先点“打开 Shizuku”启动它，然后回来点授权。");
+                appendLog("Shizuku 未运行，正在打开 Shizuku");
+                openShizuku();
                 return;
             }
             if (ShizukuHelper.granted()) {
-                setStatus("MC NPU 已获得 Shizuku 授权。");
+                appendLog("MC NPU 已获得 Shizuku 授权");
                 return;
             }
             ShizukuHelper.requestPermission();
-            setStatus("已向 Shizuku 发起 MC NPU 授权请求，请在 Shizuku 的授权窗口/应用列表中允许。");
+            appendLog("已发起授权请求，请在 Shizuku 弹出的“允许 MC NPU 使用 Shizuku”窗口中允许");
         } catch (Throwable t) {
-            setStatus("Shizuku 请求失败\n" + t.getClass().getSimpleName() + ": " + t.getMessage());
+            appendLog("Shizuku 请求异常: " + t);
         }
     }
 
@@ -95,24 +86,35 @@ public final class MainActivity extends Activity {
         try {
             Intent launch = getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");
             if (launch == null) {
-                setStatus("未找到 Shizuku，请先安装 Shizuku。");
+                appendLog("未安装 Shizuku");
                 return;
             }
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(launch);
         } catch (Throwable t) {
-            setStatus("打开 Shizuku 失败\n" + t.getClass().getSimpleName() + ": " + t.getMessage());
+            appendLog("打开 Shizuku 失败: " + t);
         }
     }
 
     private void refreshStatus() {
         new Thread(() -> {
-            String s = NpuServiceClient.request("STATUS");
-            runOnUiThread(() -> setStatus(s + "\n" + ShizukuHelper.status()));
+            String ping = NpuServiceClient.request("PING");
+            String npu = NpuServiceClient.request("STATUS");
+            String sz = ShizukuHelper.status();
+            runOnUiThread(() -> {
+                npuState.setText(ping.startsWith("PONG") ? "● NPU 服务：在线" : "● NPU 服务：离线");
+                shizukuState.setText(sz);
+                log.setText("时间 " + new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date())
+                        + "\nPING    " + ping
+                        + "\nSTATUS  " + npu
+                        + "\nShizuku " + sz
+                        + "\n授权结果 " + ShizukuHelper.result());
+            });
         }).start();
     }
 
-    private void setStatus(String s) {
-        if (status != null) status.setText(s);
+    private void appendLog(String s) {
+        if (log == null) return;
+        log.setText(log.getText() + "\n[" +
+                new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s);
     }
 }
