@@ -1,0 +1,15 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "bslsjdk.mcnpu"
+    compileSdk 36
+    defaultConfig {
+        applicationId "bslsjdk.mcnpu"
+        minSdk 28
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+    }
+    sourceSets { main { jniLibs.srcDirs = ["src/main/jniLibs"] } }
+    packaging { jniLibs { useLegacyPackaging true } }
+}
