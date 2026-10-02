@@ -28,7 +28,7 @@
 #define TAG "MCNPU"
 #define HTP_ID 6
 #define I(...) __android_log_print(ANDROID_LOG_INFO,TAG,"%s",__VA_ARGS__)
-#define E(...) __android_log_print(ANDROID_LOG_ERROR,TAG,"%s",__VA_ARGS__)
+#define E(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
 
 namespace {
 struct Runtime {
