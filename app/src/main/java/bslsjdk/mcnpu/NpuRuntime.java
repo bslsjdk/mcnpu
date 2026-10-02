@@ -16,8 +16,11 @@ public final class NpuRuntime {
         try {
             System.loadLibrary("mcnpu");
             String qnnDir = extractQnnLibs(context.getApplicationContext());
-            nativeConfigure("logLevel=DEBUG;deviceRetries=1;qnnDir=" + qnnDir);
-            ready = nativeInit(qnnDir);
+            File work = new File(context.getFilesDir(), "qnnwork");
+            if (!work.exists() && !work.mkdirs()) throw new IllegalStateException("mkdir qnnwork failed");
+            String workDir = work.getAbsolutePath();
+            nativeConfigure("logLevel=DEBUG;deviceRetries=1;qnnDir=" + qnnDir + ";workDir=" + workDir);
+            ready = nativeInit(qnnDir, workDir);
             lastError = ready ? "" : nativeGetDeviceInfo();
         } catch (Throwable t) {
             ready = false;
@@ -54,7 +57,7 @@ public final class NpuRuntime {
     public static void shutdown() { if (ready) { nativeShutdown(); ready=false; } }
 
     private static native void nativeConfigure(String tuning);
-    private static native boolean nativeInit(String qnnDir);
+    private static native boolean nativeInit(String qnnDir, String workDir);
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
     private static native String nativeAdd(float[] a, float[] b);
