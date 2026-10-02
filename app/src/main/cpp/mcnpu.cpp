@@ -122,7 +122,7 @@ static std::string deepReport() {
     return r;
 }
 
-bool loadRuntime(const std::string& qnnDir) {
+bool loadRuntime(const std::string& qnnDir, const std::string& workDir) {
     g.libDir=qnnDir;
     struct stat qnnStat{};
     if(g.libDir.empty() || stat(g.libDir.c_str(), &qnnStat)!=0 || !S_ISDIR(qnnStat.st_mode)){
@@ -133,8 +133,8 @@ bool loadRuntime(const std::string& qnnDir) {
     std::string adsp=g.libDir+";/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp";
     setenv("ADSP_LIBRARY_PATH",adsp.c_str(),1);
     setenv("LD_LIBRARY_PATH",(g.libDir+":/vendor/dsp/cdsp:/vendor/lib64/").c_str(),1);
-    if(chdir(g.libDir.c_str())!=0){
-        g.err="chdir failed errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
+    if(workDir.empty() || chdir(workDir.c_str())!=0){
+        g.err="chdir workDir failed errno="+std::to_string(errno)+"("+std::string(strerror(errno))+")";
         return false;
     }
 
@@ -148,9 +148,9 @@ bool loadRuntime(const std::string& qnnDir) {
     return true;
 }
 
-bool initRuntime(const std::string& qnnDir){
+bool initRuntime(const std::string& qnnDir, const std::string& workDir){
     if(g.ready)return true;
-    if(!loadRuntime(qnnDir))return false;
+    if(!loadRuntime(qnnDir, workDir))return false;
     auto gp=(GetProviders)dlsym(g.qnn,"QnnInterface_getProviders");
     if(!gp){
         g.err="QnnInterface_getProviders missing";
@@ -283,12 +283,15 @@ extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeConfigure(
     const char* p=e->GetStringUTFChars(s,nullptr);
     if(p){setenv("MCNPU_TUNING",p,1);e->ReleaseStringUTFChars(s,p);}
 }
-extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring js){
-    if(!js) return JNI_FALSE;
-    const char* p=e->GetStringUTFChars(js,nullptr);
+extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring jq,jstring jw){
+    if(!jq || !jw) return JNI_FALSE;
+    const char* p=e->GetStringUTFChars(jq,nullptr);
+    const char* w=e->GetStringUTFChars(jw,nullptr);
     std::string qnnDir=p?p:"";
-    if(p) e->ReleaseStringUTFChars(js,p);
-    return initRuntime(qnnDir)?JNI_TRUE:JNI_FALSE;
+    std::string workDir=w?w:"";
+    if(p) e->ReleaseStringUTFChars(jq,p);
+    if(w) e->ReleaseStringUTFChars(jw,w);
+    return initRuntime(qnnDir,workDir)?JNI_TRUE:JNI_FALSE;
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
     return e->NewStringUTF((g.ready?g.info:deepReport()).c_str());
