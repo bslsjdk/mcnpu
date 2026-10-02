@@ -4,20 +4,18 @@ import android.app.*;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.Build;
-import android.net.LocalServerSocket;
-import android.net.LocalSocket;
-import android.net.LocalSocketAddress;
 import java.io.*;
+import java.net.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class NpuService extends Service {
-    public static final String SOCKET_NAME = "mcnpu_v1";
+    public static final int PORT = 38991;
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
     private final ExecutorService clients = Executors.newCachedThreadPool();
     private volatile boolean running;
-    private LocalServerSocket server;
+    private ServerSocket server;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -33,9 +31,11 @@ public final class NpuService extends Service {
         if (!NpuRuntime.init()) updateNotification("MC NPU: HTP init failed");
         else updateNotification("MC NPU: HTP V73 ready");
         try {
-            server = new LocalServerSocket(SOCKET_NAME);
+            server = new ServerSocket();
+            server.setReuseAddress(true);
+            server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT), 32);
             while (running) {
-                LocalSocket socket = server.accept();
+                Socket socket = server.accept();
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
@@ -43,8 +43,8 @@ public final class NpuService extends Service {
         }
     }
 
-    private void handle(LocalSocket socket) {
-        try (LocalSocket s = socket;
+    private void handle(Socket socket) {
+        try (Socket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
             String line;
