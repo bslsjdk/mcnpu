@@ -47,18 +47,16 @@ jobs:
         with:
           gradle-version: "8.13"
 
-      - name: Cache verified QNN probe
-        uses: actions/cache@v4
-        with:
-          path: qnn_probe
-          key: ${{ runner.os }}-qnn-probe-v1
-
-      - name: Fetch verified QNN stack if cache missed
+      - name: Fetch verified QNN stack at known-good probe commit
         run: |
           set -eux
-          if [ ! -d qnn_probe/app/src/main/assets/qnnlibs ]; then
-            git clone --depth 1 https://github.com/bslsjdk/npu_probe.git qnn_probe
-          fi
+          rm -rf qnn_probe
+          git clone --depth 1 https://github.com/bslsjdk/npu_probe.git qnn_probe
+          cd qnn_probe
+          git fetch --depth 1 origin 8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a
+          git checkout --detach 8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a
+          test "$(git rev-parse HEAD)" = "8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a"
+          cd ..
           test -f qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so
           test -f qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Skel.so
 
@@ -74,6 +72,11 @@ jobs:
           cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpV73.so app/src/main/assets/qnnlibs/
           cp qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnSystem.so app/src/main/assets/qnnlibs/
           cp qnn_probe/app/src/main/assets/qnnlibs/libQnnHtpPrepare.so.gz app/src/main/assets/qnnlibs/
+          echo "npu_probe_commit=8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a" > app/src/main/assets/qnn-stack-version.txt
+          echo "source=npu_probe@8fab2ee58cd4ce17ddc18e36a6a7b4992c85c52a" >> app/src/main/assets/qnn-stack-version.txt
+          sha256sum app/src/main/assets/qnnlibs/* > app/src/main/assets/qnn-stack-sha256.txt
+          cat app/src/main/assets/qnn-stack-version.txt
+          cat app/src/main/assets/qnn-stack-sha256.txt
           ls -lh app/src/main/assets/qnnlibs
 
       - name: Build native
