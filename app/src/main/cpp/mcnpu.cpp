@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <fstream>
 #include <sys/stat.h>
+#include <cstring>
+#include <cstdint>
 #include "QnnInterface.h"
 #include "QnnLog.h"
 #include "QnnBackend.h"
