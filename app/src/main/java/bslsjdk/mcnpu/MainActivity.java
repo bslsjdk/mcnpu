@@ -7,6 +7,10 @@ import android.os.Build;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.net.Uri;
+import android.provider.OpenableColumns;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.widget.*;
 import android.text.method.ScrollingMovementMethod;
 import java.io.FileInputStream;
@@ -40,6 +44,7 @@ public final class MainActivity extends Activity {
 
         findViewById(R.id.start).setOnClickListener(v -> startNpuService());
         findViewById(R.id.test).setOnClickListener(v -> runSmoke());
+        findViewById(R.id.importTest).setOnClickListener(v -> chooseTestFile());
         findViewById(R.id.shizukuOpen).setOnClickListener(v -> openShizuku());
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
@@ -70,6 +75,71 @@ public final class MainActivity extends Activity {
             handler.postDelayed(this::refreshStatus, 800);
         } catch (Throwable t) {
             appendLog("启动失败: " + t);
+        }
+    }
+
+    private static final int PICK_TEST_FILE = 4101;
+
+    private void chooseTestFile() {
+        try {
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("application/json");
+            startActivityForResult(i, PICK_TEST_FILE);
+        } catch (Throwable t) {
+            appendLog("打开文件选择器失败: " + t);
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_TEST_FILE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        new Thread(() -> runImportedTest(uri)).start();
+    }
+
+    private void runImportedTest(Uri uri) {
+        try {
+            String json;
+            try (java.io.InputStream in = getContentResolver().openInputStream(uri);
+                 java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                if (in == null) throw new java.io.IOException("无法打开文件");
+                byte[] buf = new byte[8192]; int n;
+                while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                json = out.toString("UTF-8");
+            }
+            JSONObject root = new JSONObject(json);
+            String task = root.optString("task", "add");
+            JSONArray cases = root.getJSONArray("inputs");
+            StringBuilder result = new StringBuilder();
+            result.append("=== IMPORTED NPU TEST ===\n")
+                  .append("task=").append(task).append("\n")
+                  .append("cases=").append(cases.length()).append("\n");
+            int pass = 0;
+            for (int k = 0; k < cases.length(); k++) {
+                JSONObject item = cases.getJSONObject(k);
+                JSONArray aa = item.getJSONArray("a");
+                JSONArray bb = item.getJSONArray("b");
+                if (!"add".equalsIgnoreCase(task) || aa.length() != bb.length() || aa.length() == 0 || aa.length() > 1024) {
+                    result.append("CASE ").append(k).append(": INVALID\n");
+                    continue;
+                }
+                StringBuilder a = new StringBuilder(), b = new StringBuilder();
+                for (int i=0;i<aa.length();i++) {
+                    if(i>0){a.append(',');b.append(',');}
+                    a.append(aa.getDouble(i)); b.append(bb.getDouble(i));
+                }
+                String reply = NpuServiceClient.request("ADD " + a + "|" + b);
+                boolean ok = reply.startsWith("OK HTP graphExecute");
+                if(ok) pass++;
+                result.append("CASE ").append(k).append(": ").append(reply).append("\n");
+            }
+            result.append("SUMMARY pass=").append(pass).append("/")
+                  .append(cases.length()).append(" NPU=HTP V73\n");
+            String output = result.toString();
+            runOnUiThread(() -> appendLog(output));
+        } catch (Throwable t) {
+            runOnUiThread(() -> appendLog("导入测试失败: " + t));
         }
     }
 
