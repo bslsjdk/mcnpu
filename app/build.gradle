@@ -13,3 +13,7 @@ android {
     sourceSets { main { jniLibs.srcDirs = ["src/main/jniLibs"] } }
     packaging { jniLibs { useLegacyPackaging true } }
 }
+
+dependencies {
+    implementation "dev.rikka.shizuku:api:13.1.5"
+}
