@@ -1,14 +1,13 @@
 package bslsjdk.mcnpu;
 
 import android.content.Context;
-import java.io.File;
-import java.io.InputStream;
-import java.io.FileOutputStream;
+import java.io.*;
 import java.util.zip.GZIPInputStream;
 
 public final class NpuRuntime {
     private static volatile boolean ready;
     private static volatile String lastError = "not initialized";
+
     private NpuRuntime() {}
 
     public static synchronized boolean init(Context context) {
@@ -18,9 +17,7 @@ public final class NpuRuntime {
             String qnnDir = extractQnnLibs(context.getApplicationContext());
             File work = new File(context.getFilesDir(), "qnnwork");
             if (!work.exists() && !work.mkdirs()) throw new IllegalStateException("mkdir qnnwork failed");
-            String workDir = work.getAbsolutePath();
-            nativeConfigure("logLevel=DEBUG;deviceRetries=1;qnnDir=" + qnnDir + ";workDir=" + workDir);
-            ready = nativeInit(qnnDir, workDir);
+            ready = nativeInit(qnnDir, work.getAbsolutePath());
             lastError = ready ? "" : nativeGetDeviceInfo();
         } catch (Throwable t) {
             ready = false;
@@ -28,60 +25,111 @@ public final class NpuRuntime {
         }
         return ready;
     }
+
     private static String extractQnnLibs(Context context) throws Exception {
         File dst = new File(context.getFilesDir(), "qnnlibs");
-        if (!dst.exists() && !dst.mkdirs()) throw new IllegalStateException("mkdir qnnlibs failed");
-        String stackVersion;
-        try (InputStream in = context.getAssets().open("qnn-stack-version.txt")) {
-            byte[] buf = new byte[4096];
-            int n = in.read(buf);
-            stackVersion = new String(buf, 0, Math.max(0, n), java.nio.charset.StandardCharsets.UTF_8).trim();
-        }
         File stamp = new File(dst, ".stack-version");
-        String installed = "";
-        if (stamp.exists()) {
-            try (InputStream in = new java.io.FileInputStream(stamp)) {
-                byte[] buf = new byte[4096];
-                int n = in.read(buf);
-                installed = new String(buf, 0, Math.max(0, n), java.nio.charset.StandardCharsets.UTF_8).trim();
-            }
-        }
+        String stackVersion = readAssetText(context, "qnn-stack-version.txt");
+        String installed = stamp.isFile() ? readFileText(stamp) : "";
         String[] names = context.getAssets().list("qnnlibs");
         if (names == null || names.length == 0) throw new IllegalStateException("assets/qnnlibs empty");
-        if (!stackVersion.equals(installed)) {
-            File[] old = dst.listFiles();
-            if (old != null) for (File f : old) {
-                if (!f.delete() && f.exists()) throw new IllegalStateException("delete stale QNN file failed: " + f);
+
+        boolean complete = stackVersion.equals(installed);
+        if (complete) {
+            for (String name : names) {
+                File out = new File(dst, outputName(name));
+                if (!out.isFile() || out.length() <= 0) { complete = false; break; }
             }
         }
-        for (String name : names) {
-            File out = new File(dst, name.endsWith(".gz") ? name.substring(0, name.length()-3) : name);
-            if (out.exists() && out.length() > 0) continue;
-            try (InputStream raw = context.getAssets().open("qnnlibs/" + name);
-                 InputStream in = name.endsWith(".gz") ? new GZIPInputStream(raw) : raw;
-                 FileOutputStream fos = new FileOutputStream(out)) {
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+        if (complete) return dst.getAbsolutePath();
+
+        File parent = context.getFilesDir();
+        File tmp = new File(parent, "qnnlibs.tmp");
+        deleteRecursively(tmp);
+        if (!tmp.mkdirs()) throw new IOException("mkdir qnn temp failed: " + tmp);
+
+        try {
+            for (String name : names) {
+                File out = new File(tmp, outputName(name));
+                try (InputStream raw = context.getAssets().open("qnnlibs/" + name);
+                     InputStream in = name.endsWith(".gz") ? new GZIPInputStream(raw) : raw;
+                     FileOutputStream fos = new FileOutputStream(out)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+                }
+                if (!out.isFile() || out.length() <= 0) throw new IOException("QNN copy incomplete: " + name);
+                out.setReadable(true, false);
+                out.setExecutable(true, false);
             }
-            out.setReadable(true, false);
-            out.setExecutable(true, false);
+            File tmpStamp = new File(tmp, ".stack-version");
+            try (FileOutputStream out = new FileOutputStream(tmpStamp)) {
+                out.write(stackVersion.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+
+            File backup = new File(parent, "qnnlibs.old");
+            deleteRecursively(backup);
+            if (dst.exists() && !dst.renameTo(backup)) {
+                deleteRecursively(dst);
+                if (dst.exists()) throw new IOException("cannot replace old qnnlibs");
+            }
+            if (!tmp.renameTo(dst)) {
+                if (backup.exists()) backup.renameTo(dst);
+                throw new IOException("cannot activate new qnnlibs");
+            }
+            deleteRecursively(backup);
+        } catch (Throwable t) {
+            deleteRecursively(tmp);
+            throw t;
         }
-        try (FileOutputStream out = new FileOutputStream(stamp, false)) {
-            out.write(stackVersion.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        }
-        stamp.setReadable(true, false);
         return dst.getAbsolutePath();
+    }
+
+    private static String outputName(String name) {
+        return name.endsWith(".gz") ? name.substring(0, name.length() - 3) : name;
+    }
+
+    private static void deleteRecursively(File f) {
+        if (!f.exists()) return;
+        File[] children = f.listFiles();
+        if (children != null) for (File child : children) deleteRecursively(child);
+        if (!f.delete() && f.exists()) throw new IllegalStateException("delete failed: " + f);
+    }
+
+    private static String readAssetText(Context context, String path) throws IOException {
+        try (InputStream in = context.getAssets().open(path)) {
+            return readText(in);
+        }
+    }
+
+    private static String readFileText(File f) throws IOException {
+        try (InputStream in = new FileInputStream(f)) { return readText(in); }
+    }
+
+    private static String readText(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int n;
+        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+        return out.toString("UTF-8").trim();
     }
 
     public static boolean isReady() { return ready; }
     public static String getLastError() { return lastError; }
-    public static String status() { return ready ? nativeGetDeviceInfo() : "NPU_OFFLINE " + lastError; }
-    public static boolean smoke() { return ready && nativeTest(); }
-    public static String add(float[] a, float[] b) { return ready ? nativeAdd(a,b) : "ERR " + lastError; }
-    public static void shutdown() { if (ready) { nativeShutdown(); ready=false; } }
+    public static synchronized String status() {
+        return ready ? nativeGetDeviceInfo() : "NPU_OFFLINE " + lastError;
+    }
+    public static synchronized boolean smoke() { return ready && nativeTest(); }
+    public static synchronized String add(float[] a, float[] b) {
+        if (!ready) return "ERR " + lastError;
+        return nativeAdd(a, b);
+    }
+    public static synchronized void shutdown() {
+        if (!ready) return;
+        nativeShutdown();
+        ready = false;
+    }
 
-    private static native void nativeConfigure(String tuning);
     private static native boolean nativeInit(String qnnDir, String workDir);
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
