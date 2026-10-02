@@ -4,7 +4,13 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.content.Intent;
 import android.os.Build;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.widget.*;
+import java.io.FileInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -34,6 +40,8 @@ public final class MainActivity extends Activity {
         findViewById(R.id.test).setOnClickListener(v -> runSmoke());
         findViewById(R.id.shizukuOpen).setOnClickListener(v -> openShizuku());
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
+        findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
+        findViewById(R.id.shareLog).setOnClickListener(v -> shareLog());
 
         startNpuService();
     }
@@ -55,6 +63,7 @@ public final class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
             else startService(i);
             appendLog("请求启动独立 NPU 服务");
+            handler.postDelayed(this::refreshStatus, 800);
         } catch (Throwable t) {
             appendLog("启动失败: " + t);
         }
@@ -103,25 +112,76 @@ public final class MainActivity extends Activity {
             String ping = NpuServiceClient.request("PING");
             String npu = NpuServiceClient.request("STATUS");
             String sz = ShizukuHelper.status();
-            String serviceLog = NpuServiceClient.request("LOG");
+            String localLog = readLocalLog();
             runOnUiThread(() -> {
                 boolean online = ping.startsWith("PONG");
                 npuState.setText(online ? "● NPU 服务：在线" : "● NPU 服务：离线");
-                npuDetail.setText(npu);
+                npuDetail.setText(online ? npu : "服务未在线，下面显示本地持久诊断日志");
                 shizukuState.setText(sz + "    |    授权结果：" + ShizukuHelper.result());
 
                 String now = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
                 log.setText("[" + now + "] PING    " + ping
                         + "\nSTATUS  " + npu
                         + "\nSHIZUKU " + sz
-                        + "\n\n--- 服务日志 ---\n" + serviceLog.replace("\\n", "\n"));
+                        + "\n\n--- MC NPU 持久日志 ---\n"
+                        + (localLog.isEmpty() ? "暂无日志" : localLog));
+                log.setSelection(log.length());
             });
         }).start();
     }
 
+    private String readLocalLog() {
+        try (FileInputStream in = openFileInput("mcnpu.log");
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+            String s = out.toString(StandardCharsets.UTF_8);
+            if (s.length() > 20000) s = s.substring(s.length() - 20000);
+            return s;
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private String fullDiagnostic() {
+        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+        return "MC NPU DIAGNOSTIC " + now + "\n"
+                + "PING: " + NpuServiceClient.request("PING") + "\n"
+                + "STATUS: " + NpuServiceClient.request("STATUS") + "\n"
+                + "SHIZUKU: " + ShizukuHelper.status() + "\n"
+                + "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
+                + "--- PERSISTENT SERVICE LOG ---\n"
+                + readLocalLog();
+    }
+
+    private void copyLog() {
+        try {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            cm.setPrimaryClip(ClipData.newPlainText("MC NPU diagnostics", fullDiagnostic()));
+            Toast.makeText(this, "诊断日志已复制，可以直接粘贴给 GPT", Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            Toast.makeText(this, "复制日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void shareLog() {
+        try {
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("text/plain");
+            i.putExtra(Intent.EXTRA_SUBJECT, "MC NPU 诊断日志");
+            i.putExtra(Intent.EXTRA_TEXT, fullDiagnostic());
+            startActivity(Intent.createChooser(i, "发送 MC NPU 诊断日志"));
+        } catch (Throwable t) {
+            Toast.makeText(this, "分享日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void appendLog(String s) {
         if (log == null) return;
-        log.setText(log.getText() + "\n[" +
+        String old = log.getText().toString();
+        log.setText(old + "\n[" +
                 new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s);
+        log.setSelection(log.length());
     }
 }
