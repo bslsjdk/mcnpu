@@ -31,8 +31,29 @@ public final class NpuRuntime {
     private static String extractQnnLibs(Context context) throws Exception {
         File dst = new File(context.getFilesDir(), "qnnlibs");
         if (!dst.exists() && !dst.mkdirs()) throw new IllegalStateException("mkdir qnnlibs failed");
+        String stackVersion;
+        try (InputStream in = context.getAssets().open("qnn-stack-version.txt")) {
+            byte[] buf = new byte[4096];
+            int n = in.read(buf);
+            stackVersion = new String(buf, 0, Math.max(0, n), java.nio.charset.StandardCharsets.UTF_8).trim();
+        }
+        File stamp = new File(dst, ".stack-version");
+        String installed = "";
+        if (stamp.exists()) {
+            try (InputStream in = new java.io.FileInputStream(stamp)) {
+                byte[] buf = new byte[4096];
+                int n = in.read(buf);
+                installed = new String(buf, 0, Math.max(0, n), java.nio.charset.StandardCharsets.UTF_8).trim();
+            }
+        }
         String[] names = context.getAssets().list("qnnlibs");
         if (names == null || names.length == 0) throw new IllegalStateException("assets/qnnlibs empty");
+        if (!stackVersion.equals(installed)) {
+            File[] old = dst.listFiles();
+            if (old != null) for (File f : old) {
+                if (!f.delete() && f.exists()) throw new IllegalStateException("delete stale QNN file failed: " + f);
+            }
+        }
         for (String name : names) {
             File out = new File(dst, name.endsWith(".gz") ? name.substring(0, name.length()-3) : name);
             if (out.exists() && out.length() > 0) continue;
@@ -46,6 +67,10 @@ public final class NpuRuntime {
             out.setReadable(true, false);
             out.setExecutable(true, false);
         }
+        try (FileOutputStream out = new FileOutputStream(stamp, false)) {
+            out.write(stackVersion.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        stamp.setReadable(true, false);
         return dst.getAbsolutePath();
     }
 
