@@ -34,7 +34,14 @@ namespace {
 struct Runtime {
     uint64_t diagCount=0;
     uint64_t graphSeq=0;
-    std::unordered_map<uint32_t, Qnn_GraphHandle_t> addGraphs;
+    struct AddGraph {
+        Qnn_GraphHandle_t graph=nullptr;
+        uint32_t dims[1]={0};
+        Qnn_Tensor_t a=QNN_TENSOR_INIT;
+        Qnn_Tensor_t b=QNN_TENSOR_INIT;
+        Qnn_Tensor_t c=QNN_TENSOR_INIT;
+    };
+    std::unordered_map<uint32_t, AddGraph> addGraphs;
     void* qnn=nullptr;
     const QnnInterface_t* api=nullptr;
     Qnn_BackendHandle_t backend=nullptr;
@@ -288,34 +295,38 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     const auto total0=std::chrono::steady_clock::now();
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
-    Qnn_GraphHandle_t graph=nullptr;
+
+    Runtime::AddGraph* ag=nullptr;
     bool cached=false;
     auto found=g.addGraphs.find(n);
     if(found!=g.addGraphs.end()){
-        graph=found->second;
+        ag=&found->second;
         cached=true;
     }
 
-    uint32_t dims[1]={n};
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     long long createUs=0, finalizeUs=0;
 
     if(!cached){
+        Runtime::AddGraph fresh;
+        fresh.dims[0]=n;
         const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
+
         auto tCreate0=std::chrono::steady_clock::now();
-        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&graph);
+        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&fresh.graph);
         createUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tCreate0).count();
-        if(rc!=QNN_SUCCESS || !graph)
+        if(rc!=QNN_SUCCESS || !fresh.graph)
             return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+" "+verbose(rc);
 
-        Qnn_Tensor_t a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
-        Qnn_Tensor_t b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
-        Qnn_Tensor_t out=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,dims);
-        rc=f.tensorCreateGraphTensor(graph,&a);
-        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(graph,&b);
-        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(graph,&out);
+        fresh.a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,fresh.dims);
+        fresh.b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,fresh.dims);
+        fresh.c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,fresh.dims);
+
+        rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(fresh.graph,&fresh.c);
         if(rc!=QNN_SUCCESS)
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
 
@@ -326,7 +337,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         param.paramType=QNN_PARAMTYPE_SCALAR;
         param.name=QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION;
         param.scalarParam=scalar;
-        Qnn_Tensor_t ins[2]={a,b};
+        Qnn_Tensor_t ins[2]={fresh.a,fresh.b};
         Qnn_OpConfig_t op=QNN_OPCONFIG_INIT;
         op.v1.name="add";
         op.v1.packageName="qti.aisw";
@@ -336,13 +347,14 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         op.v1.numOfInputs=2;
         op.v1.inputTensors=ins;
         op.v1.numOfOutputs=1;
-        op.v1.outputTensors=&out;
-        rc=f.graphAddNode(graph,op);
+        op.v1.outputTensors=&fresh.c;
+
+        rc=f.graphAddNode(fresh.graph,op);
         if(rc!=QNN_SUCCESS)
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
 
         auto tFinalize0=std::chrono::steady_clock::now();
-        rc=f.graphFinalize(graph,nullptr,nullptr);
+        rc=f.graphFinalize(fresh.graph,nullptr,nullptr);
         finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tFinalize0).count();
         if(rc!=QNN_SUCCESS)
@@ -350,25 +362,35 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
                    " create_us="+std::to_string(createUs)+
                    " finalize_us="+std::to_string(finalizeUs)+" "+verbose(rc);
 
-        g.addGraphs.emplace(n,graph);
+        auto inserted=g.addGraphs.emplace(n,std::move(fresh));
+        ag=&inserted.first->second;
+
+        I("ADD GRAPH READY n=%u a_id=%u b_id=%u c_id=%u",
+          (unsigned)n,(unsigned)ag->a.v1.id,(unsigned)ag->b.v1.id,(unsigned)ag->c.v1.id);
     }
 
     std::vector<float> out(n,-999.f);
-    Qnn_Tensor_t a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
-    Qnn_Tensor_t b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
-    Qnn_Tensor_t c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,dims);
-    Qnn_Tensor_t ea=a,eb=b,ec=c;
-    ea.v1.clientBuf.data=(void*)av; ea.v1.clientBuf.dataSize=n*sizeof(float);
-    eb.v1.clientBuf.data=(void*)bv; eb.v1.clientBuf.dataSize=n*sizeof(float);
-    ec.v1.clientBuf.data=out.data(); ec.v1.clientBuf.dataSize=n*sizeof(float);
-    Qnn_Tensor_t execIn[2]={ea,eb},execOut[1]={ec};
+
+    // QNN graphExecute requires the same tensor IDs assigned during
+    // tensorCreateGraphTensor(). Reuse the registered descriptors and only
+    // replace their client buffers for each execution.
+    Qnn_Tensor_t ea=ag->a, eb=ag->b, ec=ag->c;
+    ea.v1.clientBuf.data=(void*)av;
+    ea.v1.clientBuf.dataSize=n*sizeof(float);
+    eb.v1.clientBuf.data=(void*)bv;
+    eb.v1.clientBuf.dataSize=n*sizeof(float);
+    ec.v1.clientBuf.data=out.data();
+    ec.v1.clientBuf.dataSize=n*sizeof(float);
+    Qnn_Tensor_t execIn[2]={ea,eb};
+    Qnn_Tensor_t execOut[1]={ec};
 
     auto t0=std::chrono::steady_clock::now();
-    rc=f.graphExecute(graph,execIn,2,execOut,1,nullptr,nullptr);
+    rc=f.graphExecute(ag->graph,execIn,2,execOut,1,nullptr,nullptr);
     auto us=std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now()-t0).count();
     if(rc!=QNN_SUCCESS)
         return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+
     for(uint32_t i=0;i<n;i++)
         if(out[i] != av[i]+bv[i]) return "ERR OUTPUT_VERIFY";
 
