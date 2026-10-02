@@ -16,6 +16,8 @@ public final class NpuService extends Service {
     private static final String SOCKET_NAME = "mcnpu_ipc_v1";
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
+    private static final String PREFS = "ipc";
+    private static final String PREF_TRUSTED_PACKAGES = "trusted_packages";
     private final ExecutorService clients = Executors.newFixedThreadPool(8);
     private volatile boolean running;
     private LocalServerSocket server;
@@ -65,18 +67,32 @@ public final class NpuService extends Service {
     }
 
     private boolean isTrustedPeer(LocalSocket socket) {
+        int uid = -1;
+        String[] packages = null;
         try {
             Credentials peer = socket.getPeerCredentials();
-            int uid = peer.getUid();
+            uid = peer.getUid();
             if (uid == android.os.Process.myUid()) return true;
-            String[] packages = getPackageManager().getPackagesForUid(uid);
-            if (packages != null) {
+
+            packages = getPackageManager().getPackagesForUid(uid);
+            String configured = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .getString(PREF_TRUSTED_PACKAGES, "");
+            if (packages != null && !configured.trim().isEmpty()) {
                 for (String p : packages) {
-                    if ("com.movtery.zalithlauncher.v2".equals(p)) return true;
+                    for (String allowed : configured.split(",")) {
+                        if (p.equals(allowed.trim()) && !allowed.trim().isEmpty()) {
+                            log("IPC accepted configured peer uid=" + uid + " package=" + p);
+                            return true;
+                        }
+                    }
                 }
             }
+
+            log("IPC rejected peer uid=" + uid + " packages=" +
+                    (packages == null ? "<none>" : String.join(",", packages)));
         } catch (Throwable t) {
-            log("IPC peer credential check failed: " + t);
+            log("IPC peer credential check failed uid=" + uid + " packages=" +
+                    (packages == null ? "<none>" : String.join(",", packages)) + ": " + t);
         }
         return false;
     }
