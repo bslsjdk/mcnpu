@@ -275,12 +275,15 @@ Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt
 }
 
 std::string runAdd(const float* av,const float* bv,uint32_t n){
+    const auto total0=std::chrono::steady_clock::now();
     if(!g.ready)return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     Qnn_GraphHandle_t graph=nullptr;
     const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
+    auto tCreate0=std::chrono::steady_clock::now();
     Qnn_ErrorHandle_t rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&graph);
-    if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    auto createUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tCreate0).count();
+    if(rc!=QNN_SUCCESS) return "ERR GRAPH_CREATE rc="+std::to_string((int)rc)+" create_us="+std::to_string((long long)createUs)+" "+verbose(rc);
     uint32_t dims[1]={n};
     Qnn_Tensor_t a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
     Qnn_Tensor_t b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,dims);
@@ -303,8 +306,10 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     op.v1.numOfOutputs=1;op.v1.outputTensors=&c;
     rc=f.graphAddNode(graph,op);
     if(rc!=QNN_SUCCESS)return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    auto tFinalize0=std::chrono::steady_clock::now();
     rc=f.graphFinalize(graph,nullptr,nullptr);
-    if(rc!=QNN_SUCCESS)return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    auto finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tFinalize0).count();
+    if(rc!=QNN_SUCCESS)return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+" create_us="+std::to_string((long long)createUs)+" finalize_us="+std::to_string((long long)finalizeUs)+" "+verbose(rc);
     std::vector<float> out(n,-999.f);
     Qnn_Tensor_t ea=a,eb=b,ec=c;
     ea.v1.clientBuf.data=(void*)av;ea.v1.clientBuf.dataSize=n*sizeof(float);
@@ -316,8 +321,12 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     auto us=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
     if(rc!=QNN_SUCCESS)return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
     for(uint32_t i=0;i<n;i++)if(out[i] != av[i]+bv[i])return "ERR OUTPUT_VERIFY";
-    char buf[256];
-    std::snprintf(buf,sizeof(buf),"OK HTP graphExecute n=%u elapsed_us=%lld first=%g",(unsigned)n,(long long)us,(double)out[0]);
+    auto totalUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-total0).count();
+    char buf[512];
+    std::snprintf(buf,sizeof(buf),
+        "OK HTP_GRAPH_EXECUTE graph=%s n=%u create_us=%lld finalize_us=%lld execute_us=%lld total_us=%lld out0=%g out_last=%g",
+        graphName.c_str(),(unsigned)n,(long long)createUs,(long long)finalizeUs,
+        (long long)us,(long long)totalUs,(double)out[0],(double)out[n-1]);
     return buf;
 }
 
