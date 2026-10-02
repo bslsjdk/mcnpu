@@ -95,8 +95,7 @@ jobs:
           cmake -S app/src/main/cpp -B build/native -G Ninja             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"             -DANDROID_ABI=arm64-v8a             -DANDROID_PLATFORM=android-35             -DCMAKE_BUILD_TYPE=Release             -DANDROID_STL=c++_static             -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
           cmake --build build/native --config Release --parallel 2
           test -f build/native/libmcnpu.so
-          cp build/native/libmcnpu.so app/src/main/jniLibs/arm64-v8a/libmcnpu.so
-          file app/src/main/jniLibs/arm64-v8a/libmcnpu.so
+          file build/native/libmcnpu.so
 
       - name: Build unsigned release APK
         env:
