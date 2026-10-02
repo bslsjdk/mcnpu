@@ -6,18 +6,18 @@ import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.Build;
 import java.io.*;
-import android.net.LocalServerSocket;
-import android.net.LocalSocket;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class NpuService extends Service {
-    private static final String SOCKET_NAME = "mcnpu_ipc_v1";
+    private static final int IPC_PORT = 38761;
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
     private final ExecutorService clients = Executors.newFixedThreadPool(8);
     private volatile boolean running;
-    private LocalServerSocket server;
+    private ServerSocket server;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -45,11 +45,11 @@ public final class NpuService extends Service {
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
         try {
-            server = new LocalServerSocket(SOCKET_NAME);
-            log("IPC 监听 UNIX ABSTRACT @" + SOCKET_NAME);
+            server = new ServerSocket(IPC_PORT, 16, java.net.InetAddress.getLoopbackAddress());
+            log("IPC 监听 LOOPBACK 127.0.0.1:" + IPC_PORT);
             updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
             while (running) {
-                LocalSocket socket = server.accept();
+                Socket socket = server.accept();
                 clients.execute(() -> handle(socket));
             }
         } catch (Throwable t) {
@@ -58,7 +58,7 @@ public final class NpuService extends Service {
         }
     }
 
-    private void handle(LocalSocket socket) {
+    private void handle(Socket socket) {
         try (LocalSocket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
