@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
@@ -35,6 +36,7 @@ public final class MainActivity extends Activity {
         return t;
     });
     private final AtomicBoolean statusInFlight = new AtomicBoolean();
+    private ScheduledFuture<?> statusFuture;
 
 
     @Override protected void onCreate(Bundle b) {
@@ -65,15 +67,15 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        statusExecutor.scheduleAtFixedRate(this::refreshStatus, 0, 1, TimeUnit.SECONDS);
+        if (statusFuture == null || statusFuture.isCancelled()) statusFuture = statusExecutor.scheduleAtFixedRate(this::refreshStatus, 0, 1, TimeUnit.SECONDS);
     }
 
     @Override protected void onPause() {
-        statusExecutor.shutdownNow();
+        if (statusFuture != null) statusFuture.cancel(false);
         super.onPause();
     }
 
-    private void startNpuService() {
+    @Override protected void onDestroy() {\n        statusExecutor.shutdownNow();\n        super.onDestroy();\n    }\n\n    private void startNpuService() {
         try {
             Intent i = new Intent(this, NpuService.class);
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
