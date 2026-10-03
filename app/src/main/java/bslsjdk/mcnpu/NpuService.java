@@ -2,10 +2,13 @@ package bslsjdk.mcnpu;
 
 import android.app.*;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.Build;
 import java.io.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -27,6 +30,13 @@ public final class NpuService extends Service {
             if (Build.VERSION.SDK_INT >= 34)
                 startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(NOTIFICATION_ID, n);
+
+            if (Build.VERSION.SDK_INT >= 33) {
+                boolean nearby = checkSelfPermission("android.permission.NEARBY_WIFI_DEVICES")
+                        == PackageManager.PERMISSION_GRANTED;
+                log("NEARBY_WIFI_DEVICES=" + (nearby ? "GRANTED" : "NOT_GRANTED"));
+            }
+
             running = true;
             clients.execute(this::serverLoop);
         } catch (Throwable t) {
@@ -44,18 +54,48 @@ public final class NpuService extends Service {
         boolean ok = NpuRuntime.init(getApplicationContext());
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
-        try {
-            server = new ServerSocket(IPC_PORT, 16, java.net.InetAddress.getLoopbackAddress());
-            log("IPC 监听 LOOPBACK 127.0.0.1:" + IPC_PORT);
-            updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
-            while (running) {
-                Socket socket = server.accept();
-                clients.execute(() -> handle(socket));
+
+        while (running) {
+            ServerSocket ss = null;
+            try {
+                ss = new ServerSocket();
+                ss.setReuseAddress(true);
+                ss.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), IPC_PORT), 16);
+                server = ss;
+
+                log("IPC 监听 LOOPBACK 127.0.0.1:" + IPC_PORT);
+                updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
+
+                while (running && server == ss && !ss.isClosed()) {
+                    Socket socket = ss.accept();
+                    try {
+                        clients.execute(() -> handle(socket));
+                    } catch (Throwable t) {
+                        try { socket.close(); } catch (Throwable ignored) {}
+                        log("IPC client dispatch failed: " + t);
+                    }
+                }
+            } catch (Throwable t) {
+                if (running) {
+                    log("IPC accept/bind 失败: " + t);
+                    updateNotification("MC NPU: IPC retrying");
+                }
+            } finally {
+                if (server == ss) server = null;
+                try { if (ss != null) ss.close(); } catch (Throwable ignored) {}
             }
-        } catch (Throwable t) {
-            log("IPC 停止: " + t);
-            if (running) updateNotification("MC NPU: IPC stopped");
+
+            if (running) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
+
+        log("IPC 循环结束");
     }
 
     private void handle(Socket socket) {
