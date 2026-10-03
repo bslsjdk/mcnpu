@@ -1,6 +1,6 @@
-[21:56:45] [main/INFO]: Loading Minecraft 26.3 with Fabric Loader 0.19.5
-[21:56:45] [main/INFO]: Mappings not present!
-[21:56:46] [main/INFO]: Loading 70 mods:
+[22:11:43] [main/INFO]: Loading Minecraft 26.3 with Fabric Loader 0.19.5
+[22:11:43] [main/INFO]: Mappings not present!
+[22:11:43] [main/INFO]: Loading 70 mods:
 	- chunky 1.5.3
 	- cloth-config 26.3.159
 	   \-- cloth-basic-math 0.6.1
@@ -76,50 +76,77 @@
 	   \-- fabric-permissions-api-v0 0.7.0
 	- xaeroworldmap 1.46.4
 	   \-- xaerolib 1.7.17
-[21:56:46] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/storage/emulated/0/26.3/libraries/net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
-[21:56:47] [main/WARN]: Reference map 'entityculling.refmap.mixins.json' for entityculling.mixins.json could not be read. If this is a development environment you can ignore this message
-[21:56:47] [main/INFO]: Loaded configuration file for Lithium: 170 options available, 0 override(s) found.
-[21:56:47] [main/INFO]: Loaded configuration file for Sodium: 37 options available, 0 override(s) found
-[21:56:47] [main/WARN]: Reference map 'xaerolib.refmap.json' for xaerolib.mixins.json could not be read. If this is a development environment you can ignore this message
-[21:56:47] [main/WARN]: Reference map 'xaeroworldmap.refmap.json' for xaeroworldmap.mixins.json could not be read. If this is a development environment you can ignore this message
-[21:56:49] [main/INFO]: Searching for graphics cards...
-[21:56:49] [main/WARN]: Could not find any graphics adapters! Probably the device is not on a bus we can probe, or there are no devices supporting 3D acceleration.
-[21:56:49] [main/WARN]: Sodium has applied one or more workarounds to prevent crashes or other issues on your system: [NO_ERROR_CONTEXT_UNSUPPORTED]
-[21:56:49] [main/WARN]: This is not necessarily an issue, but it may result in certain features or optimizations being disabled. You can sometimes fix these issues by upgrading your graphics driver.
-[21:56:49] [main/INFO]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
-[21:56:54] [main/WARN]: Did not find udev library in operating system. Some features may not work.
-[21:56:54] [Datafixer Bootstrap #0/INFO]: 307 Datafixer optimizations took 1623 milliseconds
-[21:56:54] [main/WARN]: File not found or not readable: /proc/stat
-[21:56:54] [main/WARN]: File not found or not readable: /etc/os-release
-[21:56:54] [main/WARN]: File not found or not readable: /etc/lsb-release
-[21:56:54] [main/WARN]: File not found or not readable: /proc/version
-[21:57:07] [Render thread/INFO]: Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
-[21:57:07] [Render thread/INFO]: Setting user: mengmo25
-[21:57:07] [Render thread/INFO]: Compression will use Java, encryption will use Java
-[21:57:07] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:07.969] [INFO] mod initialised
-[21:57:07] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:07.985] [INFO] boot: initialising runtime
-[21:57:07] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:07.993] [INFO] auto hooks registered (chunk load + server tick)
-[21:57:07] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:07.994] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
-[21:57:08] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] persistent MCNPU service connected
-[21:57:08] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] PING=PONG MCNPU/1 | STATUS=QNN HTP ready backendId=6 providers=1 | CAPABILITIES=OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8 max_elements=16384
-[21:57:08] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:08.029] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
-[21:57:08] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:08.037] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
-[21:57:08] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:08.043] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
-[21:57:08] [Render thread/INFO]: [Indigo] Different rendering plugin detected; not applying Indigo.
-[21:57:08] [Render thread/INFO]: Krypton is now accelerating your Minecraft client's networking stack 🚀
-[21:57:08] [Render thread/INFO]: Note that Krypton is most effective on servers, not the client.
-[21:57:08] [mcjavanpu-client-init/INFO]: [STDOUT]: [MCJavaNPU] external MCNPU service: QNN HTP ready backendId=6 providers=1
-[21:57:08] [Render thread/INFO]: Checking mod updates...
-[21:57:09] [Render thread/INFO]: [STDOUT]: [TRender] Initializing Client...
-[21:57:09] [Render thread/INFO]: Registering common data for channel xaerolib:main!
-[21:57:09] [Render thread/INFO]: Registering client data for channel xaerolib:main!
-[21:57:09] [Render thread/INFO]: Loading primary common config for channel xaerolib:main!
-[21:57:09] [Render thread/INFO]: Loading server config profiles for channel xaerolib:main!
-[21:57:09] [Render thread/INFO]: Loading primary client config for channel xaerolib:main!
-[21:57:10] [Render thread/INFO]: Loading client config profiles for channel xaerolib:main!
-[21:57:10] [Render thread/INFO]: Loading XaeroLib common 1/2!
-[21:57:10] [Render thread/INFO]: Loading XaeroLib client 1/3!
-[21:57:10] [Download-2/ERROR]: Failed to fetch user properties
+[22:11:43] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/storage/emulated/0/26.3/libraries/net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[22:11:43] [main/WARN]: Reference map 'entityculling.refmap.mixins.json' for entityculling.mixins.json could not be read. If this is a development environment you can ignore this message
+[22:11:43] [main/INFO]: Loaded configuration file for Lithium: 170 options available, 0 override(s) found.
+[22:11:44] [main/INFO]: Loaded configuration file for Sodium: 37 options available, 0 override(s) found
+[22:11:44] [main/WARN]: Reference map 'xaerolib.refmap.json' for xaerolib.mixins.json could not be read. If this is a development environment you can ignore this message
+[22:11:44] [main/WARN]: Reference map 'xaeroworldmap.refmap.json' for xaeroworldmap.mixins.json could not be read. If this is a development environment you can ignore this message
+[22:11:45] [main/INFO]: Searching for graphics cards...
+[22:11:45] [main/WARN]: Could not find any graphics adapters! Probably the device is not on a bus we can probe, or there are no devices supporting 3D acceleration.
+[22:11:45] [main/WARN]: Sodium has applied one or more workarounds to prevent crashes or other issues on your system: [NO_ERROR_CONTEXT_UNSUPPORTED]
+[22:11:45] [main/WARN]: This is not necessarily an issue, but it may result in certain features or optimizations being disabled. You can sometimes fix these issues by upgrading your graphics driver.
+[22:11:45] [main/INFO]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
+[22:11:49] [Datafixer Bootstrap #0/INFO]: 307 Datafixer optimizations took 965 milliseconds
+[22:11:49] [main/WARN]: Did not find udev library in operating system. Some features may not work.
+[22:11:50] [main/WARN]: File not found or not readable: /proc/stat
+[22:11:50] [main/WARN]: File not found or not readable: /etc/os-release
+[22:11:50] [main/WARN]: File not found or not readable: /etc/lsb-release
+[22:11:50] [main/WARN]: File not found or not readable: /proc/version
+[22:12:01] [Render thread/INFO]: Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[22:12:01] [Render thread/INFO]: Setting user: mengmo25
+[22:12:02] [Render thread/INFO]: Compression will use Java, encryption will use Java
+[22:12:02] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.697] [INFO] mod initialised
+[22:12:02] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.723] [INFO] boot: initialising runtime
+[22:12:02] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.730] [INFO] auto hooks registered (chunk load + server tick)
+[22:12:02] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.737] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[22:12:02] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.738] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[22:12:02] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] persistent MCNPU service connected
+[22:12:02] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] PING=PONG MCNPU/1 | STATUS=QNN HTP ready backendId=6 providers=1 | CAPABILITIES=OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8 max_elements=16384
+[22:12:02] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.850] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[22:12:02] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:02.853] [INFO] boot: enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[22:12:03] [Render thread/INFO]: [Indigo] Different rendering plugin detected; not applying Indigo.
+[22:12:03] [Render thread/INFO]: Krypton is now accelerating your Minecraft client's networking stack 🚀
+[22:12:03] [Render thread/INFO]: Note that Krypton is most effective on servers, not the client.
+[22:12:03] [mcjavanpu-client-init/INFO]: [STDOUT]: [MCJavaNPU] external MCNPU service: QNN HTP ready backendId=6 providers=1
+[22:12:03] [Render thread/INFO]: Checking mod updates...
+[22:12:05] [Render thread/INFO]: [STDOUT]: [TRender] Initializing Client...
+[22:12:05] [Render thread/INFO]: Registering common data for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Registering client data for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Loading primary common config for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Loading server config profiles for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Loading primary client config for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Loading client config profiles for channel xaerolib:main!
+[22:12:05] [Render thread/INFO]: Loading XaeroLib common 1/2!
+[22:12:05] [Render thread/INFO]: Loading XaeroLib client 1/3!
+[22:12:07] [Render thread/WARN]: io exception while checking patreon: Read timed out
+[22:12:07] [Render thread/INFO]: Registering common data for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Registering client data for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Loading primary common config for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Loading server config profiles for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Loading primary client config for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Loading client config profiles for channel xaeroworldmap:main!
+[22:12:07] [Render thread/INFO]: Loading Xaero's World Map - Stage 1/3
+[22:12:08] [Render thread/INFO]: Backend library: LWJGL version 3.4.1-snapshot
+[22:12:08] [Render thread/INFO]: SDL [SYSTEM]: App name: Minecraft
+[22:12:08] [Render thread/INFO]: SDL [SYSTEM]: App version: 26.3
+[22:12:08] [Render thread/INFO]: SDL [SYSTEM]: App ID: com.mojang.minecraft
+[22:12:08] [Render thread/INFO]: SDL [SYSTEM]: SDL revision: 
+[22:12:09] [Render thread/INFO]: Optional FeatureSet [AMD Buffer Marker] not supported
+[22:12:09] [Render thread/INFO]: Optional FeatureSet [Calibrated Timestamps] not supported
+[22:12:09] [Render thread/INFO]: Optional FeatureSet [NV Diagnostic Checkpoint] not supported
+[22:12:09] [Render thread/INFO]: Optional FeatureSet [EXT MultiDraw] not supported
+[22:12:09] [Render thread/INFO]: Enabling optional FeatureSet [Wireframe]
+[22:12:09] [Render thread/INFO]: Using graphics backend Vulkan, using drivers: 1.3.128 Qualcomm Technologies Inc. Adreno Vulkan Driver Driver Build: f6b5df5188, I29aebc4401, 1758283784
+Date: 09/19/25
+Compiler Version: E031.45.02.26
+Driver Branch: 
+
+[22:12:09] [Render thread/INFO]: Using graphics device: Adreno (TM) 735 (QUALCOMM)
+[22:12:09] [Render thread/INFO]: Using graphics device extensions: VK_KHR_synchronization2 (D), VK_EXT_vertex_attribute_divisor (D), VK_KHR_android_surface (I), VK_KHR_swapchain (D), VK_KHR_surface (I), VK_KHR_push_descriptor (D), VK_EXT_debug_utils (I), VK_KHR_dynamic_rendering (D)
+[22:12:09] [Render thread/INFO]: Created window using SDL video driver: android
+[22:12:09] [Render thread/ERROR]: Couldn't leave fullscreen: That operation is not supported
+[22:12:09] [Download-2/ERROR]: Failed to fetch user properties
 com.mojang.authlib.exceptions.InvalidCredentialsException: Status: 401
 	at knot//com.mojang.authlib.exceptions.MinecraftClientHttpException.toAuthenticationException(MinecraftClientHttpException.java:70)
 	at knot//com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:168)
@@ -135,39 +162,10 @@ Caused by: MinecraftClientHttpException[type=HTTP_ERROR, status=401, response=Er
 	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.get(MinecraftClient.java:65)
 	at knot//com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:118)
 	... 5 more
-[21:57:11] [Render thread/WARN]: io exception while checking patreon: Read timed out
-[21:57:11] [Render thread/INFO]: Registering common data for channel xaeroworldmap:main!
-[21:57:11] [Render thread/INFO]: Registering client data for channel xaeroworldmap:main!
-[21:57:11] [Render thread/INFO]: Loading primary common config for channel xaeroworldmap:main!
-[21:57:11] [Render thread/INFO]: Loading server config profiles for channel xaeroworldmap:main!
-[21:57:12] [Render thread/INFO]: Loading primary client config for channel xaeroworldmap:main!
-[21:57:12] [Render thread/INFO]: Loading client config profiles for channel xaeroworldmap:main!
-[21:57:12] [Render thread/INFO]: Loading Xaero's World Map - Stage 1/3
-[21:57:12] [Render thread/INFO]: Backend library: LWJGL version 3.4.1-snapshot
-[21:57:13] [Render thread/INFO]: SDL [SYSTEM]: App name: Minecraft
-[21:57:13] [Render thread/INFO]: SDL [SYSTEM]: App version: 26.3
-[21:57:13] [Render thread/INFO]: SDL [SYSTEM]: App ID: com.mojang.minecraft
-[21:57:13] [Render thread/INFO]: SDL [SYSTEM]: SDL revision: 
-[21:57:13] [Render thread/INFO]: Optional FeatureSet [AMD Buffer Marker] not supported
-[21:57:13] [Render thread/INFO]: Optional FeatureSet [NV Diagnostic Checkpoint] not supported
-[21:57:13] [Render thread/INFO]: Enabling optional FeatureSet [Wireframe]
-[21:57:13] [Render thread/INFO]: Optional FeatureSet [Calibrated Timestamps] not supported
-[21:57:13] [Render thread/INFO]: Optional FeatureSet [EXT MultiDraw] not supported
-[21:57:13] [Render thread/INFO]: Using graphics backend Vulkan, using drivers: 1.3.128 Qualcomm Technologies Inc. Adreno Vulkan Driver Driver Build: f6b5df5188, I29aebc4401, 1758283784
-Date: 09/19/25
-Compiler Version: E031.45.02.26
-Driver Branch: 
-
-[21:57:13] [Render thread/INFO]: Using graphics device: Adreno (TM) 735 (QUALCOMM)
-[21:57:13] [Render thread/INFO]: Using graphics device extensions: VK_KHR_synchronization2 (D), VK_EXT_vertex_attribute_divisor (D), VK_KHR_android_surface (I), VK_KHR_swapchain (D), VK_KHR_surface (I), VK_KHR_push_descriptor (D), VK_EXT_debug_utils (I), VK_KHR_dynamic_rendering (D)
-[21:57:13] [Render thread/INFO]: Created window using SDL video driver: android
-[21:57:13] [Render thread/ERROR]: Couldn't leave fullscreen: That operation is not supported
-[21:57:13] [Render thread/WARN]: Failed to set window icon: That operation is not supported
-[21:57:15] [Render thread/INFO]: Reloading ResourceManager: vanilla, vanilla, chunky, cloth-config, conditional-mixin, entityculling, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, krypton, lithium, modmenu, moreculling, placeholder-api, sodium, spark, trender, xaerolib, xaeroworldmap, file/Minecraft-Mod-Language-Modpack-Converted-26.3.zip
-[21:57:16] [Worker-Main-7/INFO]: Found unifont_all_no_pua-17.0.01.hex, loading
-[21:57:16] [Worker-Main-5/INFO]: Found unifont_pua-17.0.01.hex, loading
-[21:57:16] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
-[21:57:16] [Download-1/ERROR]: Failed to fetch Realms feature flags
+[22:12:09] [Render thread/WARN]: Failed to set window icon: That operation is not supported
+[22:12:11] [Render thread/INFO]: Reloading ResourceManager: vanilla, vanilla, chunky, cloth-config, conditional-mixin, entityculling, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, krypton, lithium, modmenu, moreculling, placeholder-api, sodium, spark, trender, xaerolib, xaeroworldmap, file/Minecraft-Mod-Language-Modpack-Converted-26.3.zip
+[22:12:12] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[22:12:12] [Download-1/ERROR]: Failed to fetch Realms feature flags
 com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 0'
 	at knot//com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
 	at knot//com.mojang.realmsclient.client.RealmsClient.fetchFeatureFlags(RealmsClient.java:204)
@@ -175,36 +173,38 @@ com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication 
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
 	at java.base/java.lang.Thread.run(Thread.java:1474)
-[21:57:17] [Worker-Main-5/INFO]: Found unifont_jp_patch-17.0.01.hex, loading
-[21:57:17] [Render thread/INFO]: Cached all modded block culling states
-[21:57:17] [Render thread/INFO]: Loading Xaero's World Map - Stage 2/3
-[21:57:19] [spark-monitoring-2-thread-4/WARN]: Timed out waiting for world statistics
-[21:57:19] [Render thread/ERROR]: io exception while checking versions: Read timed out
-[21:57:19] [Render thread/INFO]: Registered player tracker system: map_synced
-[21:57:19] [Render thread/INFO]: No Optifine!
-[21:57:19] [Render thread/INFO]: Xaero's World Map: No Vivecraft!
-[21:57:19] [Render thread/INFO]: Loading Xaero's World Map - Stage 3/3
-[21:57:19] [Render thread/INFO]: New world map region cache hash code: 1635311401
-[21:57:19] [Render thread/INFO]: Loading XaeroLib common 2/2!
-[21:57:19] [Render thread/INFO]: Loading XaeroLib client 2/3!
-[21:57:19] [Render thread/INFO]: Loading XaeroLib client 3/3!
-[21:57:22] [Render thread/INFO]: OpenAL initialized on device OpenSL
-[21:57:22] [Render thread/INFO]: Sound engine started
-[21:57:22] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
-[21:57:22] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/blocks.png-atlas
-[21:57:23] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
-[21:57:23] [Render thread/INFO]: Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
-[21:57:23] [Render thread/INFO]: Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
-[21:57:23] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
-[21:57:23] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
-[21:57:25] [Render thread/INFO]: 35727 cache(s) were cleared!
-[21:57:27] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
-[21:57:27] [Download-1/ERROR]: Couldn't connect to realms
+[22:12:12] [Worker-Main-6/INFO]: Found unifont_all_no_pua-17.0.01.hex, loading
+[22:12:12] [Worker-Main-5/INFO]: Found unifont_pua-17.0.01.hex, loading
+[22:12:12] [Worker-Main-2/INFO]: Found unifont_jp_patch-17.0.01.hex, loading
+[22:12:13] [spark-monitoring-2-thread-1/WARN]: Timed out waiting for world statistics
+[22:12:13] [Render thread/INFO]: Cached all modded block culling states
+[22:12:13] [Render thread/INFO]: Loading Xaero's World Map - Stage 2/3
+[22:12:14] [Render thread/ERROR]: io exception while checking versions: Read timed out
+[22:12:14] [Render thread/INFO]: Registered player tracker system: map_synced
+[22:12:14] [Render thread/INFO]: No Optifine!
+[22:12:14] [Render thread/INFO]: Xaero's World Map: No Vivecraft!
+[22:12:14] [Render thread/INFO]: Loading Xaero's World Map - Stage 3/3
+[22:12:14] [Render thread/INFO]: New world map region cache hash code: 1635311401
+[22:12:15] [Render thread/INFO]: Loading XaeroLib common 2/2!
+[22:12:15] [Render thread/INFO]: Loading XaeroLib client 2/3!
+[22:12:15] [Render thread/INFO]: Loading XaeroLib client 3/3!
+[22:12:18] [Render thread/INFO]: OpenAL initialized on device OpenSL
+[22:12:18] [Render thread/INFO]: Sound engine started
+[22:12:18] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/blocks.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[22:12:18] [Render thread/INFO]: Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[22:12:19] [Render thread/INFO]: Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[22:12:19] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[22:12:19] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[22:12:20] [Render thread/INFO]: 35727 cache(s) were cleared!
+[22:12:22] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[22:12:22] [Download-1/ERROR]: Couldn't connect to realms
 com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 0'
 	at knot//com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
 	at knot//com.mojang.realmsclient.client.RealmsClient.clientCompatible(RealmsClient.java:354)
@@ -213,50 +213,157 @@ com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication 
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
 	at java.base/java.lang.Thread.run(Thread.java:1474)
-[21:57:28] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:28.332] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=40428 cpu_us=207979 speedup=5.14x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=281
-[21:57:28] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:28.431] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=21305 cpu_us=71396 speedup=3.35x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=98
-[21:57:28] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [21:57:28.432] [INFO] boot: done, graphs are hot
-[21:57:32] [Worker-Main-7/INFO]: Loaded 1866 advancements
-[21:57:33] [Render thread/INFO]: Applied 0 biome modifications to 0 of 67 new biomes in 3.375 ms
-[21:57:33] [Server thread/INFO]: Starting background profiler...
-[21:57:33] [Server thread/WARN]: Unable to initialise the async-profiler engine: A runtime error occurred whilst loading the native library (/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-9f4f8b9cd9f9-libasyncProfiler.so.tmp: dlopen failed: library "/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-9f4f8b9cd9f9-libasyncProfiler.so.tmp" needed or dlopened by "/data/data/com.movtery.zalithlauncher.v2/files/games/runtimes/Internal-25/lib/server/libjvm.so" is not accessible for the namespace "clns-9")
-[21:57:33] [Server thread/WARN]: Please see here for more information: https://spark.lucko.me/docs/misc/Using-async-profiler
-[21:57:33] [Server thread/INFO]: Starting integrated minecraft server version 26.3
-[21:57:33] [Server thread/INFO]: Generating keypair
-[21:57:35] [Server thread/INFO]: Loading 0 persistent chunks...
-[21:57:35] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
-[21:57:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
-[21:57:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
-[21:57:36] [Render thread/WARN]: Failed to find a usable hardware address from the network interfaces; using random bytes: 08:70:ca:2d:43:f9:58:64
-[21:57:37] [Server thread/INFO]: Loading 49 chunks for player spawn...
-[21:57:37] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:37] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:37] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:37] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:37] [Worker-Main-7/INFO]: [STDOUT]: [MCJavaNPU] [21:57:37.666] [INFO] light engine calls=1 mode=assist (fold pending)
-[21:57:37] [Server thread/INFO]: 准备生成区域中：16%
-[21:57:38] [Server thread/INFO]: Time elapsed: 2786 ms
-[21:57:38] [Server thread/INFO]: mengmo25[local:E:016e86df] logged in with entity id 81 at (-1075.0794038426027, 90.85143884775094, 93.61094038784485)
-[21:57:38] [Render thread/INFO]: Fullscreen map required item set to nothing.
-[21:57:38] [Render thread/INFO]: New world map session initialized!
-[21:57:38] [Server thread/INFO]: System chat: mengmo25加入了游戏
-[21:57:38] [Render thread/INFO]: Started 2 worker threads
-[21:57:38] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:38.853] [INFO] chunk batch: submitted=8 pending=41 (total 49 loaded, batch #1, dropped=0 skipped=0)
-[21:57:38] [Render thread/INFO]: Loaded 47 advancements
-[21:57:38] [Server thread/INFO]: Changing view distance to 12, from 10
-[21:57:38] [Server thread/INFO]: Changing simulation distance to 5, from 0
-[21:57:38] [Render thread/INFO]: Stopping worker threads
-[21:57:38] [Render thread/INFO]: Started 2 worker threads
-[21:57:39] [Render thread/WARN]: Requested post effect does not exist: minecraft:end_of_frame
-[21:57:39] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
-[21:57:39] [Render thread/INFO]: Stopping worker threads
-[21:57:39] [Render thread/INFO]: Started 2 worker threads
-[21:57:39] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 4 reached during a single frame. New capacity will be 8.
-[21:57:40] [Server thread/WARN]: Can't keep up! Is the server overloaded? Running 2090ms or 41 ticks behind
-[21:57:40] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:40.840] [INFO] chunk batch: submitted=5 pending=0 (total 69 loaded, batch #9, dropped=0 skipped=0)
-[21:57:47] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [21:57:47.655] [INFO] light engine calls=1155 mode=assist (fold pending)
-[21:57:51] [Server thread/INFO]: Saving and pausing game...
-[21:57:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
-[21:57:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
-[21:57:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:12:22] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [22:12:22.940] [WARN] guard DEGRADED: p99 161370us over budget 8000us - features fall back to CPU until it recovers
+[22:12:23] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [22:12:23.003] [INFO] ==== NPU auto probe ====
+service: UP
+device: QNN HTP ready backendId=6 providers=1
+
+shape guidance (SM8635 / HTP v73):
+  INVALID: dimension above 65536; split the batch
+  req=16384x4x1 -> plan=16384x32x32  padding=12.81x  in=513.0 KiB  out=512.0 KiB  estCost=1280.0
+  ! padding wastes 12.8x -- round the request up to a bucket first, or batch with neighbours
+  req=4096x16x1 -> plan=4096x32x32  padding=3.78x  in=129.0 KiB  out=128.0 KiB  estCost=1088.0
+  ! padding wastes 3.8x -- round the request up to a bucket first, or batch with neighbours
+  req=128x64x16 -> plan=128x64x32  padding=1.27x  in=10.0 KiB  out=4.0 KiB  estCost=2052.0
+  req=33x33x33 -> plan=128x64x64  padding=6.27x  in=12.0 KiB  out=8.0 KiB  estCost=4104.0
+  ! padding wastes 6.3x -- round the request up to a bucket first, or batch with neighbours
+  ! m=33 is below the stable floor 128; padding to 128
+  req=1000x8x8 -> plan=1024x32x32  padding=4.14x  in=33.0 KiB  out=32.0 KiB  estCost=1040.0
+  ! padding wastes 4.1x -- round the request up to a bucket first, or batch with neighbours
+
+NPU bench sweep (each: 1 warmup + 5 measured)
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+==== end auto probe ====
+[22:12:23] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:23.126] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=77575 cpu_us=153081 speedup=1.97x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=264
+[22:12:23] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:23.131] [INFO] warmup steady: FAILED GUARD_DEGRADED p99 161370us over budget 8000us wall_ms=3
+[22:12:23] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [22:12:23.132] [INFO] boot: done, graphs are hot
+[22:13:01] [Worker-Main-4/INFO]: Loaded 1866 advancements
+[22:13:02] [Render thread/INFO]: Applied 0 biome modifications to 0 of 67 new biomes in 1.606 ms
+[22:13:02] [Server thread/INFO]: Starting background profiler...
+[22:13:02] [Server thread/WARN]: Unable to initialise the async-profiler engine: A runtime error occurred whilst loading the native library (/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-a027cf6716f5-libasyncProfiler.so.tmp: dlopen failed: library "/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-a027cf6716f5-libasyncProfiler.so.tmp" needed or dlopened by "/data/data/com.movtery.zalithlauncher.v2/files/games/runtimes/Internal-25/lib/server/libjvm.so" is not accessible for the namespace "clns-9")
+[22:13:02] [Server thread/WARN]: Please see here for more information: https://spark.lucko.me/docs/misc/Using-async-profiler
+[22:13:02] [Server thread/INFO]: Starting integrated minecraft server version 26.3
+[22:13:02] [Server thread/INFO]: Generating keypair
+[22:13:04] [Server thread/INFO]: Loading 0 persistent chunks...
+[22:13:04] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[22:13:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[22:13:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:13:05] [Render thread/WARN]: Failed to find a usable hardware address from the network interfaces; using random bytes: a8:f1:8a:89:a8:7f:ca:01
+[22:13:06] [Server thread/INFO]: Loading 49 chunks for player spawn...
+[22:13:06] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:06] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:06] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:06] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:06] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:07] [Worker-Main-4/INFO]: [STDOUT]: [MCJavaNPU] [22:13:07.017] [INFO] light engine calls=1 mode=assist (fold pending)
+[22:13:07] [Server thread/INFO]: 准备生成区域中：16%
+[22:13:07] [Server thread/INFO]: Time elapsed: 3450 ms
+[22:13:08] [Server thread/INFO]: mengmo25[local:E:c18492bc] logged in with entity id 63 at (-1101.5044011161888, 112.95969969254689, -188.37413979775167)
+[22:13:08] [Render thread/INFO]: Fullscreen map required item set to nothing.
+[22:13:08] [Server thread/INFO]: System chat: mengmo25加入了游戏
+[22:13:08] [Render thread/INFO]: New world map session initialized!
+[22:13:08] [Render thread/INFO]: Started 2 worker threads
+[22:13:08] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:08.755] [INFO] chunk batch: submitted=8 pending=41 (total 49 loaded, batch #1, dropped=0 skipped=0)
+[22:13:08] [Server thread/INFO]: Changing view distance to 12, from 10
+[22:13:08] [Server thread/INFO]: Changing simulation distance to 5, from 0
+[22:13:08] [Render thread/INFO]: Loaded 47 advancements
+[22:13:09] [Render thread/INFO]: Stopping worker threads
+[22:13:09] [Render thread/INFO]: Started 2 worker threads
+[22:13:09] [Render thread/WARN]: Requested post effect does not exist: minecraft:end_of_frame
+[22:13:09] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:09.473] [INFO] chunk batch: submitted=8 pending=19 (total 91 loaded, batch #9, dropped=0 skipped=0)
+[22:13:09] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
+[22:13:09] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 4 reached during a single frame. New capacity will be 8.
+[22:13:10] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:10.869] [INFO] chunk batch: submitted=8 pending=1 (total 133 loaded, batch #17, dropped=0 skipped=0)
+[22:13:11] [Server thread/WARN]: Can't keep up! Is the server overloaded? Running 2011ms or 40 ticks behind
+[22:13:12] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:12.898] [INFO] chunk batch: submitted=7 pending=0 (total 184 loaded, batch #25, dropped=0 skipped=0)
+[22:13:14] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:14.901] [INFO] chunk batch: submitted=8 pending=0 (total 240 loaded, batch #33, dropped=0 skipped=0)
+[22:13:16] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:16.510] [INFO] chunk batch: submitted=8 pending=2 (total 302 loaded, batch #41, dropped=0 skipped=0)
+[22:13:17] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:17.039] [INFO] light engine calls=951 mode=assist (fold pending)
+[22:13:18] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:18.007] [INFO] chunk batch: submitted=4 pending=0 (total 357 loaded, batch #49, dropped=0 skipped=0)
+[22:13:18] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:18.975] [INFO] chunk batch: submitted=7 pending=0 (total 406 loaded, batch #57, dropped=0 skipped=0)
+[22:13:20] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:20.664] [INFO] chunk batch: submitted=8 pending=7 (total 466 loaded, batch #65, dropped=0 skipped=0)
+[22:13:22] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:22.052] [INFO] chunk batch: submitted=8 pending=6 (total 521 loaded, batch #73, dropped=0 skipped=0)
+[22:13:22] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:22.969] [INFO] chunk batch: submitted=7 pending=0 (total 574 loaded, batch #81, dropped=0 skipped=0)
+[22:13:23] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [22:13:23.096] [INFO] heartbeat | NPU busy total: 62 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=1      cells=1          npu=   62.6ms host=   62.6ms x1.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 161370us over budget 8000us | service=UP
+[22:13:24] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:24.441] [INFO] chunk batch: submitted=6 pending=0 (total 625 loaded, batch #89, dropped=0 skipped=0)
+[22:13:25] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:25.919] [INFO] chunk batch: submitted=7 pending=0 (total 682 loaded, batch #97, dropped=0 skipped=0)
+[22:13:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:27.054] [INFO] light engine calls=2419 mode=assist (fold pending)
+[22:13:27] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:27.426] [INFO] chunk batch: submitted=4 pending=0 (total 729 loaded, batch #105, dropped=0 skipped=0)
+[22:13:28] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:28.207] [INFO] chunk batch: submitted=5 pending=0 (total 790 loaded, batch #113, dropped=0 skipped=0)
+[22:13:29] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:29.171] [INFO] chunk batch: submitted=6 pending=0 (total 834 loaded, batch #121, dropped=0 skipped=0)
+[22:13:31] [Server thread/WARN]: Can't keep up! Is the server overloaded? Running 4683ms or 93 ticks behind
+[22:13:37] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:37.055] [INFO] light engine calls=3603 mode=assist (fold pending)
+[22:13:43] [Render thread/INFO]: Loaded 47 advancements
+[22:13:47] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:47.058] [INFO] light engine calls=5197 mode=assist (fold pending)
+[22:13:51] [Server thread/INFO]: Saving and pausing game...
+[22:13:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[22:13:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[22:13:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:13:55] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:55.973] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[22:13:55] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:55.976] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[22:13:55] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:55.977] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[22:13:56] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:56.924] [INFO] chunk batch: submitted=8 pending=71 (total 960 loaded, batch #129, dropped=0 skipped=0)
+[22:13:57] [Worker-Main-4/INFO]: [STDOUT]: [MCJavaNPU] [22:13:57.072] [INFO] light engine calls=7823 mode=assist (fold pending)
+[22:13:57] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:57.338] [INFO] chunk batch: submitted=8 pending=21 (total 974 loaded, batch #137, dropped=0 skipped=0)
+[22:13:59] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:13:59.443] [INFO] chunk batch: submitted=8 pending=1 (total 1008 loaded, batch #145, dropped=0 skipped=0)
+[22:14:01] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:01.381] [INFO] chunk batch: submitted=8 pending=0 (total 1054 loaded, batch #153, dropped=0 skipped=0)
+[22:14:04] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:04.015] [INFO] chunk batch: submitted=5 pending=0 (total 1104 loaded, batch #161, dropped=0 skipped=0)
+[22:14:06] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:06.139] [INFO] chunk batch: submitted=5 pending=0 (total 1151 loaded, batch #169, dropped=0 skipped=0)
+[22:14:07] [Worker-Main-7/INFO]: [STDOUT]: [MCJavaNPU] [22:14:07.075] [INFO] light engine calls=9233 mode=assist (fold pending)
+[22:14:09] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:09.726] [INFO] chunk batch: submitted=8 pending=0 (total 1202 loaded, batch #177, dropped=0 skipped=0)
+[22:14:11] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:11.658] [INFO] chunk batch: submitted=8 pending=2 (total 1260 loaded, batch #185, dropped=0 skipped=0)
+[22:14:13] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:13.761] [INFO] chunk batch: submitted=4 pending=0 (total 1311 loaded, batch #193, dropped=0 skipped=0)
+[22:14:15] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:15.878] [INFO] chunk batch: submitted=8 pending=1 (total 1366 loaded, batch #201, dropped=0 skipped=0)
+[22:14:17] [Worker-Main-5/INFO]: [STDOUT]: [MCJavaNPU] [22:14:17.082] [INFO] light engine calls=10455 mode=assist (fold pending)
+[22:14:17] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:17.632] [INFO] chunk batch: submitted=6 pending=0 (total 1414 loaded, batch #209, dropped=0 skipped=0)
+[22:14:19] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:19.015] [INFO] chunk batch: submitted=5 pending=0 (total 1470 loaded, batch #217, dropped=0 skipped=0)
+[22:14:20] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:20.304] [INFO] chunk batch: submitted=8 pending=13 (total 1532 loaded, batch #225, dropped=0 skipped=0)
+[22:14:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:21.034] [INFO] chunk batch: submitted=8 pending=5 (total 1582 loaded, batch #233, dropped=0 skipped=0)
+[22:14:21] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：显示
+[22:14:21] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
+[22:14:22] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:22.218] [INFO] chunk batch: submitted=6 pending=0 (total 1626 loaded, batch #241, dropped=0 skipped=0)
+[22:14:23] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：隐藏
+[22:14:23] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [22:14:23.254] [INFO] heartbeat | NPU busy total: 213 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=4      cells=4          npu=  213.1ms host=  213.1ms x1.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 161370us over budget 8000us | service=UP
+[22:14:23] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:23.429] [INFO] chunk batch: submitted=8 pending=0 (total 1674 loaded, batch #249, dropped=0 skipped=0)
+[22:14:25] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：显示
+[22:14:26] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:26.079] [INFO] chunk batch: submitted=8 pending=3 (total 1731 loaded, batch #257, dropped=0 skipped=0)
+[22:14:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:27.088] [INFO] light engine calls=11985 mode=assist (fold pending)
+[22:14:28] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：隐藏
+[22:14:31] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:31.434] [INFO] chunk batch: submitted=8 pending=4 (total 1782 loaded, batch #265, dropped=0 skipped=0)
+[22:14:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:32.102] [INFO] chunk batch: submitted=8 pending=4 (total 1837 loaded, batch #273, dropped=0 skipped=0)
+[22:14:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:32.597] [INFO] chunk batch: submitted=8 pending=12 (total 1903 loaded, batch #281, dropped=0 skipped=0)
+[22:14:33] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:33.171] [INFO] chunk batch: submitted=8 pending=5 (total 1959 loaded, batch #289, dropped=0 skipped=0)
+[22:14:33] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:33.637] [INFO] chunk batch: submitted=5 pending=0 (total 2004 loaded, batch #297, dropped=0 skipped=0)
+[22:14:34] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:34.357] [INFO] chunk batch: submitted=8 pending=17 (total 2077 loaded, batch #305, dropped=0 skipped=0)
+[22:14:34] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:34.798] [INFO] chunk batch: submitted=8 pending=2 (total 2123 loaded, batch #313, dropped=0 skipped=0)
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 160!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 320!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 640!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 1280!
+[22:14:35] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:35.223] [INFO] chunk batch: submitted=8 pending=5 (total 2184 loaded, batch #321, dropped=0 skipped=0)
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 160!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 320!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 640!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 1280!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 2560!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 3872!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 2560!
+[22:14:35] [Server thread/INFO]: Saving and pausing game...
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 5120!
+[22:14:35] [Render thread/INFO]: Resized a dynamic immediate buffer to 5120!
+[22:14:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[22:14:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[22:14:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:14:37] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:37.093] [INFO] light engine calls=14383 mode=assist (fold pending)
