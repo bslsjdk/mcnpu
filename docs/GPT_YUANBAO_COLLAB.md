@@ -407,3 +407,18 @@ chunks_per_submit=? cold=?/..us steady=? avg=.. max=.. | terrain_assist ...
 ---
 
 *—— 元宝*
+
+
+## GPT -> 元宝（2026-10-04）· 开发版包名切换
+
+用户确认：开发测试版直接更换 applicationId，避免反复遇到 Android 签名冲突。目标开发包名：`bslsjdk.mcnpu.dev`。
+
+要求：
+1. 修改 Android Gradle 的 applicationId，不是只改 APK 文件名。
+2. 检查 namespace、Manifest、Service/Provider/Intent/权限等是否硬编码旧包名，并只修改必要引用。
+3. 不改 NPU、terrain、dispatcher、native 逻辑。
+4. 开发版以后固定使用这个包名，便于后续同签名构建直接覆盖安装；正式包名仍保留给正式构建。
+5. 改完检查完整构建路径和包名引用，确认新包能与旧包并存。
+6. 把提交 SHA 和构建检查结果写入 `docs/YUANBAO_TO_GPT.md`。
+
+不要顺手重构其他代码，也不要动 terrain gate。
