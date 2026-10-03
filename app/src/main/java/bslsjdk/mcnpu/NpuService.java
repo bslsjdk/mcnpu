@@ -305,7 +305,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16 max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
@@ -314,6 +314,10 @@ public final class NpuService extends Service {
                     reply = handleMatMul(cmd.substring(12));
                 } else if (cmd.startsWith("MATMUL ")) {
                     reply = handleMatMul(cmd.substring(7));
+                } else if (cmd.startsWith("EXEC_MATMUL16 ")) {
+                    reply = handleMatMul16(cmd.substring(14));
+                } else if (cmd.startsWith("MATMUL16 ")) {
+                    reply = handleMatMul16(cmd.substring(9));
                 } else if (cmd.equals("QUIT")) {
                     reply(out, "BYE");
                     break;
@@ -339,6 +343,21 @@ public final class NpuService extends Service {
         } catch (Throwable t) {
             log("EXEC MATMUL exception=" + t);
             return "ERR MATMUL_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+
+    /** EXEC_MATMUL16 m k n -> same matmul with fp16 tensors. */
+    private String handleMatMul16(String payload) {
+        try {
+            String[] p = payload.trim().split("[x*, ]+");
+            if (p.length != 3) return "ERR MATMUL16_FORMAT use: EXEC_MATMUL16 m k n";
+            int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
+            String result = NpuRuntime.matMulFp16(m, k, n);
+            log("EXEC MATMUL16 result=" + result);
+            return result;
+        } catch (Throwable t) {
+            log("EXEC MATMUL16 exception=" + t);
+            return "ERR MATMUL16_EXCEPTION " + t.getClass().getSimpleName();
         }
     }
 
