@@ -755,6 +755,79 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
     return buf;
 }
 
+// Real data path: A and B arrive as int8 buffers (normalized to [-1,1], scale
+// 1/127 on both sides). The output scale must grow with k because an int8
+// accumulator saturates: sum(k terms of |a*b| <= 1) can reach k/127^2.
+std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,uint32_t m,uint32_t k,uint32_t n,float& scaleCOut){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const float scaleA = 1.0f/127.0f;
+    const float scaleB = 1.0f/127.0f;
+    const float scaleC = (float)k/(127.0f*127.0f);
+    scaleCOut = scaleC;
+    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
+    Runtime::MatMulGraph* mg=nullptr;
+    auto found=g.matMulGraphs8.find(key);
+    if(found!=g.matMulGraphs8.end()) mg=&found->second;
+    Qnn_ErrorHandle_t rc=QNN_SUCCESS;
+    if(!mg){
+        auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
+        mg=&inserted.first->second;
+        mg->m=m; mg->k=k; mg->n=n;
+        mg->dimsA[0]=k; mg->dimsA[1]=m;
+        mg->dimsB[0]=n; mg->dimsB[1]=k;
+        mg->dimsC[0]=n; mg->dimsC[1]=m;
+        const std::string graphName="mcnpu_mmb_"+std::to_string(++g.graphSeq);
+        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&mg->graph);
+        if(rc!=QNN_SUCCESS||!mg->graph){
+            g.matMulGraphs8.erase(inserted.first);
+            return "ERR BUF_GRAPH_CREATE rc="+std::to_string((int)rc);
+        }
+        mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,scaleA);
+        mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,scaleB);
+        mg->c=makeTensorQ("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsC,2,scaleC);
+        rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR BUF_TENSOR_CREATE rc="+std::to_string((int)rc);
+        }
+        Qnn_Tensor_t ins[2]={mg->a,mg->b};
+        Qnn_OpConfig_t op=QNN_OPCONFIG_INIT;
+        op.v1.name="matmul";
+        op.v1.packageName="qti.aisw";
+        op.v1.typeName=QNN_OP_MAT_MUL;
+        op.v1.numOfParams=0;
+        op.v1.params=nullptr;
+        op.v1.numOfInputs=2;
+        op.v1.inputTensors=ins;
+        op.v1.numOfOutputs=1;
+        op.v1.outputTensors=&mg->c;
+        rc=f.graphAddNode(mg->graph,op);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR BUF_GRAPH_NODE rc="+std::to_string((int)rc);
+        }
+        rc=f.graphFinalize(mg->graph,nullptr,nullptr);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR BUF_GRAPH_FINALIZE rc="+std::to_string((int)rc);
+        }
+        I("MATMUL8BUF GRAPH READY m=%u k=%u n=%u scaleC=%.5f",(unsigned)m,(unsigned)k,(unsigned)n,scaleC);
+    }
+    Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
+    ea.v1.clientBuf.data=(void*)Ain; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)m*k);
+    eb.v1.clientBuf.data=(void*)Bin; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)k*n);
+    ec.v1.clientBuf.data=Cout; ec.v1.clientBuf.dataSize=(uint32_t)((size_t)m*n);
+    Qnn_Tensor_t execIn[2]={ea,eb};
+    Qnn_Tensor_t execOut[1]={ec};
+    rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
+    if(rc!=QNN_SUCCESS) return "ERR BUF_EXECUTE rc="+std::to_string((int)rc);
+    return "OK";
+}
+
 void shutdownRuntime(){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.api){
@@ -825,5 +898,25 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulI
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
     return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
+    if(!ja||!jb||m<=0||k<=0||n<=0) return nullptr;
+    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n)) return nullptr;
+    const jsize alen=e->GetArrayLength(ja), blen=e->GetArrayLength(jb);
+    if(alen!=(jsize)((size_t)m*k) || blen!=(jsize)((size_t)k*n)) return nullptr;
+    std::vector<int8_t> A((size_t)alen), B((size_t)blen), C((size_t)m*n,0);
+    e->GetByteArrayRegion(ja,0,alen,(jbyte*)A.data());
+    e->GetByteArrayRegion(jb,0,blen,(jbyte*)B.data());
+    float scaleC=0.f;
+    std::string r=runMatMulInt8Buf(A.data(),B.data(),C.data(),(uint32_t)m,(uint32_t)k,(uint32_t)n,scaleC);
+    if(r.rfind("OK",0)!=0){ E("MATMUL8BUF FAIL %s",r.c_str()); return nullptr; }
+    const jsize total=(jsize)(4+C.size());
+    std::vector<jbyte> tmp((size_t)total);
+    std::memcpy(tmp.data(),&scaleC,4);
+    std::memcpy(tmp.data()+4,C.data(),C.size());
+    jbyteArray out=e->NewByteArray(total);
+    if(!out) return nullptr;
+    e->SetByteArrayRegion(out,0,total,tmp.data());
+    return out;
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
