@@ -925,16 +925,41 @@ static uint32_t bucketize(uint32_t v){
     return 0;
 }
 
-// Exposed over IPC so the client can discover the real limits instead of
-// hard-coding them. Previously the client guessed and silently produced
-// shapes above MM_BUCKET_MAX, which always came back as ERR BUF_TOO_LARGE.
-static std::string mmLimits(){
-    std::string s="OK MM_LIMITS max="+std::to_string((unsigned)MM_BUCKET_MAX)+" buckets=";
-    for(size_t i=0;i<sizeof(MM_BUCKETS)/sizeof(MM_BUCKETS[0]);i++){
-        if(i) s+=",";
-        s+=std::to_string((unsigned)MM_BUCKETS[i]);
-    }
-    return s;
+// Hard ceiling on a single tensor's byte size. The per-dimension limit alone is
+// NOT enough: 65536 x 65536 int8 is 4 GiB, which overflows the uint32 field in
+// Qnn_ClientBuffer_t.dataSize long before it fails on real memory. Every planned
+// shape must be checked against BOTH the dimension cap and this byte cap.
+static const uint64_t MM_MAX_TENSOR_BYTES = 64ULL * 1024 * 1024;  // 64 MiB
+
+// Returns the byte size, or 0 when the shape is unacceptable. Callers must treat
+// 0 as "reject". Checks, in order:
+//   - dimension within the bucket ladder
+//   - size_t multiplication overflow
+//   - fits in the uint32 dataSize field QNN expects
+//   - stays inside the per-tensor budget
+static uint64_t checkedTensorBytes(uint32_t rows, uint32_t cols, uint32_t elemSize){
+    if(rows == 0 || cols == 0 || elemSize == 0) return 0;
+    if(rows > MM_BUCKET_MAX || cols > MM_BUCKET_MAX) return 0;
+
+    const uint64_t cells = (uint64_t)rows * (uint64_t)cols;
+    // Overflow check: if the division does not give back the inputs, it wrapped.
+    if(cells / (uint64_t)rows != (uint64_t)cols) return 0;
+
+    const uint64_t bytes = cells * (uint64_t)elemSize;
+    if(bytes / (uint64_t)elemSize != cells) return 0;
+
+    // Qnn_ClientBuffer_t.dataSize is a uint32_t.
+    if(bytes > 0xFFFFFFFFULL) return 0;
+    if(bytes > MM_MAX_TENSOR_BYTES) return 0;
+    return bytes;
+}
+
+// Rejects a planned (m,k,n) matmul when ANY of the three tensors exceeds the
+// byte budget. Called before graphCreate so a bad shape costs nothing.
+static bool mmShapeSafe(uint32_t m, uint32_t k, uint32_t n, uint32_t elemSize){
+    return checkedTensorBytes(m, k, elemSize) != 0
+        && checkedTensorBytes(k, n, elemSize) != 0
+        && checkedTensorBytes(m, n, elemSize) != 0;
 }
 
 std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,uint32_t m,uint32_t k,uint32_t n,float& scaleCOut){
@@ -942,7 +967,13 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
-    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 65536)";
+    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max "+std::to_string((unsigned)MM_BUCKET_MAX)+")";
+    // Dimension caps passed, but the resulting tensors can still be gigabytes.
+    if(!mmShapeSafe(Mb, Kb, Nb, sizeof(int8_t)))
+        return "ERR BUF_BYTES_EXCEEDED m="+std::to_string((unsigned)Mb)
+              +" k="+std::to_string((unsigned)Kb)
+              +" n="+std::to_string((unsigned)Nb)
+              +" (per-tensor cap "+std::to_string((unsigned long long)(MM_MAX_TENSOR_BYTES>>20))+" MiB)";
     // Caller contract (matches the probes that already work): A and B are
     // quantised against +-0.127, i.e. one int8 step is 0.001. HTP only executes
     // a FULLY quantised matmul -- int8 in, int8 out with all three scales loaded
