@@ -396,6 +396,12 @@ static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=MM_BUCKET_MAX; }
 // Defined further down; runBatchXform (declared above it) needs it.
 static uint32_t bucketize(uint32_t v);
 
+// Forward declared here because mmSizeAllowed() and runBatchXform() use it above,
+// while the real definition sits with MM_BUCKETS further down the file. A namespace-
+// scope constant must be declared before use, so without this line the build fails
+// with "MM_BUCKET_MAX was not declared in this scope".
+static const uint32_t MM_BUCKET_MAX = 65536;
+
 Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
     t.version=QNN_TENSOR_VERSION_1;
@@ -920,7 +926,9 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
 // A mismatch is silent and expensive: Java rounds to a bucket the native side
 // does not have, native rounds again, and the caller pays for two paddings.
 static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536};
-static const uint32_t MM_BUCKET_MAX = 65536;
+// MM_BUCKET_MAX is declared near the top of this file (see the forward declaration
+// above) so the helpers defined earlier can use it. Keep it in sync with the last
+// entry of MM_BUCKETS.
 
 static uint32_t bucketize(uint32_t v){
     for(size_t i=0;i<sizeof(MM_BUCKETS)/sizeof(MM_BUCKETS[0]);i++) if(v<=MM_BUCKETS[i]) return MM_BUCKETS[i];
