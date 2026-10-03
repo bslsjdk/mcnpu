@@ -367,3 +367,54 @@ BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
 [22:14:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
 [22:14:35] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
 [22:14:37] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:37.093] [INFO] light engine calls=14383 mode=assist (fold pending)
+[22:14:38] [Render thread/INFO]: Resized a dynamic immediate buffer to 10240!
+[22:14:38] [Render thread/INFO]: Resized a dynamic immediate buffer to 10240!
+[22:14:38] [Render thread/INFO]: Resized a dynamic immediate buffer to 7744!
+[22:14:38] [Render thread/INFO]: Resized a dynamic immediate buffer to 20480!
+[22:14:38] [Render thread/INFO]: Resized a dynamic immediate buffer to 20480!
+[22:14:44] [Server thread/INFO]: System chat: [mengmo25: 已将mengmo25传送至-1338.500000, 120.500000, 6.500000]
+[22:14:44] [Render thread/INFO]: [System] [CHAT] 已将mengmo25传送至-1338.500000, 120.500000, 6.500000
+[22:14:47] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:47.102] [INFO] light engine calls=17871 mode=assist (fold pending)
+[22:14:49] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:49.167] [INFO] chunk batch: submitted=4 pending=0 (total 2222 loaded, batch #329, dropped=0 skipped=0)
+[22:14:50] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:50.445] [INFO] chunk batch: submitted=8 pending=0 (total 2279 loaded, batch #337, dropped=0 skipped=0)
+[22:14:51] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:51.889] [INFO] chunk batch: submitted=8 pending=3 (total 2336 loaded, batch #345, dropped=0 skipped=0)
+[22:14:53] [Server thread/INFO]: Saving and pausing game...
+[22:14:53] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[22:14:53] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[22:14:53] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:14:55] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:55.045] [INFO] chunk batch: submitted=4 pending=0 (total 2383 loaded, batch #353, dropped=0 skipped=0)
+[22:14:57] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:57.107] [INFO] light engine calls=20471 mode=assist (fold pending)
+[22:14:59] [Render thread/INFO]: Loaded 47 advancements
+[22:14:59] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:14:59.332] [INFO] chunk batch: submitted=8 pending=5 (total 2445 loaded, batch #361, dropped=0 skipped=0)
+[22:15:01] [Server thread/INFO]: Saving and pausing game...
+[22:15:01] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[22:15:02] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[22:15:02] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[22:15:03] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:03.663] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[22:15:03] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:03.664] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[22:15:03] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:03.664] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[22:15:04] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:04.352] [INFO] chunk batch: submitted=8 pending=27 (total 2520 loaded, batch #369, dropped=0 skipped=0)
+[22:15:05] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:05.544] [INFO] chunk batch: submitted=8 pending=2 (total 2551 loaded, batch #377, dropped=0 skipped=0)
+[22:15:07] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:07.131] [INFO] light engine calls=22519 mode=assist (fold pending)
+[22:15:08] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:08.166] [INFO] chunk batch: submitted=4 pending=0 (total 2593 loaded, batch #385, dropped=0 skipped=0)
+[22:15:10] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:10.767] [INFO] chunk batch: submitted=5 pending=0 (total 2635 loaded, batch #393, dropped=0 skipped=0)
+[22:15:13] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:13.694] [INFO] chunk batch: submitted=5 pending=0 (total 2679 loaded, batch #401, dropped=0 skipped=0)
+[22:15:14] [Render thread/INFO]: Loaded 47 advancements
+[22:15:16] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:16.304] [INFO] chunk batch: submitted=5 pending=0 (total 2733 loaded, batch #409, dropped=0 skipped=0)
+[22:15:17] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:17.162] [INFO] light engine calls=24719 mode=assist (fold pending)
+[22:15:18] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:18.593] [INFO] chunk batch: submitted=8 pending=0 (total 2779 loaded, batch #417, dropped=0 skipped=0)
+[22:15:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:21.027] [INFO] chunk batch: submitted=8 pending=2 (total 2825 loaded, batch #425, dropped=0 skipped=0)
+[22:15:23] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:23.324] [INFO] chunk batch: submitted=8 pending=2 (total 2874 loaded, batch #433, dropped=0 skipped=0)
+[22:15:23] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [22:15:23.338] [INFO] heartbeat | NPU busy total: 331 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=8      cells=8          npu=  331.1ms host=  331.1ms x1.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 161370us over budget 8000us | service=UP
+[22:15:26] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:26.303] [INFO] chunk batch: submitted=4 pending=0 (total 2924 loaded, batch #441, dropped=0 skipped=0)
+[22:15:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:27.169] [INFO] light engine calls=26907 mode=assist (fold pending)
+[22:15:29] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：显示
+[22:15:29] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：隐藏
+[22:15:29] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:29.758] [INFO] chunk batch: submitted=4 pending=0 (total 2962 loaded, batch #449, dropped=0 skipped=0)
+[22:15:30] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：显示
+[22:15:32] [Render thread/INFO]: [System] [CHAT] [调试]： 判定箱：隐藏
+[22:15:33] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:33.206] [INFO] chunk batch: submitted=6 pending=0 (total 3001 loaded, batch #457, dropped=0 skipped=0)
+[22:15:35] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:35.718] [INFO] chunk batch: submitted=8 pending=4 (total 3065 loaded, batch #465, dropped=0 skipped=0)
+[22:15:36] [Server thread/INFO]: Player mengmo25 standing on air - force-sending blocks below
+[22:15:37] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:37.179] [INFO] light engine calls=28825 mode=assist (fold pending)
+[22:15:37] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [22:15:37.288] [INFO] chunk batch: submitted=4 pending=0 (total 3106 loaded, batch #473, dropped=0 skipped=0)
