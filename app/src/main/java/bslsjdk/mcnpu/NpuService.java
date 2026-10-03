@@ -305,11 +305,15 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD max_elements=1024";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
                     reply = handleAdd(cmd.substring(4));
+                } else if (cmd.startsWith("EXEC_MATMUL ")) {
+                    reply = handleMatMul(cmd.substring(12));
+                } else if (cmd.startsWith("MATMUL ")) {
+                    reply = handleMatMul(cmd.substring(7));
                 } else if (cmd.equals("QUIT")) {
                     reply(out, "BYE");
                     break;
@@ -320,6 +324,21 @@ public final class NpuService extends Service {
             }
         } catch (Throwable t) {
             log("IPC client closed: " + t);
+        }
+    }
+
+    /** EXEC_MATMUL m k n  -> deterministic fp32 matmul on HTP + CPU baseline. */
+    private String handleMatMul(String payload) {
+        try {
+            String[] p = payload.trim().split("[x*, ]+");
+            if (p.length != 3) return "ERR MATMUL_FORMAT use: EXEC_MATMUL m k n";
+            int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
+            String result = NpuRuntime.matMul(m, k, n);
+            log("EXEC MATMUL result=" + result);
+            return result;
+        } catch (Throwable t) {
+            log("EXEC MATMUL exception=" + t);
+            return "ERR MATMUL_EXCEPTION " + t.getClass().getSimpleName();
         }
     }
 
