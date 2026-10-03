@@ -814,12 +814,16 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
     if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 65536)";
-    const float scaleA = 1.0f/127.0f;
-    const float scaleB = 1.0f/127.0f;
-    // The accumulator is int32 and holds sum(qA*qB) directly, so its natural
-    // scale is scaleA*scaleB = 1/127^2. The per-call output scale handed back to
-    // the caller is computed after execution by dynamic quantisation.
-    const float scaleC = scaleA*scaleB;
+    // Caller contract (matches the probes that already work): A and B are
+    // quantised against +-0.127, i.e. one int8 step is 0.001. HTP only executes
+    // a FULLY quantised matmul -- int8 in, int8 out with all three scales loaded
+    // -- and returns rc=1100 (unsupported) for any float/int32 output.
+    const float scaleA = 0.001f;
+    const float scaleB = 0.001f;
+    // Worst-case output magnitude is k*0.127*0.127 -- pick the scale that just
+    // fits it into int8, so nothing saturates for any input the caller may hand
+    // us. Resolution ends up around 1/sqrt(Kb) of the typical magnitude.
+    const float scaleC = (float)Kb*1.27e-4f;
     scaleCOut = scaleC;
 
     std::vector<int8_t> Ap, Bp;
@@ -856,12 +860,7 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         }
         mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,scaleA);
         mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,scaleB);
-        // HTP rejects an int32 matmul output at execute time (rc=1100 =
-        // unsupported feature), but it does accept float32. A float32 output has
-        // the same 4-byte width as int32 and cannot saturate either, so the
-        // accumulator is float and the result is quantised back to int8 for the
-        // wire (see the tail of this function).
-        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,mg->dimsC,2);
+        mg->c=makeTensorQ("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsC,2,scaleC);
         rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
@@ -893,11 +892,11 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
 
-    std::vector<float> C32((size_t)Mb*Nb, 0.f);
+    std::vector<int8_t> Cpad((size_t)Mb*Nb, 0);
     Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
     ea.v1.clientBuf.data=(void*)Ause; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Kb);
     eb.v1.clientBuf.data=(void*)Buse; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)Kb*Nb);
-    ec.v1.clientBuf.data=C32.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb*sizeof(float));
+    ec.v1.clientBuf.data=Cpad.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb);
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
@@ -905,23 +904,8 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
     // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
-    float maxAbs=1e-20f;
-    for(uint32_t r=0;r<m;r++){
-        const float* row=&C32[(size_t)r*Nb];
-        for(uint32_t j=0;j<n;j++){ float v=row[j]; if(v<0)v=-v; if(v>maxAbs)maxAbs=v; }
-    }
-    const float inv=127.0f/maxAbs;
-    for(uint32_t r=0;r<m;r++){
-        const float* row=&C32[(size_t)r*Nb];
-        int8_t* out=&Cout[(size_t)r*n];
-        for(uint32_t j=0;j<n;j++){
-            int v=(int)std::lround(row[j]*inv);
-            if(v>127)v=127; if(v<-128)v=-128;
-            out[j]=(int8_t)v;
-        }
-    }
-    scaleCOut = maxAbs/(127.0f*16129.0f);
-    I("MATMUL8BUF OK bucket=%ux%ux%u maxAbs=%.6g scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,maxAbs,scaleCOut);
+    for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
+    I("MATMUL8BUF OK bucket=%ux%ux%u scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut);
     return "OK";
 }
 
