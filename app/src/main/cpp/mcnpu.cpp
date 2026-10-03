@@ -391,7 +391,7 @@ static inline int8_t quantize8(float v,float scale){
 
 // Any reasonable shape is allowed (real workloads are not nice powers of two,
 // e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
-static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=65536; }
+static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=MM_BUCKET_MAX; }
 
 // Defined further down; runBatchXform (declared above it) needs it.
 static uint32_t bucketize(uint32_t v);
@@ -716,7 +716,9 @@ std::string runBatchXform(uint32_t n,int op){
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Nb=bucketize(n);
-    if(Nb==0) return "ERR XFORM_TOO_LARGE (max 65536)";
+    if(Nb==0) return "ERR XFORM_TOO_LARGE (max "+std::to_string((unsigned)MM_BUCKET_MAX)+")";
+    if(checkedTensorBytes(Nb,1,sizeof(int8_t))==0)
+        return "ERR XFORM_BYTES_EXCEEDED n="+std::to_string((unsigned)Nb);
     const float sc=1.0f/127.0f;
     const uint64_t key=(2ULL<<60)|((uint64_t)(op&0xff)<<52)|(uint64_t)Nb;
     Runtime::MatMulGraph* mg=nullptr;
@@ -1176,19 +1178,19 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,false).c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulFp16(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,true).c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
     return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
