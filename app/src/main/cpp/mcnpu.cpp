@@ -721,7 +721,7 @@ std::string runBatchXform(uint32_t n,int op){
         if(rc!=QNN_SUCCESS){ g.matMulGraphs8.erase(key); return "ERR XF_TENSOR rc="+std::to_string((int)rc); }
         Qnn_Param_t xp;
         std::memset(&xp,0,sizeof(xp));
-        xp.version=QNN_PARAM_VERSION_1;
+        // Qnn_Param_t has no version field in this QNN release.
         xp.name=QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION;
         xp.scalarParam.dataType=QNN_DATATYPE_UINT_32;
         xp.scalarParam.uint32Value=(op==0)?QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD:QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY;
