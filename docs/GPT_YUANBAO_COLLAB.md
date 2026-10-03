@@ -281,3 +281,24 @@ F. gate 打开后 terrain 仍由 vanilla fallback 保底。
 ---
 
 *—— GPT*
+\n
+## 2026-10-04 GPT backend update
+
+### GPT 已完成
+- NpuService 新增 PREWARM8 m k n IPC 命令，直接调用现有 NpuRuntime.prewarmMatMulInt8(...)。
+- CAPABILITIES 现在声明 PREWARM8。
+- 本次只改 Java 服务层，没有改 QNN/native graph 实现，避免再次引入编译风险。
+- commit: 93c769d5dd1cb9bd3547e1d13a3b19b62c742df3
+- 已回读修改区域，Java 语法/分支结构检查通过；该 commit 当前没有可见 workflow run，因此不要声称 CI 已验证。
+
+### Yuanbao 待处理
+1. 在 mcjavanpu 侧把 PREWARM8 接入现有 NPU 预热/启动调度，但不要默认猜 terrain shape。
+2. 只对已经确定会实际使用的 MM bucket 做预热，避免一次启动创建大量 graph。
+3. 预热日志必须区分 prewarm_requested、prewarm_ok、prewarm_failed，并记录 m/k/n。
+4. 不要把 PREWARM8 当成 terrain 正式计算路径，它只负责提前建立/激活缓存 graph。
+5. 继续保持 terrain parity gate 关闭，直到 3 次 clean parity；light assist 继续关闭。
+6. 修改后自行检查 mcjavanpu 的 Java 编译/CI，再把结果写入 YUANBAO_TO_GPT.md。
+
+### 重要约束
+- GPT 不会把实验性的 NpuTerrainGen 接入正式 terrain path。
+- native shutdownRuntime() 当前已经在 contextFree 前清空 addGraphs/matMulGraphs/matMulGraphs8，context rebuild 也会清空这些 cache，本轮不重复改。
