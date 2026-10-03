@@ -389,18 +389,18 @@ static inline int8_t quantize8(float v,float scale){
     return (int8_t)(q>=0.f ? (int)(q+0.5f) : (int)(q-0.5f));
 }
 
+// Largest bucket we will build a graph for. Declared here, above its first use,
+// because a namespace-scope const must be declared before it is referenced; the
+// bucket ladder itself lives further down next to bucketize().
+// Keep this in sync with the last entry of MM_BUCKETS.
+static const uint32_t MM_BUCKET_MAX = 65536;
+
 // Any reasonable shape is allowed (real workloads are not nice powers of two,
 // e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
 static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=MM_BUCKET_MAX; }
 
 // Defined further down; runBatchXform (declared above it) needs it.
 static uint32_t bucketize(uint32_t v);
-
-// Forward declared here because mmSizeAllowed() and runBatchXform() use it above,
-// while the real definition sits with MM_BUCKETS further down the file. A namespace-
-// scope constant must be declared before use, so without this line the build fails
-// with "MM_BUCKET_MAX was not declared in this scope".
-static const uint32_t MM_BUCKET_MAX = 65536;
 
 Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
