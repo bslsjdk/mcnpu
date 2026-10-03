@@ -324,12 +324,22 @@ public final class NpuService extends Service {
                 String reply;
                 if (cmd.equals("PING")) reply = "PONG MCNPU/1";
                 else if (cmd.equals("STATUS")) reply = NpuRuntime.status();
-                else if (cmd.equals("SMOKE")) {
+                else if (cmd.startsWith("PREWARM8 ")) {
+                    try {
+                        String[] pp = cmd.substring(9).trim().split("[x*, ]+");
+                        if (pp.length != 3) reply = "ERR PREWARM8_FORMAT use: PREWARM8 m k n";
+                        else reply = NpuRuntime.prewarmMatMulInt8(
+                                Integer.parseInt(pp[0]), Integer.parseInt(pp[1]), Integer.parseInt(pp[2]));
+                    } catch (Throwable t) {
+                        reply = "ERR PREWARM8_EXCEPTION " + t.getClass().getSimpleName();
+                    }
+                    log("PREWARM8 result=" + reply);
+                } else if (cmd.equals("SMOKE")) {
                     long t = System.nanoTime();
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8 max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8 max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
