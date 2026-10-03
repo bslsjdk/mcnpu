@@ -49,6 +49,12 @@ struct Runtime {
         uint32_t dimsA[2]={0,0}, dimsB[2]={0,0}, dimsC[2]={0,0};
         Qnn_Tensor_t a=QNN_TENSOR_INIT, b=QNN_TENSOR_INIT, c=QNN_TENSOR_INIT;
         bool fp16=false;
+        // Binary int8 path: the requantisation factor is a property of the graph,
+        // not of the data, so the host-side calibration only has to run once per
+        // shape. Caching it removes an O(refRows*n*k) CPU triple loop from every
+        // later call (that loop alone cost ~90ms at 512^3).
+        float scaleEff=0.02f;
+        bool calibrated=false;
     };
     std::unordered_map<uint32_t, AddGraph> addGraphs;
     std::unordered_map<uint64_t, MatMulGraph> matMulGraphs;
@@ -917,7 +923,7 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // exact formula, use the scaleC that the passing int8 probes use (0.02) and
     // see how the numbers land.
     const float scaleC = 0.02f;
-    scaleCOut = scaleC;
+    scaleCOut = scaleC;   // overwritten from the cache below once mg is known
 
     std::vector<int8_t> Ap, Bp;
     const int8_t* Ause=Ain;
@@ -1003,12 +1009,21 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // reverse-engineering that formula, compute the integer dot product of the
     // first few outputs on the host (O(8k), negligible) and solve for the scale
     // that makes c_int*scale == sum(qA*qB)*scaleA*scaleB exactly.
-    {
+    if(mg->calibrated){
+        // Hot path: shape already measured, reuse the cached dequant scale.
+        scaleCOut = mg->scaleEff;
+    } else {
         // Per-element ratio c_int / sum(qA*qB), then take the median. Summing
         // first (the previous attempt) cancels out on structured data and left
         // the scale untouched; a median over many elements is immune to both
         // cancellation and to the rounding noise of individual elements.
-        const uint32_t refRows = m<64u ? m : 64u;
+        //
+        // Only a handful of rows is needed: the ratio is a property of the
+        // requantisation, not of the data. The previous 64-row sweep cost
+        // 64*n*k host MAC per call (17M at 512^3 -> ~90ms) and dominated the
+        // whole pipeline. 4 rows keeps ~2k samples, which the median handles
+        // fine, and is only ever paid once per shape anyway.
+        const uint32_t refRows = m<4u ? m : 4u;
         std::vector<float> ratios;
         ratios.reserve((size_t)refRows*n);
         for(uint32_t r=0;r<refRows;r++){
@@ -1024,9 +1039,13 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
             const double med=(double)ratios[ratios.size()/2];
             if(med!=0.0){
                 const double scaleEff=(double)scaleA*(double)scaleB/med;
-                if(scaleEff>0.0) scaleCOut=(float)scaleEff;
+                if(scaleEff>0.0){
+                    scaleCOut=(float)scaleEff;
+                    mg->scaleEff=scaleCOut;
+                    mg->calibrated=true;      // cache it for every later call
+                }
             }
-            I("MATMUL8BUF CAL bucket=%ux%ux%u raw=%.8g eff=%.8g med=%.8g n=%u",
+            I("MATMUL8BUF CAL bucket=%ux%ux%u raw=%.8g eff=%.8g med=%.8g n=%u cached=1",
               (unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC,scaleCOut,med,(unsigned)ratios.size());
         } else {
             I("MATMUL8BUF CAL-SKIP bucket=%ux%ux%u samples=%u",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,(unsigned)ratios.size());
