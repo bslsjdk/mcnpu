@@ -25,9 +25,7 @@ public final class NpuService extends Service {
     private final java.util.concurrent.atomic.AtomicInteger workerEpoch = new java.util.concurrent.atomic.AtomicInteger();
     private volatile long workerBeatMs;
     private volatile String workerPhase = "STOPPED";
-    private static final long WORKER_STALL_MS = 15_000L;
-    private volatile long workerBeatMs;
-    private volatile String workerPhase = "STOPPED";
+    private volatile boolean listenerUp;
     private static final long WORKER_STALL_MS = 15_000L;
 
     @Override public void onCreate() {
@@ -57,8 +55,7 @@ public final class NpuService extends Service {
         if (!running) running = true;
         long stall = workerBeatMs == 0 ? Long.MAX_VALUE
                 : System.currentTimeMillis() - workerBeatMs;
-        boolean listenerHealthy = "LISTENING".equals(workerPhase)
-                && server != null && !server.isClosed();
+        boolean listenerHealthy = listenerUp && server != null && !server.isClosed();
         log("服务 startCommand startId=" + startId + " worker=" + serverLoopStarted.get()
                 + " phase=" + workerPhase + " stallMs=" + stall
                 + " listenerHealthy=" + listenerHealthy
@@ -117,14 +114,17 @@ public final class NpuService extends Service {
             InetAddress loopback = InetAddress.getByName("127.0.0.1");
             prebound.bind(new InetSocketAddress(loopback, IPC_PORT), 16);
             server = prebound;
+            listenerUp = true;
             workerPhase = "LISTENING_INIT";
             workerBeatMs = System.currentTimeMillis();
             log("IPC 监听 READY_FOR_INIT " + loopback.getHostAddress() + ":" + IPC_PORT);
+            selfTestLoopback();
         } catch (Throwable t) {
             workerPhase = "BIND_FAILED";
             workerBeatMs = System.currentTimeMillis();
             log("IPC early bind 失败: " + t);
             try { if (prebound != null) prebound.close(); } catch (Throwable ignored) {}
+            listenerUp = false;
             server = null;
         }
 
@@ -137,13 +137,12 @@ public final class NpuService extends Service {
         log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
+        selfTestLoopback();
 
         while (running && workerEpoch.get() == myEpoch) {
             workerBeatMs = System.currentTimeMillis();
             ServerSocket ss = null;
             try {
-                ss = new ServerSocket();
-                ss.setReuseAddress(true);
                 InetAddress loopback = InetAddress.getByName("127.0.0.1");
                 if (server != null && !server.isClosed()) {
                     ss = server;
@@ -152,6 +151,7 @@ public final class NpuService extends Service {
                     ss.setReuseAddress(true);
                     ss.bind(new InetSocketAddress(loopback, IPC_PORT), 16);
                     server = ss;
+                    listenerUp = true;
                 }
 
                 if ("INIT_READY".equals(workerPhase) || "INIT_FAILED".equals(workerPhase)) {
@@ -192,7 +192,10 @@ public final class NpuService extends Service {
                     updateNotification("MC NPU: IPC retrying");
                 }
             } finally {
-                if (server == ss) server = null;
+                if (server == ss) {
+                    listenerUp = false;
+                    server = null;
+                }
                 try { if (ss != null) ss.close(); } catch (Throwable ignored) {}
             }
 
