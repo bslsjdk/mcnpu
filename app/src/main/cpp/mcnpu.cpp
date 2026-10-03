@@ -797,18 +797,43 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
 // Real data path: A and B arrive as int8 buffers (normalized to [-1,1], scale
 // 1/127 on both sides). The output scale must grow with k because an int8
 // accumulator saturates: sum(k terms of |a*b| <= 1) can reach k/127^2.
+// Shape bucketing: any (m,k,n) is normalized to the nearest bucket andzero-padded,
+// so a bounded set of graphs is ever created. Without this, Minecraft's ever-
+// changing batch sizes would silently poison the context.
+static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048};
+static const int MM_BUCKET_COUNT = 7;
+
+static uint32_t bucketize(uint32_t v){
+    for(int i=0;i<MM_BUCKET_COUNT;i++) if(v<=MM_BUCKETS[i]) return MM_BUCKETS[i];
+    return 0;
+}
+
 std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,uint32_t m,uint32_t k,uint32_t n,float& scaleCOut){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
+    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 2048)";
     const float scaleA = 1.0f/127.0f;
     const float scaleB = 1.0f/127.0f;
-    // Output scale: |C| scales like sqrt(k) for typical normalized data, so the
-    // worst case (k) would waste the whole int8 range. sqrt(k)/127 keeps the
-    // quantisation step useful instead of saturating the output.
-    const float scaleC = std::sqrt((float)k)/127.0f;
+    // Bucketed output scale: shared by every shape landing in this bucket so the
+    // graph can actually be reused. sqrt(Kb) covers ~3 sigma of a dot product.
+    const float scaleC = std::sqrt((float)Kb)/127.0f;
     scaleCOut = scaleC;
-    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
+
+    std::vector<int8_t> Ap, Bp;
+    const int8_t* Ause=Ain;
+    const int8_t* Buse=Bin;
+    if(Mb!=m || Kb!=k || Nb!=n){
+        Ap.assign((size_t)Mb*Kb, 0);
+        for(uint32_t r=0;r<m;r++) std::memcpy(&Ap[(size_t)r*Kb], &Ain[(size_t)r*k], k);
+        Bp.assign((size_t)Kb*Nb, 0);
+        for(uint32_t r=0;r<k;r++) std::memcpy(&Bp[(size_t)r*Nb], &Bin[(size_t)r*n], n);
+        Ause=Ap.data();
+        Buse=Bp.data();
+    }
+
+    const uint64_t key=((uint64_t)Mb<<42)|((uint64_t)Kb<<21)|(uint64_t)Nb;
     Runtime::MatMulGraph* mg=nullptr;
     auto found=g.matMulGraphs8.find(key);
     if(found!=g.matMulGraphs8.end()) mg=&found->second;
@@ -818,11 +843,11 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         g.graphCount++;
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
-        mg->m=m; mg->k=k; mg->n=n;
-        mg->dimsA[0]=k; mg->dimsA[1]=m;
-        mg->dimsB[0]=n; mg->dimsB[1]=k;
-        mg->dimsC[0]=n; mg->dimsC[1]=m;
-        const std::string graphName="mcnpu_mmb_"+std::to_string(++g.graphSeq);
+        mg->m=Mb; mg->k=Kb; mg->n=Nb;
+        mg->dimsA[0]=Kb; mg->dimsA[1]=Mb;
+        mg->dimsB[0]=Nb; mg->dimsB[1]=Kb;
+        mg->dimsC[0]=Nb; mg->dimsC[1]=Mb;
+        const std::string graphName="mcnpu_mmb_"+std::to_string(Mb)+"x"+std::to_string(Kb)+"x"+std::to_string(Nb);
         rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&mg->graph);
         if(rc!=QNN_SUCCESS||!mg->graph){
             g.matMulGraphs8.erase(inserted.first);
@@ -859,16 +884,19 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
             g.matMulGraphs8.erase(key);
             return "ERR BUF_GRAPH_FINALIZE rc="+std::to_string((int)rc);
         }
-        I("MATMUL8BUF GRAPH READY m=%u k=%u n=%u scaleC=%.5f",(unsigned)m,(unsigned)k,(unsigned)n,scaleC);
+        I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
+
+    std::vector<int8_t> Cpad((size_t)Mb*Nb, 0);
     Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
-    ea.v1.clientBuf.data=(void*)Ain; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)m*k);
-    eb.v1.clientBuf.data=(void*)Bin; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)k*n);
-    ec.v1.clientBuf.data=Cout; ec.v1.clientBuf.dataSize=(uint32_t)((size_t)m*n);
+    ea.v1.clientBuf.data=(void*)Ause; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Kb);
+    eb.v1.clientBuf.data=(void*)Buse; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)Kb*Nb);
+    ec.v1.clientBuf.data=Cpad.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb);
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
     if(rc!=QNN_SUCCESS) return "ERR BUF_EXECUTE rc="+std::to_string((int)rc);
+    for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
     return "OK";
 }
 
