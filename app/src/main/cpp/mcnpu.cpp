@@ -292,8 +292,50 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
 // QNN 2.27 cannot free a single graph; only contextFree() releases them.
 // An unbounded set of graph sizes would therefore leak device memory, so ADD
 // is restricted to a fixed bucket list with one cached graph per bucket.
-static inline uint16_t f2h(float f){ __fp16 h=(__fp16)f; uint16_t u; std::memcpy(&u,&h,sizeof(u)); return u; }
-static inline float h2f(uint16_t u){ __fp16 h; std::memcpy(&h,&u,sizeof(h)); return (float)h; }
+// Explicit IEEE-754 binary16 conversion. The compiler's __fp16 may map to the
+// ARM alternative format (different bit layout from IEEE), which makes QNN read
+// garbage. These helpers are pure integer/bit manipulation.
+static inline uint16_t f2h(float f){
+    uint32_t x; std::memcpy(&x,&f,4);
+    const uint32_t sign=(x>>16)&0x8000u;
+    const uint32_t exp=(x>>23)&0xffu;
+    uint32_t m=x&0x7fffffu;
+    if(exp==0xffu) return (uint16_t)(sign|(m?0x7e00u:0x7c00u));
+    int32_t e=(int32_t)exp-127+15;
+    if(e>=31) return (uint16_t)(sign|0x7c00u);
+    if(e<=0){
+        if(e<-10) return (uint16_t)sign;
+        m|=0x800000u;
+        const uint32_t shift=(uint32_t)(14-e);
+        uint32_t sub=m>>(shift+13);
+        if((m>>(shift+12))&1u) sub+=1u;
+        return (uint16_t)(sign|sub);
+    }
+    uint16_t h=(uint16_t)(sign|((uint32_t)e<<10)|(m>>13));
+    const uint32_t rem=m&0x1fffu;
+    if(rem>0x1000u || (rem==0x1000u && (h&1u))) h++;
+    return h;
+}
+static inline float h2f(uint16_t u){
+    const uint32_t sign=((uint32_t)u&0x8000u)<<16;
+    uint32_t e=((uint32_t)u>>10)&0x1fu;
+    uint32_t m=(uint32_t)u&0x3ffu;
+    uint32_t x;
+    if(e==0){
+        if(m==0){ x=sign; }
+        else {
+            int32_t ee=-14;
+            while(!(m&0x400u)){ m<<=1; ee--; }
+            m&=0x3ffu;
+            x=sign|((uint32_t)(ee+127)<<23)|(m<<13);
+        }
+    } else if(e==31){
+        x=sign|0x7f800000u|(m<<13);
+    } else {
+        x=sign|(((uint32_t)e-15u+127u)<<23)|(m<<13);
+    }
+    float f; std::memcpy(&f,&x,4); return f;
+}
 
 static bool mmSizeAllowed(uint32_t v){
     static const uint32_t allow[]={16,32,64,128,256,512};
