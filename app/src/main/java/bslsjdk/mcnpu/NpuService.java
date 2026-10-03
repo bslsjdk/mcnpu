@@ -305,7 +305,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16 max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8 max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
@@ -318,6 +318,10 @@ public final class NpuService extends Service {
                     reply = handleMatMul16(cmd.substring(14));
                 } else if (cmd.startsWith("MATMUL16 ")) {
                     reply = handleMatMul16(cmd.substring(9));
+                } else if (cmd.startsWith("EXEC_MATMUL8 ")) {
+                    reply = handleMatMul8(cmd.substring(13));
+                } else if (cmd.startsWith("MATMUL8 ")) {
+                    reply = handleMatMul8(cmd.substring(8));
                 } else if (cmd.equals("QUIT")) {
                     reply(out, "BYE");
                     break;
@@ -358,6 +362,21 @@ public final class NpuService extends Service {
         } catch (Throwable t) {
             log("EXEC MATMUL16 exception=" + t);
             return "ERR MATMUL16_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+
+    /** EXEC_MATMUL8 m k n -> int8 quantized matmul (HTP native datatype). */
+    private String handleMatMul8(String payload) {
+        try {
+            String[] p = payload.trim().split("[x*, ]+");
+            if (p.length != 3) return "ERR MATMUL8_FORMAT use: EXEC_MATMUL8 m k n";
+            int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
+            String result = NpuRuntime.matMulInt8(m, k, n);
+            log("EXEC MATMUL8 result=" + result);
+            return result;
+        } catch (Throwable t) {
+            log("EXEC MATMUL8 exception=" + t);
+            return "ERR MATMUL8_EXCEPTION " + t.getClass().getSimpleName();
         }
     }
 
