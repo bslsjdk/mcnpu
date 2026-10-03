@@ -681,6 +681,93 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n,bool fp16){
     return buf;
 }
 
+// Element-wise batch transform: NO accumulation, so none of the requantisation
+// weirdness of matmul applies. C_int8 = op(A_int8, B_int8) with a single shared
+// scale of 1/127. op 0 = add, 1 = multiply (scaled by 1/127 to stay in range).
+std::string runBatchXform(uint32_t n,int op){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    const auto tAll0=std::chrono::steady_clock::now();
+    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const uint32_t Nb=bucketize(n);
+    if(Nb==0) return "ERR XFORM_TOO_LARGE (max 65536)";
+    const float sc=1.0f/127.0f;
+    const uint64_t key=(2ULL<<60)|((uint64_t)(op&0xff)<<52)|(uint64_t)Nb;
+    Runtime::MatMulGraph* mg=nullptr;
+    auto found=g.matMulGraphs8.find(key);
+    if(found!=g.matMulGraphs8.end()) mg=&found->second;
+    Qnn_ErrorHandle_t rc=QNN_SUCCESS;
+    if(!mg){
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        g.graphCount++;
+        auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
+        mg=&inserted.first->second;
+        mg->m=Nb; mg->k=1; mg->n=1;
+        mg->dimsA[0]=Nb; mg->dimsA[1]=1;
+        mg->dimsB[0]=Nb; mg->dimsB[1]=1;
+        mg->dimsC[0]=Nb; mg->dimsC[1]=1;
+        const std::string gn="mcnpu_xf_"+std::to_string(op)+"_"+std::to_string(Nb);
+        rc=f.graphCreate(g.context,gn.c_str(),nullptr,&mg->graph);
+        if(rc!=QNN_SUCCESS||!mg->graph){ g.matMulGraphs8.erase(inserted.first); return "ERR XF_GRAPH_CREATE rc="+std::to_string((int)rc); }
+        mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,sc);
+        mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,sc);
+        mg->c=makeTensorQ("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsC,2,sc);
+        rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
+        if(rc!=QNN_SUCCESS){ g.matMulGraphs8.erase(key); return "ERR XF_TENSOR rc="+std::to_string((int)rc); }
+        Qnn_Param_t xp;
+        std::memset(&xp,0,sizeof(xp));
+        xp.name=QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION;
+        xp.dataType=QNN_DATATYPE_UINT_32;
+        xp.value.uint32Value=(op==0)?QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD:QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY;
+        Qnn_Tensor_t xin[2]={mg->a,mg->b};
+        Qnn_OpConfig_t o=QNN_OPCONFIG_INIT;
+        o.v1.name="xf"; o.v1.packageName="qti.aisw"; o.v1.typeName=QNN_OP_ELEMENT_WISE_BINARY;
+        o.v1.numOfParams=1; o.v1.params=&xp;
+        o.v1.numOfInputs=2; o.v1.inputTensors=xin;
+        o.v1.numOfOutputs=1; o.v1.outputTensors=&mg->c;
+        rc=f.graphAddNode(mg->graph,o);
+        if(rc!=QNN_SUCCESS){ g.matMulGraphs8.erase(key); return "ERR XF_NODE rc="+std::to_string((int)rc); }
+        rc=f.graphFinalize(mg->graph,nullptr,nullptr);
+        if(rc!=QNN_SUCCESS){ g.matMulGraphs8.erase(key); return "ERR XF_FINALIZE rc="+std::to_string((int)rc); }
+        I("XFORM GRAPH READY op=%d n=%u",op,(unsigned)Nb);
+    }
+    std::vector<int8_t> A(Nb,0),B(Nb,0),C(Nb,0);
+    for(uint32_t i=0;i<Nb;i++) A[i]=(int8_t)(((int)((i*7)%41))-20);
+    for(uint32_t i=0;i<Nb;i++) B[i]=(int8_t)(((int)((i*5)%31))-10);
+    auto tc0=std::chrono::steady_clock::now();
+    std::vector<int8_t> ref(n,0);
+    for(uint32_t i=0;i<n;i++){
+        int v=(op==0)?((int)A[i]+(int)B[i]):(int)(((int)A[i]*(int)B[i])/127);
+        if(v>127)v=127; if(v<-128)v=-128;
+        ref[i]=(int8_t)v;
+    }
+    const long long cpuUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tc0).count();
+    Qnn_Tensor_t ea=mg->a,eb=mg->b,ec=mg->c;
+    ea.v1.clientBuf.data=A.data(); ea.v1.clientBuf.dataSize=(uint32_t)Nb;
+    eb.v1.clientBuf.data=B.data(); eb.v1.clientBuf.dataSize=(uint32_t)Nb;
+    ec.v1.clientBuf.data=C.data(); ec.v1.clientBuf.dataSize=(uint32_t)Nb;
+    Qnn_Tensor_t ein[2]={ea,eb};
+    Qnn_Tensor_t eout[1]={ec};
+    auto t0=std::chrono::steady_clock::now();
+    rc=f.graphExecute(mg->graph,ein,2,eout,1,nullptr,nullptr);
+    const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
+    if(rc!=QNN_SUCCESS) return "ERR XF_EXECUTE rc="+std::to_string((int)rc);
+    int bad=0; double maxAbs=0.0;
+    for(uint32_t i=0;i<n;i++){
+        const double d=std::fabs((double)C[i]-(double)ref[i]);
+        if(d>maxAbs)maxAbs=d;
+        if(d>1.5) bad++;
+    }
+    const double su=execUs>0?(double)cpuUs/(double)execUs:0.0;
+    char buf[360];
+    std::snprintf(buf,sizeof(buf),"OK XFORM op=%d n=%u npu_exec_us=%lld cpu_us=%lld speedup=%.2fx bad=%d max_abs=%.1f total_us=%lld",
+        op,(unsigned)n,execUs,cpuUs,su,bad,maxAbs,
+        (long long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tAll0).count());
+    return buf;
+}
+
 std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
