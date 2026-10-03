@@ -21,6 +21,7 @@ public final class NpuService extends Service {
     private final ExecutorService clients = Executors.newFixedThreadPool(8);
     private volatile boolean running;
     private ServerSocket server;
+    private final java.util.concurrent.atomic.AtomicBoolean serverLoopStarted = new java.util.concurrent.atomic.AtomicBoolean();
 
     @Override public void onCreate() {
         super.onCreate();
@@ -38,7 +39,7 @@ public final class NpuService extends Service {
             }
 
             running = true;
-            clients.execute(this::serverLoop);
+            ensureServerLoop("onCreate");
         } catch (Throwable t) {
             log("服务启动失败: " + t);
             stopSelf();
@@ -46,12 +47,42 @@ public final class NpuService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!running) running = true;
+        log("服务 startCommand startId=" + startId + " worker=" + serverLoopStarted.get()
+                + " server=" + (server != null && !server.isClosed()));
+        ensureServerLoop("onStartCommand");
         return START_STICKY;
+    }
+
+    private void ensureServerLoop(String reason) {
+        if (!running) return;
+        if (!serverLoopStarted.compareAndSet(false, true)) return;
+        log("IPC worker START reason=" + reason);
+        clients.execute(() -> {
+            try {
+                serverLoop();
+            } catch (Throwable t) {
+                log("IPC worker CRASH: " + t.getClass().getName() + ": " + t.getMessage());
+            } finally {
+                serverLoopStarted.set(false);
+                log("IPC worker EXIT running=" + running);
+                if (running) {
+                    new Thread(() -> {
+                        try { Thread.sleep(250); }
+                        catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+                        ensureServerLoop("worker-restart");
+                    }, "mcnpu-ipc-supervisor").start();
+                }
+            }
+        });
     }
 
     private void serverLoop() {
         log("服务线程启动");
+        log("QNN/HTP init BEGIN");
+        long initStart = System.nanoTime();
         boolean ok = NpuRuntime.init(getApplicationContext());
+        log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
 
@@ -253,6 +284,7 @@ public final class NpuService extends Service {
 
     @Override public void onDestroy() {
         running = false;
+        log("服务停止: running=false");
         try { if (server != null) server.close(); } catch (Throwable ignored) {}
         clients.shutdownNow();
         NpuRuntime.shutdown();
