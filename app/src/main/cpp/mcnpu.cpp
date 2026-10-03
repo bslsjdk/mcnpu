@@ -906,8 +906,30 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
     // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
-    I("MATMUL8BUF RAW bucket=%ux%ux%u scaleC=%.8g c[0..7]=%d %d %d %d %d %d %d %d",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut,
-      (int)Cpad[0],(int)Cpad[1],(int)Cpad[2],(int)Cpad[3],(int)Cpad[4],(int)Cpad[5],(int)Cpad[6],(int)Cpad[7]);
+    // Self-calibration. HTP requantises the accumulator with a factor that does
+    // not match scaleA*scaleB/scaleC (measured ~11x off on k=32 buckets -- the
+    // raw dump showed values far too large for the requested scale). Instead of
+    // reverse-engineering that formula, compute the integer dot product of the
+    // first few outputs on the host (O(8k), negligible) and solve for the scale
+    // that makes c_int*scale == sum(qA*qB)*scaleA*scaleB exactly.
+    {
+        const uint32_t refRows = m<8u ? m : 8u;
+        double num=0.0, den=0.0;
+        for(uint32_t r=0;r<refRows;r++){
+            for(uint32_t j=0;j<n;j++){
+                long long s=0;
+                for(uint32_t p=0;p<k;p++) s += (long long)Ain[(size_t)r*k+p]*(long long)Bin[(size_t)p*n+j];
+                num += (double)Cpad[(size_t)r*Nb+j];
+                den += (double)s;
+            }
+        }
+        if(den!=0.0 && num!=0.0){
+            const double scaleEff = den*(double)scaleA*(double)scaleB/num;
+            if(scaleEff>0.0) scaleCOut=(float)scaleEff;
+            I("MATMUL8BUF CAL bucket=%ux%ux%u raw=%.8g eff=%.8g num=%.4g den=%.6g",
+              (unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC,scaleCOut,num,den);
+        }
+    }
     for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
     I("MATMUL8BUF OK bucket=%ux%ux%u scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut);
     return "OK";
