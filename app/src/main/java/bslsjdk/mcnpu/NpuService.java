@@ -22,6 +22,10 @@ public final class NpuService extends Service {
     private volatile boolean running;
     private ServerSocket server;
     private final java.util.concurrent.atomic.AtomicBoolean serverLoopStarted = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicInteger workerEpoch = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile long workerBeatMs;
+    private volatile String workerPhase = "STOPPED";
+    private static final long WORKER_STALL_MS = 15_000L;
     private volatile long workerBeatMs;
     private volatile String workerPhase = "STOPPED";
     private static final long WORKER_STALL_MS = 15_000L;
@@ -53,12 +57,16 @@ public final class NpuService extends Service {
         if (!running) running = true;
         long stall = workerBeatMs == 0 ? Long.MAX_VALUE
                 : System.currentTimeMillis() - workerBeatMs;
+        boolean listenerHealthy = "LISTENING".equals(workerPhase)
+                && server != null && !server.isClosed();
         log("服务 startCommand startId=" + startId + " worker=" + serverLoopStarted.get()
                 + " phase=" + workerPhase + " stallMs=" + stall
+                + " listenerHealthy=" + listenerHealthy
                 + " server=" + (server != null && !server.isClosed()));
-        if (serverLoopStarted.get() && stall > WORKER_STALL_MS) {
+        if (serverLoopStarted.get() && !listenerHealthy && stall > WORKER_STALL_MS) {
             log("IPC worker STALL stallMs=" + stall + " phase=" + workerPhase
-                    + " -> stopping stale worker");
+                    + " -> advance epoch and restart");
+            workerEpoch.incrementAndGet();
             running = false;
             try { if (server != null) server.close(); } catch (Throwable ignored) {}
             serverLoopStarted.set(false);
@@ -72,13 +80,14 @@ public final class NpuService extends Service {
     private void ensureServerLoop(String reason) {
         if (!running) return;
         if (!serverLoopStarted.compareAndSet(false, true)) return;
+        final int myEpoch = workerEpoch.get();
         workerBeatMs = System.currentTimeMillis();
         workerPhase = "STARTING";
         log("IPC worker START reason=" + reason);
         clients.execute(() -> {
             try {
                 workerPhase = "RUNNING";
-                serverLoop();
+                serverLoop(myEpoch);
             } catch (Throwable t) {
                 log("IPC worker CRASH: " + t.getClass().getName() + ": " + t.getMessage());
             } finally {
@@ -97,8 +106,8 @@ public final class NpuService extends Service {
         });
     }
 
-    private void serverLoop() {
-        log("服务线程启动");
+    private void serverLoop(int myEpoch) {
+        log("服务线程启动 epoch=" + myEpoch);
 
         // 先建立控制面监听，再初始化 QNN。即使 native init 卡住，客户端也能连上获取状态。
         ServerSocket prebound = null;
@@ -129,7 +138,7 @@ public final class NpuService extends Service {
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
 
-        while (running) {
+        while (running && workerEpoch.get() == myEpoch) {
             workerBeatMs = System.currentTimeMillis();
             ServerSocket ss = null;
             try {
@@ -145,16 +154,18 @@ public final class NpuService extends Service {
                     server = ss;
                 }
 
-                workerPhase = "LISTENING";
+                if ("INIT_READY".equals(workerPhase) || "INIT_FAILED".equals(workerPhase)) {
+                    // 保留初始化结果，不让正常 accept 循环把 phase 倒退。
+                } else {
+                    workerPhase = "LISTENING";
+                }
                 workerBeatMs = System.currentTimeMillis();
                 log("IPC 监听 LOOPBACK " + ss.getInetAddress().getHostAddress() + ":" + ss.getLocalPort());
                 updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
-                selfTestLoopback();
-
-                while (running && server == ss && !ss.isClosed()) {
+                while (running && workerEpoch.get() == myEpoch && server == ss && !ss.isClosed()) {
                     try {
-                        workerBeatMs = System.currentTimeMillis();
                         Socket socket = ss.accept();
+                        workerBeatMs = System.currentTimeMillis();
                         log("IPC ACCEPT " + socket.getRemoteSocketAddress());
                         try {
                             clients.execute(() -> handle(socket));
@@ -195,6 +206,9 @@ public final class NpuService extends Service {
             }
         }
 
+        if (workerEpoch.get() != myEpoch) {
+            log("IPC worker EPOCH_EXIT myEpoch=" + myEpoch + " currentEpoch=" + workerEpoch.get());
+        }
         log("IPC 循环结束");
     }
 
