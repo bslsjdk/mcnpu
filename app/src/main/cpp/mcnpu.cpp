@@ -895,7 +895,7 @@ static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048,4096,8192,1638
 static const int MM_BUCKET_COUNT = 7;
 
 static uint32_t bucketize(uint32_t v){
-    for(int i=0;i<MM_BUCKET_COUNT;i++) if(v<=MM_BUCKETS[i]) return MM_BUCKETS[i];
+    for(size_t i=0;i<sizeof(MM_BUCKETS)/sizeof(MM_BUCKETS[0]);i++) if(v<=MM_BUCKETS[i]) return MM_BUCKETS[i];
     return 0;
 }
 
