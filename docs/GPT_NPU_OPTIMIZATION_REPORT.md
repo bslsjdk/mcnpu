@@ -869,3 +869,185 @@ Noise、Density、Height 等 feature 应分别统计：
 推进。
 
 尤其在正式加入 terrain 之前，必须先消灭 JNI 巨大分配风险。
+
+
+---
+
+# 21. 第三轮 GPT 全量复核：修复状态、隐藏 bug、性能瓶颈
+
+本轮重新读取当前 main 分支实际代码，重点验证报告中的问题是否真的已经落地，并继续检查 JNI、QNN 生命周期、Android Service、IPC、构建层和性能路径。
+
+## 21.1 修复状态总表
+
+| 项目 | 当前状态 | 结论 |
+|---|---|---|
+| m/k/n 独立 bucket | 已实现 | ✅ |
+| native tensor byte budget | 已实现于 runMatMulInt8Buf | ⚠️ JNI 入口仍在检查前分配 |
+| 65536 巨型 tensor 防护 | 部分实现 | ❌ |
+| graph cache 上限 | 已实现 | ⚠️ failure path 仍有问题 |
+| graphCount | 未完全修复 | ❌ |
+| contextFree rc 检查 | 未修复 | ❌ |
+| 初始化失败 cleanup | 未完全修复 | ❌ |
+| CPU affinity | 代码存在 | ❌ 绑的是 init/serverLoop 线程 |
+| Java synchronized | 仍存在 | ❌ 数据面双重串行 |
+| 8-thread client pool | 仍存在 | ❌ accept 与 client 共池 |
+| persistent IPC | 未实现 | ❌ 每次 request 都新建 Socket |
+| binary IPC | 已实现 | ⚠️ 仍有多级复制 |
+| calibration cache | 已实现 | ⚠️ 首次 shape 仍可能尖峰 |
+| feature-specific quantization | 未实现 | ❌ |
+| ScratchBufferPool | 未实现 | ❌ |
+| double buffering | 未实现 | ❌ |
+| Terrain abstraction | 未实现 | ❌ |
+| Minecraft 26.3 terrain hook | 当前仓库未实现 | ❌ |
+
+因此当前 main 不能标记为“P0 已全部修完”。它已经有明显的安全防线，但关键边界仍未闭合。
+
+## 21.2 【P0 仍存在】JNI nativeMatMulInt8Buf 的安全检查顺序错误
+
+当前入口仍是 GetArrayLength → vector A/B/C allocation → runMatMulInt8Buf → bucketize/mmShapeSafe。
+
+m=k=n=65536 时，进入 mmShapeSafe 前仍可能尝试：A 约 4 GiB、B 约 4 GiB、C 约 4 GiB。该问题不是单纯性能问题，可能直接导致进程 OOM。
+
+必须改成：m/k/n 64-bit multiplication → bucketize → bucket tensor byte check → original input byte check → whole-job byte budget → Java array length validation → 最后 allocation。
+
+并增加单 Job 总预算，例如 A+B+C+padding scratch 不得超过 JOB_MAX_BYTES。
+
+## 21.3 【P0 仍存在】graph construction failure 会留下脏 context
+
+当前多个路径仍采用 graphCount++ → graphCreate → tensorCreate → graphAddNode → graphFinalize。失败时只是 erase map entry，但 QNN graph 并不会因此消失。
+
+必须增加 contextDirty 状态。任意 graph construction failure 都应标记 dirty，并在安全点执行 contextFree → contextCreate → maps.clear → graphCount=0。否则 C++ map 看起来为空，QNN context 内仍可能持有失败 graph。
+
+## 21.4 【P0 仍存在】graphCount 与真实 QNN graph 数量可能脱钩
+
+graphCount++ 发生在 construction 成功之前。失败一次就会虚增一次，连续失败会提前触发 MAX_CACHED_GRAPHS 和不必要的 context reset。
+
+建议使用 pendingGraph，只有 graphFinalize 成功后才正式计入 cache。由于 QNN 没有 graphFree，failure 仍应使 contextDirty=true 并 reset。
+
+## 21.5 【P0/P1】context reset 必须成为完整状态机
+
+当前 resetContextLocked 没检查 contextFree rc，也没有完整的 runtime health 状态。
+
+建议状态：READY、DIRTY、RESETTING、FAILED，并记录 contextFree rc、contextCreate rc、reset duration、reset count、reason、reset 前 graph count。
+
+## 21.6 【P1】当前 8 线程并没有产生真正的 NPU 并行
+
+Java FixedThreadPool(8) 最终仍会进入 native gRuntimeMutex，而且 NpuRuntime 方法本身大量 synchronized。因此执行模型仍是多线程排队进入一个 QNN critical section。
+
+最终应该改为 IPC IO → bounded job queue → one NPU worker → QNN。不要继续靠增加 Java worker 数量提高所谓 NPU 并行。
+
+## 21.7 【P1】client pool 在 persistent IPC 后会成为硬瓶颈
+
+当前 clients = newFixedThreadPool(8)，serverLoop 自己也运行在该 pool，每个 socket handler 又占一个 worker。持久连接情况下最坏是 1 个 accept worker + 7 个长期 handler，第 8 个连接排队。
+
+建议拆成 accept/supervisor、bounded client IO、dedicated NPU worker 三层。Minecraft 单一长期连接时不需要 8 个 client worker。
+
+## 21.8 【P1】stall restart 仍可能双 worker
+
+onStartCommand 检测 stall 后会提前把 serverLoopStarted 设为 false，而旧 worker 未必已经进入 finally。此时新旧 worker 有重叠窗口，可能争抢 38761 和 server 状态。
+
+正确顺序：request stop → close server → 唤醒旧 worker → 等旧 worker finally → serverLoopStarted=false → supervisor 启动新 worker。禁止外部线程提前清零运行标志。
+
+## 21.9 【P1】NpuRuntime 全 synchronized 应拆控制面和数据面
+
+init、status、smoke、add、matMul、matMulFp16、matMulInt8、xform、matMulInt8Buf、shutdown 仍大量 synchronized。PING/STATUS 不应该等待大型 terrain job。
+
+最终拆成 Control Plane：PING、STATUS、health、metrics；Data Plane：submit、batch submit、result。数据面统一排队，控制面读取原子状态快照。
+
+## 21.10 【P1】binary path copy chain 仍然过长
+
+当前路径仍接近 socket → Java byte[] → native vector → Ap/Bp → QNN client buffer → Cpad → Cout → tmp → Java byte[] → socket。
+
+对于用户要求的 400+ FPS、约 2.5 ms/frame 预算，这些搬运必须单独计时。最终 telemetry 至少拆出 IPC read、Java→native、padding、QNN execute、output copy、native→Java、IPC write。
+
+## 21.11 【P1】persistent IPC 尚未落地
+
+NpuServiceClient.request() 每次 new Socket → connect → request → response → close。正式 terrain 每个小 job 都付连接成本。
+
+应保留当前 request() 作为诊断/兼容路径，同时增加长期 NpuChannel，使用 CONNECT → HELLO → 多个 JOB/RESULT，并加入 request id 防止异步 batch 后结果错配。
+
+## 21.12 【P2】native allocation 仍是热路径问题
+
+runMatMulInt8Buf 每次可能创建 Ap、Bp、Cpad，JNI 入口还创建 A、B、C、tmp。高频 terrain workload 下会持续 native heap churn。
+
+必须引入 ScratchBufferPool，至少复用 A、B、Ap、Bp、Cpad、output。进一步做 double buffering，使 stage time 接近 max(prepare, execute)，而不是 prepare + execute。
+
+## 21.13 【P2】8 个 graph cache 不能简单无限增大
+
+超过 8 个 graph 就 context reset 会产生 cold-start spike。正确方向不是盲目把 8 改成 64，而是统计 shape frequency、预热 top-N、Shape Planner 合并低频 shape，并让实时 Chunk 尽量只使用已预热 shape。
+
+## 21.14 【P2】首次 calibration 仍可能进入实时路径
+
+首次 bucket 会执行 host-side calibration。虽然已经比旧版轻很多，但仍可能在第一次遇到新 shape 时产生延迟尖峰。
+
+正式 terrain path 应在 startup warmup 阶段完成 calibration，实时路径只使用已校准 bucket。
+
+## 21.15 【P2】固定量化参数只能作为 benchmark
+
+当前 scaleA、scaleB、scaleC 与 runtime calibration 适合证明 HTP 能跑，但不能直接作为正式 terrain 参数。Noise、Density、Height、Cave 应分别统计 range、scale、zero point、saturation、RMSE、max error，并验证确定性。
+
+## 21.16 【P2】CMake 没有显式 release 优化策略
+
+当前 CMake 明确写出的编译选项主要是可见性、section、Wall/Wextra 和 gc-sections，没有显式 release O2/O3。Android release 构建可能通过外部配置提供优化，但 benchmark 应固定构建类型和参数，避免环境差异。不要未经 benchmark 就无脑 O3。
+
+## 21.17 【P2】当前仓库没有 Terrain 上层代码
+
+当前仓库实际 Java/native 主要是 MainActivity、NpuRuntime、NpuService、NpuServiceClient、ShizukuHelper、mcnpu.cpp。没有真正的 Minecraft 26.3 terrain collector、batch scheduler 或 chunk assembler。
+
+所以 9×9、Density、Noise、Chunk batching 目前仍是目标架构，不应写成已实现。真正接入层仍需要在 bslsjdk/mcjavanpu 或新的 Fabric integration 中落地。
+
+## 21.18 【P3】必须按 1 帧预算验收
+
+用户实际目标约 400+ FPS，即约 2.5 ms/frame。因此不能拿单次 graphExecute 数字当成整个系统延迟。
+
+验收应至少记录：queue wait、IPC、prepare、copy、graphExecute、assemble、total。正常情况下 Minecraft 主线程不等待 NPU，目标是 ≤1 frame 预算，最坏 ≤2 frame，并持续观察 1%/0.1% low。
+
+## 21.19 本轮“已修/未修”结论
+
+已真正落地：m/k/n 三维独立 bucket、native tensor byte budget、padding、binary IPC、graph cache 上限、calibration cache、QNN context 级 graph 生命周期思路、loopback listener 自检、foreground service 基础结构。
+
+尚未真正落地：JNI allocation guard 前置、graph failure dirty-context recovery、graphCount 正确计数、contextFree rc、init cleanup、dedicated NPU worker、正确 affinity、persistent IPC、scratch pool、double buffering、warmup calibration、feature-specific quantization、terrain scheduler、cross-chunk batching、Minecraft 26.3 terrain hook、end-to-end telemetry。
+
+## 21.20 本轮最终优先级
+
+### P0
+1. JNI pre-allocation guard。
+2. graph failure dirty-context recovery。
+3. graphCount 修正。
+4. contextFree rc。
+5. init cleanup。
+
+### P1
+6. dedicated NPU worker。
+7. accept/client/NPU 线程拆分。
+8. stall restart 生命周期修复。
+9. persistent IPC。
+10. binary protocol request-id。
+
+### P2
+11. ScratchBufferPool。
+12. double buffering。
+13. warmup calibration。
+14. shared-buffer A/B。
+15. end-to-end telemetry。
+
+### P3
+16. TerrainWorkset。
+17. 9×9 scheduler。
+18. cross-chunk batching。
+19. feature quantization。
+20. original-vs-NPU deterministic comparison。
+
+## 22. 给 DeepSeek / 元宝的交叉检查要求
+
+后续任何修改必须同时提交：修改前路径、修改后路径、bug 根因、为什么新代码能证明问题消失、benchmark 数据、内存峰值数据。涉及 QNN context/graph 必须记录 rc；涉及线程模型必须记录 queue wait 和 end-to-end latency；不能只改注释、README 或 report 就声称修复。
+
+重点复查关键词：std::vector<int8_t> A、g.graphCount++、contextFree(、sched_setaffinity(、newFixedThreadPool(、synchronized、new Socket(、new byte[、Base64、Cpad、scaleEff。
+
+## 23. 本轮结论
+
+当前 main 已经能实证 Android 服务调用 QNN/HTP V73，但距离 Minecraft 世界生成真正受益还有明确的一整条工程链：JNI 安全边界 → QNN 生命周期 → 专用 NPU worker → 持久数据通道 → buffer reuse → cross-chunk batching → Terrain integration。
+
+这条链完成之前，不应把当前版本当最终性能版本。
+
+本节审查时间：2026-10-03。
