@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cstdint>
+#include <sched.h>
 #include "QnnInterface.h"
 #include "QnnLog.h"
 #include "QnnBackend.h"
@@ -291,6 +292,22 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
         g.err="contextCreate rc="+std::to_string((int)rc)+" "+verbose(rc);
         return false;
     }
+    // Stay off the prime core. This SoC has exactly one (cpu7) and Minecraft's
+    // main thread lives there; on-device measurements showed the service getting
+    // 40% slower while C2ME saturated the other cores and fought for it. The NPU
+    // maths runs on the DSP, so yielding the fastest core costs almost nothing
+    // and makes the service far more predictable under load.
+    {
+        cpu_set_t aff;
+        CPU_ZERO(&aff);
+        const long nc=sysconf(_SC_NPROCESSORS_ONLN);
+        for(long i=0;i<nc-1;i++) CPU_SET((int)i,&aff);
+        if(nc>1 && sched_setaffinity(0,sizeof(aff),&aff)==0)
+            I("AFFINITY cpu0-%ld (prime core excluded)",nc-2);
+        else
+            I("AFFINITY failed errno=%d",errno);
+    }
+
     g.info="QNN HTP ready backendId=6 providers="+std::to_string(count);
     g.ready=true;
     I("MCNPU HTP READY");
