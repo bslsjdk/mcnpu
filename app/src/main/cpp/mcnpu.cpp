@@ -395,6 +395,10 @@ static inline int8_t quantize8(float v,float scale){
 // Keep this in sync with the last entry of MM_BUCKETS.
 static const uint32_t MM_BUCKET_MAX = 65536;
 
+// Forward declared: runBatchXform() uses it around 250 lines above where it is
+// defined. Same rule as MM_BUCKET_MAX - a name must be declared before use.
+static uint64_t checkedTensorBytes(uint32_t rows, uint32_t cols, uint32_t elemSize);
+
 // Any reasonable shape is allowed (real workloads are not nice powers of two,
 // e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
 static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=MM_BUCKET_MAX; }
@@ -1201,19 +1205,22 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
+        return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
+                + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,false).c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulFp16(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
+        return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
+                + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,true).c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
-        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX));
+        return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
+                + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
