@@ -292,6 +292,8 @@ public final class NpuService extends Service {
         try (Socket s = socket;
              BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
              BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
+            // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
+            try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
             String line;
             while ((line = in.readLine()) != null) {
                 String cmd = line.trim();
@@ -328,7 +330,7 @@ public final class NpuService extends Service {
             if (parts.length != 2) return "ERR ADD_FORMAT";
             String[] as = parts[0].split(",", -1);
             String[] bs = parts[1].split(",", -1);
-            if (as.length == 0 || as.length != bs.length || as.length > 1024) return "ERR ADD_SIZE";
+            if (as.length == 0 || as.length != bs.length || as.length > 16384) return "ERR ADD_SIZE";
             float[] a = new float[as.length], b = new float[bs.length];
             for (int i = 0; i < as.length; i++) {
                 a[i] = Float.parseFloat(as[i]);
