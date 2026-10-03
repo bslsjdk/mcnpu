@@ -1051,3 +1051,112 @@ runMatMulInt8Buf 每次可能创建 Ap、Bp、Cpad，JNI 入口还创建 A、B�
 这条链完成之前，不应把当前版本当最终性能版本。
 
 本节审查时间：2026-10-03。
+
+
+---
+
+# 24. 第三轮复核后追加的关键发现：普通 MatMul 路径也绕过安全边界
+
+这是本轮最后补出的 P0 级问题，之前只盯着 nativeMatMulInt8Buf，继续沿调用链检查后发现普通实验接口同样没有共享安全边界。
+
+## 24.1 【P0】nativeMatMul / nativeMatMulFp16 / nativeMatMulInt8 仍允许危险的大尺寸
+
+这三个 JNI 入口目前只检查：m/k/n > 0，以及 mmSizeAllowed(v)。而 mmSizeAllowed 的实现本质上只是 v >= 1 && v <= MM_BUCKET_MAX。
+
+这意味着 33、1000、12345 等并不在 HTP 实测白名单桶中的尺寸，也会被认为合法，然后直接进入 runMatMul / runMatMulInt8。
+
+更严重的是，runMatMul 和 runMatMulInt8 自身没有调用 mmShapeSafe，就会继续创建 A、B、CPU reference、NPU output 等 vector。
+
+例如 65536 x 65536：
+
+- fp32 A 约 16 GiB
+- fp32 B 约 16 GiB
+- fp32 Ccpu 约 16 GiB
+- fp32 Cnpu 约 16 GiB
+
+fp16/int8 路径虽然单 tensor 更小，但仍可能产生多 GiB 级组合分配。
+
+因此不能只修 nativeMatMulInt8Buf。所有 MatMul JNI 入口必须共用一个统一 ShapeValidator：
+
+1. 正数检查。
+2. m/k/n 三维分别验证 HTP bucket 白名单。
+3. 根据 dtype 检查 m*k、k*n、m*n byte budget。
+4. 检查 whole-job memory budget。
+5. 通过后才能 allocation。
+
+## 24.2 【P0】mmSizeAllowed 的语义本身错误
+
+当前 mmSizeAllowed 名字看起来像“尺寸是否被 HTP 支持”，实际上只判断范围。
+
+而项目已经通过设备实测确认：HTP 需要 m、k、n 三个维度分别落入 MM_BUCKETS 白名单。
+
+因此建议拆成两个明确函数：
+
+- mmDimensionInBucketWhitelist(v)
+- bucketize(v)
+
+如果调用者需要原尺寸，则必须明确：原尺寸是否支持；如果不支持但允许 padding，则调用 bucketize 后使用桶尺寸。
+
+不能再用“1..65536 都允许”混淆两种语义。
+
+## 24.3 【P0】普通 MatMul 路径与 binary MatMul 路径的能力描述不一致
+
+binary runMatMulInt8Buf 已经 bucketize(m/k/n)，而普通 MATMUL/MATMUL16/MATMUL8 仍直接拿原尺寸建 graph。
+
+因此同一个形状可能出现：
+
+- binary path：自动落桶，可以执行。
+- ordinary path：直接建非白名单 graph，可能失败或产生不可预测的 QNN 行为。
+
+必须统一 ShapePlanner，不允许每个入口自己定义“合法 shape”。
+
+## 24.4 【P0】64 MiB tensor cap 目前只保护了部分路径
+
+checkedTensorBytes/mmShapeSafe 主要在 runMatMulInt8Buf 和 XFORM 路径使用。
+
+runMatMul / runMatMulInt8 没有同等级别的 tensor byte check。
+
+因此“已有 64 MiB guard”不能视为整个 native runtime 已经安全。
+
+最终应该形成唯一入口：
+
+validateShapeAndBudget(m,k,n,dtype,paddingPolicy)
+
+所有 MatMul 路径都必须先通过它。
+
+## 24.5 【P0】修复后的测试矩阵也要扩大
+
+不能只测试：
+
+32、64、128、256、512、1024。
+
+还必须明确测试：
+
+- 31 → bucket 32
+- 32 → 32
+- 33 → bucket 64
+- 63 → 64
+- 64 → 64
+- 65 → 128
+- 4096 边界
+- 8192 边界
+- 16384 被 byte budget 拒绝
+- 65536 被 byte budget 拒绝
+- 非法 0 / 负数
+- 极端 int 输入
+
+并且 m、k、n 要分别覆盖边界，而不是只测方阵。
+
+## 24.6 本追加发现后的真正 P0 清单
+
+1. 所有 MatMul JNI 入口统一 ShapeValidator。
+2. m/k/n 三维独立 HTP whitelist 验证。
+3. 所有 dtype 共用 tensor byte budget。
+4. whole-job memory budget。
+5. allocation 前完成全部验证。
+6. graph construction failure → context dirty/reset。
+7. graphCount 只在 finalize 成功后提交。
+8. contextFree rc 检查。
+9. init failure unified cleanup。
+
+这比继续优化 graphExecute 的几十微秒更重要。先别让程序为了跑一块矩阵，顺便把手机的内存当免费矿场。
