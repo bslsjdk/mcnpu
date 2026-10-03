@@ -136,6 +136,12 @@ public final class NpuRuntime {
         if (!ready) return "ERR " + lastError;
         return nativeMatMulFp16(m, k, n);
     }
+
+    /** INT8 quantized matmul: the datatype HTP actually accelerates natively. */
+    public static synchronized String matMulInt8(int m, int k, int n) {
+        if (!ready) return "ERR " + lastError;
+        return nativeMatMulInt8(m, k, n);
+    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
@@ -149,5 +155,6 @@ public final class NpuRuntime {
     /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
     private static native String nativeMatMul(int m, int k, int n);
     private static native String nativeMatMulFp16(int m, int k, int n);
+    private static native String nativeMatMulInt8(int m, int k, int n);
     private static native void nativeShutdown();
 }
