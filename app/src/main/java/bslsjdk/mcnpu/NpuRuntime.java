@@ -143,6 +143,14 @@ public final class NpuRuntime {
         return nativeMatMulInt8(m, k, n);
     }
 
+    /** Element-wise int8 batch transform. op 0 = add, 1 = multiply. */
+    public static synchronized String xform(int op, int n) {
+        if (n <= 0 || n > 65536) return "ERR SIZE_UNSUPPORTED max=65536";
+        return nativeXform(op, n);
+    }
+
+    private static native String nativeXform(int op, int n);
+
     /** Real data path: int8 tensors in, int8 result out (with scaleC prefix). */
     public static synchronized byte[] matMulInt8Buf(byte[] a, byte[] b, int m, int k, int n) {
         if (!ready) return null;
