@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <cstring>
+#include <cmath>
 #include <mutex>
 #include <algorithm>
 #include <unordered_map>
@@ -41,7 +42,14 @@ struct Runtime {
         Qnn_Tensor_t b=QNN_TENSOR_INIT;
         Qnn_Tensor_t c=QNN_TENSOR_INIT;
     };
+    struct MatMulGraph {
+        Qnn_GraphHandle_t graph=nullptr;
+        uint32_t m=0,k=0,n=0;
+        uint32_t dimsA[2]={0,0}, dimsB[2]={0,0}, dimsC[2]={0,0};
+        Qnn_Tensor_t a=QNN_TENSOR_INIT, b=QNN_TENSOR_INIT, c=QNN_TENSOR_INIT;
+    };
     std::unordered_map<uint32_t, AddGraph> addGraphs;
+    std::unordered_map<uint64_t, MatMulGraph> matMulGraphs;
     void* qnn=nullptr;
     const QnnInterface_t* api=nullptr;
     Qnn_BackendHandle_t backend=nullptr;
@@ -283,6 +291,20 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
 // QNN 2.27 cannot free a single graph; only contextFree() releases them.
 // An unbounded set of graph sizes would therefore leak device memory, so ADD
 // is restricted to a fixed bucket list with one cached graph per bucket.
+static bool mmSizeAllowed(uint32_t v){
+    static const uint32_t allow[]={16,32,64,128,256,512};
+    for(uint32_t a:allow) if(a==v) return true;
+    return false;
+}
+
+Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
+    Qnn_Tensor_t t=QNN_TENSOR_INIT;
+    t.version=QNN_TENSOR_VERSION_1;
+    t.v1.name=name;t.v1.type=type;t.v1.dataFormat=QNN_TENSOR_DATA_FORMAT_FLAT_BUFFER;
+    t.v1.dataType=dt;t.v1.rank=rank;t.v1.dimensions=dims;t.v1.memType=QNN_TENSORMEMTYPE_RAW;
+    return t;
+}
+
 static bool addSizeAllowed(uint32_t n){
     static const uint32_t allow[]={16,64,256,1024,4096,16384};
     for(uint32_t v:allow) if(v==n) return true;
@@ -422,6 +444,116 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     return buf;
 }
 
+// Deterministic matmul on HTP with an in-service CPU reference so the caller can
+// see a real speedup number instead of a synthetic latency.
+std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    const auto total0=std::chrono::steady_clock::now();
+    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
+    Runtime::MatMulGraph* mg=nullptr;
+    bool cached=false;
+    auto found=g.matMulGraphs.find(key);
+    if(found!=g.matMulGraphs.end()){ mg=&found->second; cached=true; }
+    long long createUs=0, finalizeUs=0;
+    Qnn_ErrorHandle_t rc=QNN_SUCCESS;
+    if(!cached){
+        auto inserted=g.matMulGraphs.emplace(key, Runtime::MatMulGraph{});
+        mg=&inserted.first->second;
+        mg->m=m; mg->k=k; mg->n=n;
+        // QNN dimensions are innermost-first (buffers are row-major).
+        mg->dimsA[0]=k; mg->dimsA[1]=m;
+        mg->dimsB[0]=n; mg->dimsB[1]=k;
+        mg->dimsC[0]=n; mg->dimsC[1]=m;
+        const std::string graphName="mcnpu_mm_"+std::to_string(++g.graphSeq);
+        auto tCreate0=std::chrono::steady_clock::now();
+        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&mg->graph);
+        createUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tCreate0).count();
+        if(rc!=QNN_SUCCESS||!mg->graph){
+            g.matMulGraphs.erase(inserted.first);
+            return "ERR MM_GRAPH_CREATE rc="+std::to_string((int)rc)+" create_us="+std::to_string(createUs)+" "+verbose(rc);
+        }
+        mg->a=makeTensorN("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,mg->dimsA,2);
+        mg->b=makeTensorN("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,mg->dimsB,2);
+        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,mg->dimsC,2);
+        rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs.erase(key);
+            return "ERR MM_TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        Qnn_Tensor_t mmIns[2]={mg->a,mg->b};
+        Qnn_OpConfig_t op=QNN_OPCONFIG_INIT;
+        op.v1.name="matmul";
+        op.v1.packageName="qti.aisw";
+        op.v1.typeName=QNN_OP_MAT_MUL;
+        op.v1.numOfParams=0;
+        op.v1.params=nullptr;
+        op.v1.numOfInputs=2;
+        op.v1.inputTensors=mmIns;
+        op.v1.numOfOutputs=1;
+        op.v1.outputTensors=&mg->c;
+        rc=f.graphAddNode(mg->graph,op);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs.erase(key);
+            return "ERR MM_GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        auto tF=std::chrono::steady_clock::now();
+        rc=f.graphFinalize(mg->graph,nullptr,nullptr);
+        finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tF).count();
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs.erase(key);
+            return "ERR MM_GRAPH_FINALIZE rc="+std::to_string((int)rc)+" finalize_us="+std::to_string(finalizeUs)+" "+verbose(rc);
+        }
+        I("MATMUL GRAPH READY m=%u k=%u n=%u",(unsigned)m,(unsigned)k,(unsigned)n);
+    }
+
+    std::vector<float> A((size_t)m*k), B((size_t)k*n);
+    for(size_t i=0;i<A.size();i++) A[i]=0.01f*(float)((i*7)%23)-0.1f;
+    for(size_t i=0;i<B.size();i++) B[i]=0.05f*(float)((i*5)%17)-0.2f;
+
+    // CPU reference (also the baseline for the speedup report).
+    std::vector<float> Ccpu((size_t)m*n,0.f);
+    auto tc0=std::chrono::steady_clock::now();
+    for(uint32_t i=0;i<m;i++){
+        for(uint32_t p=0;p<k;p++){
+            const float av=A[(size_t)i*k+p];
+            for(uint32_t j=0;j<n;j++) Ccpu[(size_t)i*n+j]+=av*B[(size_t)p*n+j];
+        }
+    }
+    const long long cpuUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tc0).count();
+
+    std::vector<float> Cnpu((size_t)m*n,0.f);
+    Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
+    ea.v1.clientBuf.data=A.data();  ea.v1.clientBuf.dataSize=(uint32_t)(A.size()*sizeof(float));
+    eb.v1.clientBuf.data=B.data();  eb.v1.clientBuf.dataSize=(uint32_t)(B.size()*sizeof(float));
+    ec.v1.clientBuf.data=Cnpu.data(); ec.v1.clientBuf.dataSize=(uint32_t)(Cnpu.size()*sizeof(float));
+    Qnn_Tensor_t execIn[2]={ea,eb};
+    Qnn_Tensor_t execOut[1]={ec};
+    auto t0=std::chrono::steady_clock::now();
+    rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
+    const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
+    if(rc!=QNN_SUCCESS) return "ERR MM_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+
+    double maxAbs=0.0;
+    int bad=0;
+    for(size_t i=0;i<Cnpu.size();i++){
+        const double diff=std::fabs((double)Cnpu[i]-(double)Ccpu[i]);
+        const double tol=1e-3*std::max(1.0,std::fabs((double)Ccpu[i]));
+        if(diff>maxAbs) maxAbs=diff;
+        if(diff>tol) bad++;
+    }
+    const double speedup = execUs>0 ? (double)cpuUs/(double)execUs : 0.0;
+    const long long totalUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-total0).count();
+    char buf[640];
+    std::snprintf(buf,sizeof(buf),
+        "OK MATMUL m=%u k=%u n=%u cached=%s create_us=%lld finalize_us=%lld npu_exec_us=%lld cpu_us=%lld speedup=%.2fx bad=%d max_abs=%.5g total_us=%lld",
+        (unsigned)m,(unsigned)k,(unsigned)n,cached?"true":"false",createUs,finalizeUs,execUs,cpuUs,speedup,bad,maxAbs,totalUs);
+    return buf;
+}
+
 void shutdownRuntime(){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.api){
@@ -433,6 +565,7 @@ void shutdownRuntime(){
     // and are released when contextFree() is called. Drop our cached handles
     // before releasing that context so a restart can never reuse stale data.
     g.addGraphs.clear();
+    g.matMulGraphs.clear();
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
@@ -472,5 +605,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
     e->GetFloatArrayRegion(jb,0,n,b.data());
     std::string r=runAdd(a.data(),b.data(),(uint32_t)n);
     return e->NewStringUTF(r.c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
+    if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
+    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+    return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
