@@ -151,6 +151,24 @@ public final class NpuRuntime {
 
     private static native String nativeXform(int op, int n);
 
+    /** Prebuild one INT8 graph so the first real terrain request avoids cold graph setup. */
+    public static synchronized String prewarmMatMulInt8(int m, int k, int n) {
+        if (!ready) return "ERR " + lastError;
+        if (m <= 0 || k <= 0 || n <= 0) return "ERR SIZE";
+        long aBytes = (long) m * k, bBytes = (long) k * n;
+        if (aBytes > 16L * 1024L * 1024L || bBytes > 16L * 1024L * 1024L)
+            return "ERR PREWARM_INPUT_TOO_LARGE";
+        byte[] a = new byte[(int) aBytes];
+        byte[] b = new byte[(int) bBytes];
+        for (int i = 0; i < a.length; i++) a[i] = (byte) (((i * 13 + 7) & 31) - 16);
+        for (int i = 0; i < b.length; i++) b[i] = (byte) (((i * 17 + 3) & 31) - 16);
+        long t0 = System.nanoTime();
+        byte[] out = nativeMatMulInt8Buf(a, b, m, k, n);
+        long us = (System.nanoTime() - t0) / 1000L;
+        return out == null ? "ERR PREWARM_FAILED elapsed_us=" + us
+                : "OK PREWARM elapsed_us=" + us + " bytes=" + out.length;
+    }
+
     /** Real data path: int8 tensors in, int8 result out (with scaleC prefix). */
     public static synchronized byte[] matMulInt8Buf(byte[] a, byte[] b, int m, int k, int n) {
         if (!ready) return null;
