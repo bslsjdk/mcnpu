@@ -60,19 +60,33 @@ public final class NpuService extends Service {
             try {
                 ss = new ServerSocket();
                 ss.setReuseAddress(true);
-                ss.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), IPC_PORT), 16);
+                InetAddress loopback = InetAddress.getByName("127.0.0.1");
+                ss.bind(new InetSocketAddress(loopback, IPC_PORT), 16);
                 server = ss;
 
-                log("IPC 监听 LOOPBACK 127.0.0.1:" + IPC_PORT);
+                log("IPC 监听 LOOPBACK " + ss.getInetAddress().getHostAddress() + ":" + ss.getLocalPort());
                 updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
+                selfTestLoopback();
 
                 while (running && server == ss && !ss.isClosed()) {
-                    Socket socket = ss.accept();
                     try {
-                        clients.execute(() -> handle(socket));
+                        Socket socket = ss.accept();
+                        log("IPC ACCEPT " + socket.getRemoteSocketAddress());
+                        try {
+                            clients.execute(() -> handle(socket));
+                        } catch (Throwable t) {
+                            try { socket.close(); } catch (Throwable ignored) {}
+                            log("IPC client dispatch failed: " + t);
+                        }
                     } catch (Throwable t) {
-                        try { socket.close(); } catch (Throwable ignored) {}
-                        log("IPC client dispatch failed: " + t);
+                        if (!running || ss.isClosed()) break;
+                        log("IPC accept exception; keeping listener alive: " + t);
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
                     }
                 }
             } catch (Throwable t) {
@@ -96,6 +110,49 @@ public final class NpuService extends Service {
         }
 
         log("IPC 循环结束");
+    }
+
+    private void selfTestLoopback() {
+        new Thread(() -> {
+            long t0 = System.nanoTime();
+            try (Socket t = new Socket()) {
+                InetAddress lo = InetAddress.getByName("127.0.0.1");
+                t.connect(new InetSocketAddress(lo, IPC_PORT), 2000);
+                t.setSoTimeout(2000);
+                t.getOutputStream().write("PING\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                t.getOutputStream().flush();
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(t.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+                String reply = br.readLine();
+                log("IPC SELFTEST PASS addr=" + lo.getHostAddress()
+                        + " localhost=" + InetAddress.getLoopbackAddress().getHostAddress()
+                        + " all=" + java.util.Arrays.toString(InetAddress.getAllByName("localhost"))
+                        + " reply=" + reply
+                        + " elapsed_us=" + ((System.nanoTime() - t0) / 1000));
+            } catch (Throwable e) {
+                log("IPC SELFTEST FAIL addr=127.0.0.1"
+                        + " localhost=" + safeLoopbackAddress()
+                        + " all=" + safeLocalhostAddresses()
+                        + " error=" + e.getClass().getName()
+                        + " msg=" + e.getMessage());
+            }
+        }, "mcnpu-ipc-selftest").start();
+    }
+
+    private static String safeLoopbackAddress() {
+        try {
+            return InetAddress.getLoopbackAddress().getHostAddress();
+        } catch (Throwable t) {
+            return "<error:" + t.getClass().getSimpleName() + ">";
+        }
+    }
+
+    private static String safeLocalhostAddresses() {
+        try {
+            return java.util.Arrays.toString(InetAddress.getAllByName("localhost"));
+        } catch (Throwable t) {
+            return "<error:" + t.getClass().getSimpleName() + ">";
+        }
     }
 
     private void handle(Socket socket) {
