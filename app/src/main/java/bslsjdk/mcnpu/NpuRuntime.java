@@ -130,6 +130,12 @@ public final class NpuRuntime {
         if (!ready) return "ERR " + lastError;
         return nativeMatMul(m, k, n);
     }
+
+    /** Same matmul, but with fp16 tensors (the HTP-native datatype). */
+    public static synchronized String matMulFp16(int m, int k, int n) {
+        if (!ready) return "ERR " + lastError;
+        return nativeMatMulFp16(m, k, n);
+    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
@@ -142,5 +148,6 @@ public final class NpuRuntime {
     private static native String nativeAdd(float[] a, float[] b);
     /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
     private static native String nativeMatMul(int m, int k, int n);
+    private static native String nativeMatMulFp16(int m, int k, int n);
     private static native void nativeShutdown();
 }
