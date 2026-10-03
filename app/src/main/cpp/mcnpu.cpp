@@ -913,21 +913,32 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // first few outputs on the host (O(8k), negligible) and solve for the scale
     // that makes c_int*scale == sum(qA*qB)*scaleA*scaleB exactly.
     {
-        const uint32_t refRows = m<8u ? m : 8u;
-        double num=0.0, den=0.0;
+        // Per-element ratio c_int / sum(qA*qB), then take the median. Summing
+        // first (the previous attempt) cancels out on structured data and left
+        // the scale untouched; a median over many elements is immune to both
+        // cancellation and to the rounding noise of individual elements.
+        const uint32_t refRows = m<64u ? m : 64u;
+        std::vector<float> ratios;
+        ratios.reserve((size_t)refRows*n);
         for(uint32_t r=0;r<refRows;r++){
             for(uint32_t j=0;j<n;j++){
                 long long s=0;
                 for(uint32_t p=0;p<k;p++) s += (long long)Ain[(size_t)r*k+p]*(long long)Bin[(size_t)p*n+j];
-                num += (double)Cpad[(size_t)r*Nb+j];
-                den += (double)s;
+                const int ci=(int)Cpad[(size_t)r*Nb+j];
+                if(s!=0 && ci!=0) ratios.push_back((float)((double)ci/(double)s));
             }
         }
-        if(den!=0.0 && num!=0.0){
-            const double scaleEff = den*(double)scaleA*(double)scaleB/num;
-            if(scaleEff>0.0) scaleCOut=(float)scaleEff;
-            I("MATMUL8BUF CAL bucket=%ux%ux%u raw=%.8g eff=%.8g num=%.4g den=%.6g",
-              (unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC,scaleCOut,num,den);
+        if(ratios.size()>=8){
+            std::sort(ratios.begin(),ratios.end());
+            const double med=(double)ratios[ratios.size()/2];
+            if(med!=0.0){
+                const double scaleEff=(double)scaleA*(double)scaleB/med;
+                if(scaleEff>0.0) scaleCOut=(float)scaleEff;
+            }
+            I("MATMUL8BUF CAL bucket=%ux%ux%u raw=%.8g eff=%.8g med=%.8g n=%u",
+              (unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC,scaleCOut,med,(unsigned)ratios.size());
+        } else {
+            I("MATMUL8BUF CAL-SKIP bucket=%ux%ux%u samples=%u",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,(unsigned)ratios.size());
         }
     }
     for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
