@@ -1009,8 +1009,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
 
     const uint64_t key=((uint64_t)Mb<<42)|((uint64_t)Kb<<21)|(uint64_t)Nb;
     Runtime::MatMulGraph* mg=nullptr;
+    // Tracks whether this call reused a graph, so the EXEC line can say so.
+    // It has to be declared here: the graphCached in runBatchXform is a different
+    // function's local, and referring to it from runMatMulInt8Buf would not compile.
+    bool graphCached=false;
     auto found=g.matMulGraphs8.find(key);
-    if(found!=g.matMulGraphs8.end()) mg=&found->second;
+    if(found!=g.matMulGraphs8.end()){ mg=&found->second; graphCached=true; }
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!mg){
         if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
