@@ -3,13 +3,15 @@
 Persistent Android QNN/HTP V73 service for Minecraft Java NPU acceleration.
 
 ## IPC contract
-The service listens on Android abstract local socket mcnpu_ipc_v1.
+The service listens on TCP loopback 127.0.0.1:38761.
 Commands: PING, STATUS, CAPABILITIES, SMOKE, EXEC_ADD, QUIT.
 Successful execution replies begin with OK HTP_GRAPH_EXECUTE.
 STATUS returns QNN HTP ready... when ready, otherwise NPU_OFFLINE plus the last initialization error.
 
-The Fabric mod in bslsjdk/mcjavanpu is the IPC client. This app alone owns QNN/HTP and keeps the runtime initialized for repeated calls.
+The Fabric mod in bslsjdk/mcjavanpu is the IPC client. The MCNPU service owns QNN/HTP and keeps the runtime initialized for repeated calls.
+
+On Android 16, local-network protection is an opt-in compatibility feature during the current rollout. MCNPU declares INTERNET and NEARBY_WIFI_DEVICES; the app requests Nearby devices access before starting the IPC service. ACCESS_LOCAL_NETWORK is not required for targetSdk 35; Android 17/targetSdk 37+ is where the new local-network permission is enforced.
 
 QNN assets are copied transactionally into app-private files/qnnlibs before the version stamp is committed. Native QNN lifecycle and execution are serialized.
 
-IPC peer credentials are checked. By default only the MCNPU app's own UID is trusted. Additional launcher packages can be allowlisted through the MCNPU app's SharedPreferences file under the key "ipc/trusted_packages", as a comma-separated package list. Rejected peers are logged with UID and resolved package names. This is intentionally deny-by-default so changing launchers does not silently broaden IPC access.
+The IPC listener is self-healing: bind/accept failures close the broken ServerSocket, wait briefly, and retry while the foreground service is running.
