@@ -124,6 +124,12 @@ public final class NpuRuntime {
         if (!ready) return "ERR " + lastError;
         return nativeAdd(a, b);
     }
+
+    /** m x k times k x n on the HTP; result also reports cpu_us and speedup. */
+    public static synchronized String matMul(int m, int k, int n) {
+        if (!ready) return "ERR " + lastError;
+        return nativeMatMul(m, k, n);
+    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
@@ -134,5 +140,7 @@ public final class NpuRuntime {
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
     private static native String nativeAdd(float[] a, float[] b);
+    /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
+    private static native String nativeMatMul(int m, int k, int n);
     private static native void nativeShutdown();
 }
