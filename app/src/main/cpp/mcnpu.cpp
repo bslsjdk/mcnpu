@@ -722,12 +722,12 @@ std::string runBatchXform(uint32_t n,int op){
     const float sc=1.0f/127.0f;
     const uint64_t key=(2ULL<<60)|((uint64_t)(op&0xff)<<52)|(uint64_t)Nb;
     Runtime::MatMulGraph* mg=nullptr;
+    bool graphCached=false;
     auto found=g.matMulGraphs8.find(key);
-    if(found!=g.matMulGraphs8.end()) mg=&found->second;
+    if(found!=g.matMulGraphs8.end()){ mg=&found->second; graphCached=true; }
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!mg){
         if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
-        g.graphCount++;
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=Nb; mg->k=1; mg->n=1;
@@ -965,7 +965,12 @@ static bool mmShapeSafe(uint32_t m, uint32_t k, uint32_t n, uint32_t elemSize){
 }
 
 std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,uint32_t m,uint32_t k,uint32_t n,float& scaleCOut){
-    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    const auto lockWait0 = std::chrono::steady_clock::now();
+    std::unique_lock<std::mutex> lock(gRuntimeMutex);
+    const long long lockWaitUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - lockWait0).count();
+    I("MM8BUF QUEUE lock_wait_us=%lld m=%u k=%u n=%u",
+      lockWaitUs,(unsigned)m,(unsigned)k,(unsigned)n);
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
@@ -1053,6 +1058,7 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
             g.matMulGraphs8.erase(key);
             return "ERR BUF_GRAPH_FINALIZE rc="+std::to_string((int)rc);
         }
+        g.graphCount++;
         I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
 
@@ -1063,7 +1069,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     ec.v1.clientBuf.data=Cpad.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb);
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
+    const auto exec0 = std::chrono::steady_clock::now();
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
+    const long long execUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - exec0).count();
+    I("MM8BUF EXEC queue_lock_wait_us=%lld qnn_execute_us=%lld graph_cached=%s bucket=%ux%ux%u",
+      lockWaitUs,execUs,graphCached?"true":"false",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb);
     if(rc!=QNN_SUCCESS) return "ERR BUF_EXECUTE rc="+std::to_string((int)rc);
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
