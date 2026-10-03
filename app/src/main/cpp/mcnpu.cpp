@@ -370,6 +370,9 @@ static inline int8_t quantize8(float v,float scale){
 // e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
 static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=65536; }
 
+// Defined further down; runBatchXform (declared above it) needs it.
+static uint32_t bucketize(uint32_t v);
+
 Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
     t.version=QNN_TENSOR_VERSION_1;
@@ -718,9 +721,10 @@ std::string runBatchXform(uint32_t n,int op){
         if(rc!=QNN_SUCCESS){ g.matMulGraphs8.erase(key); return "ERR XF_TENSOR rc="+std::to_string((int)rc); }
         Qnn_Param_t xp;
         std::memset(&xp,0,sizeof(xp));
+        xp.version=QNN_PARAM_VERSION_1;
         xp.name=QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION;
-        xp.dataType=QNN_DATATYPE_UINT_32;
-        xp.value.uint32Value=(op==0)?QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD:QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY;
+        xp.scalarParam.dataType=QNN_DATATYPE_UINT_32;
+        xp.scalarParam.uint32Value=(op==0)?QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD:QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY;
         Qnn_Tensor_t xin[2]={mg->a,mg->b};
         Qnn_OpConfig_t o=QNN_OPCONFIG_INIT;
         o.v1.name="xf"; o.v1.packageName="qti.aisw"; o.v1.typeName=QNN_OP_ELEMENT_WISE_BINARY;
