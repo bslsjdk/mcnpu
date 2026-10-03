@@ -280,6 +280,15 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
     return true;
 }
 
+// QNN 2.27 cannot free a single graph; only contextFree() releases them.
+// An unbounded set of graph sizes would therefore leak device memory, so ADD
+// is restricted to a fixed bucket list with one cached graph per bucket.
+static bool addSizeAllowed(uint32_t n){
+    static const uint32_t allow[]={16,64,256,1024,4096,16384};
+    for(uint32_t v:allow) if(v==n) return true;
+    return false;
+}
+
 Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
     t.version=QNN_TENSOR_VERSION_1;
@@ -456,7 +465,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTest(J
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb){
     if(!ja||!jb)return e->NewStringUTF("ERR NULL");
     jsize n=e->GetArrayLength(ja);
-    if(n<=0||n!=e->GetArrayLength(jb)||n>1024)return e->NewStringUTF("ERR SIZE");
+    if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
+    if(!addSizeAllowed((uint32_t)n))return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,64,256,1024,4096,16384");
     std::vector<float>a(n),b(n);
     e->GetFloatArrayRegion(ja,0,n,a.data());
     e->GetFloatArrayRegion(jb,0,n,b.data());
