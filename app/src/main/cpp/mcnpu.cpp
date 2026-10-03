@@ -47,6 +47,7 @@ struct Runtime {
         uint32_t m=0,k=0,n=0;
         uint32_t dimsA[2]={0,0}, dimsB[2]={0,0}, dimsC[2]={0,0};
         Qnn_Tensor_t a=QNN_TENSOR_INIT, b=QNN_TENSOR_INIT, c=QNN_TENSOR_INIT;
+        bool fp16=false;
     };
     std::unordered_map<uint32_t, AddGraph> addGraphs;
     std::unordered_map<uint64_t, MatMulGraph> matMulGraphs;
@@ -291,6 +292,9 @@ bool initRuntime(const std::string& qnnDir, const std::string& workDir){
 // QNN 2.27 cannot free a single graph; only contextFree() releases them.
 // An unbounded set of graph sizes would therefore leak device memory, so ADD
 // is restricted to a fixed bucket list with one cached graph per bucket.
+static inline uint16_t f2h(float f){ __fp16 h=(__fp16)f; uint16_t u; std::memcpy(&u,&h,sizeof(u)); return u; }
+static inline float h2f(uint16_t u){ __fp16 h; std::memcpy(&h,&u,sizeof(h)); return (float)h; }
+
 static bool mmSizeAllowed(uint32_t v){
     static const uint32_t allow[]={16,32,64,128,256,512};
     for(uint32_t a:allow) if(a==v) return true;
@@ -446,12 +450,12 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
 
 // Deterministic matmul on HTP with an in-service CPU reference so the caller can
 // see a real speedup number instead of a synthetic latency.
-std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
+std::string runMatMul(uint32_t m,uint32_t k,uint32_t n,bool fp16){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
-    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
+    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n|(fp16?(1ULL<<62):0ULL);
     Runtime::MatMulGraph* mg=nullptr;
     bool cached=false;
     auto found=g.matMulGraphs.find(key);
@@ -461,7 +465,7 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
     if(!cached){
         auto inserted=g.matMulGraphs.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
-        mg->m=m; mg->k=k; mg->n=n;
+        mg->m=m; mg->k=k; mg->n=n; mg->fp16=fp16;
         // QNN dimensions are innermost-first (buffers are row-major).
         mg->dimsA[0]=k; mg->dimsA[1]=m;
         mg->dimsB[0]=n; mg->dimsB[1]=k;
@@ -474,9 +478,10 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
             g.matMulGraphs.erase(inserted.first);
             return "ERR MM_GRAPH_CREATE rc="+std::to_string((int)rc)+" create_us="+std::to_string(createUs)+" "+verbose(rc);
         }
-        mg->a=makeTensorN("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,mg->dimsA,2);
-        mg->b=makeTensorN("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,mg->dimsB,2);
-        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,mg->dimsC,2);
+        const Qnn_DataType_t dt = fp16 ? QNN_DATATYPE_FLOAT_16 : QNN_DATATYPE_FLOAT_32;
+        mg->a=makeTensorN("a",QNN_TENSOR_TYPE_APP_WRITE,dt,mg->dimsA,2);
+        mg->b=makeTensorN("b",QNN_TENSOR_TYPE_APP_WRITE,dt,mg->dimsB,2);
+        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,dt,mg->dimsC,2);
         rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
@@ -525,11 +530,23 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
     }
     const long long cpuUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tc0).count();
 
-    std::vector<float> Cnpu((size_t)m*n,0.f);
+    std::vector<float> CnpuF((size_t)m*n,0.f);
+    std::vector<uint16_t> Ah, Bh, Ch;
+    if(fp16){
+        Ah.resize(A.size()); Bh.resize(B.size()); Ch.assign(CnpuF.size(),0);
+        for(size_t i=0;i<A.size();i++) Ah[i]=f2h(A[i]);
+        for(size_t i=0;i<B.size();i++) Bh[i]=f2h(B[i]);
+    }
     Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
-    ea.v1.clientBuf.data=A.data();  ea.v1.clientBuf.dataSize=(uint32_t)(A.size()*sizeof(float));
-    eb.v1.clientBuf.data=B.data();  eb.v1.clientBuf.dataSize=(uint32_t)(B.size()*sizeof(float));
-    ec.v1.clientBuf.data=Cnpu.data(); ec.v1.clientBuf.dataSize=(uint32_t)(Cnpu.size()*sizeof(float));
+    if(fp16){
+        ea.v1.clientBuf.data=Ah.data(); ea.v1.clientBuf.dataSize=(uint32_t)(Ah.size()*sizeof(uint16_t));
+        eb.v1.clientBuf.data=Bh.data(); eb.v1.clientBuf.dataSize=(uint32_t)(Bh.size()*sizeof(uint16_t));
+        ec.v1.clientBuf.data=Ch.data(); ec.v1.clientBuf.dataSize=(uint32_t)(Ch.size()*sizeof(uint16_t));
+    } else {
+        ea.v1.clientBuf.data=A.data();  ea.v1.clientBuf.dataSize=(uint32_t)(A.size()*sizeof(float));
+        eb.v1.clientBuf.data=B.data();  eb.v1.clientBuf.dataSize=(uint32_t)(B.size()*sizeof(float));
+        ec.v1.clientBuf.data=CnpuF.data(); ec.v1.clientBuf.dataSize=(uint32_t)(CnpuF.size()*sizeof(float));
+    }
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
     auto t0=std::chrono::steady_clock::now();
@@ -537,11 +554,14 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
     const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
     if(rc!=QNN_SUCCESS) return "ERR MM_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
 
+    if(fp16) for(size_t i=0;i<CnpuF.size();i++) CnpuF[i]=h2f(Ch[i]);
+
     double maxAbs=0.0;
     int bad=0;
-    for(size_t i=0;i<Cnpu.size();i++){
-        const double diff=std::fabs((double)Cnpu[i]-(double)Ccpu[i]);
-        const double tol=1e-3*std::max(1.0,std::fabs((double)Ccpu[i]));
+    const double relTol = fp16 ? 1e-2 : 1e-3;
+    for(size_t i=0;i<CnpuF.size();i++){
+        const double diff=std::fabs((double)CnpuF[i]-(double)Ccpu[i]);
+        const double tol=relTol*std::max(1.0,std::fabs((double)Ccpu[i]));
         if(diff>maxAbs) maxAbs=diff;
         if(diff>tol) bad++;
     }
@@ -549,8 +569,8 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n){
     const long long totalUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-total0).count();
     char buf[640];
     std::snprintf(buf,sizeof(buf),
-        "OK MATMUL m=%u k=%u n=%u cached=%s create_us=%lld finalize_us=%lld npu_exec_us=%lld cpu_us=%lld speedup=%.2fx bad=%d max_abs=%.5g total_us=%lld",
-        (unsigned)m,(unsigned)k,(unsigned)n,cached?"true":"false",createUs,finalizeUs,execUs,cpuUs,speedup,bad,maxAbs,totalUs);
+        "OK MATMUL m=%u k=%u n=%u dtype=%s cached=%s create_us=%lld finalize_us=%lld npu_exec_us=%lld cpu_us=%lld speedup=%.2fx bad=%d max_abs=%.5g total_us=%lld",
+        (unsigned)m,(unsigned)k,(unsigned)n,fp16?"fp16":"fp32",cached?"true":"false",createUs,finalizeUs,execUs,cpuUs,speedup,bad,maxAbs,totalUs);
     return buf;
 }
 
@@ -610,6 +630,12 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
-    return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
+    return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,false).c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulFp16(JNIEnv* e,jclass,jint m,jint k,jint n){
+    if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
+    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+    return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,true).c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
