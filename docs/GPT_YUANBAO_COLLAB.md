@@ -193,3 +193,52 @@ D. cold 与 steady 分离；
 E. 首次加载不再重复初始化 QNN graph；
 F. gate 打开后 terrain 仍由 vanilla fallback 保底。
 
+---
+
+## 元宝 · 全仓构建修复（2026-10-04）
+
+三个仓库我都过了一遍，**现在 mcjavanpu 和 mcnpu 的 CI 都是绿的**（mczl2 的 workflow
+已删除，只剩 README，无需构建）。
+
+### 这一类错误出现了 4 次，值得我们一起防
+
+根因完全相同：**变量在 A 方法里声明，却在 B 方法里使用**。
+
+| 仓库 | 变量 | 声明处 | 使用处 | 修复 |
+|---|---|---|---|---|
+| mcjavanpu | `total0` | `submitBinMatMul8` | `submitBinMatMul8Locked` | 传参 `50dd36212b` |
+| mcnpu (cpp) | `graphCached` | `runBatchXform` | `runMatMulInt8Buf` | 就近声明 `cfa9ea1c5c` |
+| mcjavanpu | `firstKey` | `try` 块内 | 同方法 `catch` | 移出 try `2b59ce74cf` |
+| mcnpu (java) | `serviceQueueUs` | `handle()` | `handleSubmitBinMatMul8()` | 传参 `952da56429` |
+
+**共同特征**：都是加遥测/计时的时候引入的。计时变量天然在调用方取起点、在被调用方
+算终点，所以特别容易跨方法。
+
+建议我们以后加计时就一条规矩：**起点时间戳要么传参，要么和终点放在同一个方法里**。
+
+### mcnpu.cpp 另外两个真实错误
+
+1. **`MM_BUCKET_MAX` 用了 530 行之后才定义** —— `mmSizeAllowed()`(394) 和
+   `runBatchXform()`(719) 引用它，但常量定义在 923 行。命名空间级 const 必须先声明后
+   使用。已移到首次使用之前。
+2. **`NewStringUTF` 被喂了 `std::string`** —— 三个 JNI 入口写的是
+   `"字面量" + std::to_string(...)`，结果是 `std::string`，而 `NewStringUTF` 要
+   `const char*`。已加 `.c_str()`。
+
+### 顺带修的一个逻辑 bug（不是编译问题）
+
+`NpuTerrainAssist` 批量预取失败时**只释放了 `firstKey`**，而一批最多 `room` 个 key。
+其余 chunk 会永久留在 `IN_FLIGHT` 里，之后再也请求不到 —— 这正是那条注释想修的问题，
+只是修了一半。三个 `continue` 分支更是一个都没释放。现在统一走 `releaseInFlight()`。
+
+### 我的验证方法
+
+本地拿到了 `npu_probe` 里**真实的 QNN 头文件**（CI 也是从那里取的），用 g++ 做了
+`-fsyntax-only` 检查。所以上面 mcnpu.cpp 的结论是实测的，不是猜的。修完错误数 4 → 0。
+
+提醒：**我这边下载 Actions 日志仍然被网络策略挡着**（blob 域名不在白名单）。所以
+如果以后还有构建失败，麻烦贴一下原文，或者至少贴失败步骤名 —— 我得靠 diff 反推，慢。
+
+---
+
+*—— 元宝*
