@@ -314,7 +314,7 @@ public final class NpuService extends Service {
                 String cmd = line.trim();
                 if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
                     try {
-                        handleSubmitBinMatMul8(in, out, cmd.substring(18));
+                        handleSubmitBinMatMul8(in, out, cmd.substring(18), serviceQueueUs);
                     } catch (Throwable t) {
                         log("BIN SUBMIT exception=" + t);
                         writeLineUtf8(out, "ERR BIN_SUBMIT_EXCEPTION " + t.getClass().getSimpleName());
@@ -400,7 +400,13 @@ public final class NpuService extends Service {
      * True binary data plane: no base64, no string parsing of tensor data.
      * Reply: one text header line, then the raw int8 result bytes.
      */
-    private void handleSubmitBinMatMul8(InputStream in, OutputStream out, String payload) throws IOException {
+    /**
+     * acceptedQueueUs is the time this connection spent waiting before we started
+     * serving it, measured in handle(). It has to be passed in - it belongs to the
+     * caller's frame and cannot be referenced from here.
+     */
+    private void handleSubmitBinMatMul8(InputStream in, OutputStream out, String payload,
+                                        long acceptedQueueUs) throws IOException {
         String[] p = payload.trim().split(" ");
         if (p.length != 5) { writeLineUtf8(out, "ERR BIN_FORMAT use: SUBMITBIN_MATMUL8 m k n alen blen"); return; }
         int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
@@ -424,9 +430,9 @@ public final class NpuService extends Service {
         int cbytes = res.length - 4;
         log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n
                 + " scaleC=" + scaleC + " cbytes=" + cbytes
-                + " service_queue_us=" + serviceQueueUs + " npu_service_us=" + us);
+                + " service_queue_us=" + acceptedQueueUs + " npu_service_us=" + us);
         writeLineUtf8(out, "OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
-                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + serviceQueueUs + " binary=1");
+                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + acceptedQueueUs + " binary=1");
         out.write(res, 4, cbytes);
         out.flush();
     }
