@@ -142,6 +142,12 @@ public final class NpuRuntime {
         if (!ready) return "ERR " + lastError;
         return nativeMatMulInt8(m, k, n);
     }
+
+    /** Real data path: int8 tensors in, int8 result out (with scaleC prefix). */
+    public static synchronized byte[] matMulInt8Buf(byte[] a, byte[] b, int m, int k, int n) {
+        if (!ready) return null;
+        return nativeMatMulInt8Buf(a, b, m, k, n);
+    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
@@ -156,5 +162,7 @@ public final class NpuRuntime {
     private static native String nativeMatMul(int m, int k, int n);
     private static native String nativeMatMulFp16(int m, int k, int n);
     private static native String nativeMatMulInt8(int m, int k, int n);
+    /** Returns [4-byte LE scaleC][m*n int8 result], or null on failure. */
+    private static native byte[] nativeMatMulInt8Buf(byte[] a, byte[] b, int m, int k, int n);
     private static native void nativeShutdown();
 }
