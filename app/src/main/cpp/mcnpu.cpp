@@ -800,7 +800,7 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
 // Shape bucketing: any (m,k,n) is normalized to the nearest bucket andzero-padded,
 // so a bounded set of graphs is ever created. Without this, Minecraft's ever-
 // changing batch sizes would silently poison the context.
-static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048};
+static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536};
 static const int MM_BUCKET_COUNT = 7;
 
 static uint32_t bucketize(uint32_t v){
@@ -816,9 +816,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 2048)";
     const float scaleA = 1.0f/127.0f;
     const float scaleB = 1.0f/127.0f;
-    // Bucketed output scale: shared by every shape landing in this bucket so the
-    // graph can actually be reused. sqrt(Kb) covers ~3 sigma of a dot product.
-    const float scaleC = std::sqrt((float)Kb)/127.0f;
+    // Bucketed output scale. The int8 graph computes c_int = sum(qA*qB), so with
+    // scaleA = scaleB = 1/127 the TRUE product scale would be 1/127^2 -- but that
+    // overflows instantly when k>1 (int8 holds +-127). The smallest scale that
+    // cannot saturate is C_max/127 with C_max = k*1*1, i.e. Kb/127. Anything
+    // smaller overflows, anything larger throws away resolution.
+    const float scaleC = (float)Kb/127.0f;
     scaleCOut = scaleC;
 
     std::vector<int8_t> Ap, Bp;
