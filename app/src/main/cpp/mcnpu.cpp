@@ -1125,4 +1125,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatM
     e->SetByteArrayRegion(out,0,total,tmp.data());
     return out;
 }
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeXform(JNIEnv* e,jclass,jint op,jint n){
+    if(n<=0) return e->NewStringUTF("ERR SIZE");
+    if(n>65536) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=65536");
+    return e->NewStringUTF(runBatchXform((uint32_t)n,(int)op).c_str());
+}
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
