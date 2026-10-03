@@ -26,6 +26,8 @@ public final class NpuService extends Service {
     private volatile long workerBeatMs;
     private volatile String workerPhase = "STOPPED";
     private volatile boolean listenerUp;
+    /** accept 循环是否真的在跑（端口 bound != 服务可用）。 */
+    private volatile boolean acceptAlive;
     private static final long WORKER_STALL_MS = 15_000L;
 
     @Override public void onCreate() {
@@ -55,7 +57,7 @@ public final class NpuService extends Service {
         if (!running) running = true;
         long stall = workerBeatMs == 0 ? Long.MAX_VALUE
                 : System.currentTimeMillis() - workerBeatMs;
-        boolean listenerHealthy = listenerUp && server != null && !server.isClosed();
+        boolean listenerHealthy = acceptAlive && server != null && !server.isClosed();
         log("服务 startCommand startId=" + startId + " worker=" + serverLoopStarted.get()
                 + " phase=" + workerPhase + " stallMs=" + stall
                 + " listenerHealthy=" + listenerHealthy
@@ -118,7 +120,7 @@ public final class NpuService extends Service {
             workerPhase = "LISTENING_INIT";
             workerBeatMs = System.currentTimeMillis();
             log("IPC 监听 READY_FOR_INIT " + loopback.getHostAddress() + ":" + IPC_PORT);
-            selfTestLoopback();
+            earlyConnectProbe(loopback);
         } catch (Throwable t) {
             workerPhase = "BIND_FAILED";
             workerBeatMs = System.currentTimeMillis();
@@ -137,8 +139,6 @@ public final class NpuService extends Service {
         log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
-        selfTestLoopback();
-
         while (running && workerEpoch.get() == myEpoch) {
             workerBeatMs = System.currentTimeMillis();
             ServerSocket ss = null;
@@ -162,7 +162,14 @@ public final class NpuService extends Service {
                 workerBeatMs = System.currentTimeMillis();
                 log("IPC 监听 LOOPBACK " + ss.getInetAddress().getHostAddress() + ":" + ss.getLocalPort());
                 updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
+                acceptAlive = true;
+                boolean selfTestDone = false;
                 while (running && workerEpoch.get() == myEpoch && server == ss && !ss.isClosed()) {
+                    if (!selfTestDone) {
+                        // 只有 accept 循环开跑之后 PONG 才可能被处理；放在 init 之前测只会超时。
+                        selfTestDone = true;
+                        selfTestLoopback();
+                    }
                     try {
                         Socket socket = ss.accept();
                         workerBeatMs = System.currentTimeMillis();
@@ -192,6 +199,7 @@ public final class NpuService extends Service {
                     updateNotification("MC NPU: IPC retrying");
                 }
             } finally {
+                acceptAlive = false;
                 if (server == ss) {
                     listenerUp = false;
                     server = null;
@@ -210,9 +218,31 @@ public final class NpuService extends Service {
         }
 
         if (workerEpoch.get() != myEpoch) {
+            acceptAlive = false;
+            try { if (prebound != null && prebound != server) prebound.close(); } catch (Throwable ignored) {}
             log("IPC worker EPOCH_EXIT myEpoch=" + myEpoch + " currentEpoch=" + workerEpoch.get());
         }
         log("IPC 循环结束");
+    }
+
+    /**
+     * 初始化前的连通性探针：只验证 loopback 上 TCP connect 能成功（即端口已 bind/listen）。
+     * 不要求服务端回包 —— accept 循环要等 QNN 初始化结束后才启动，
+     * 此时发 PING 只会得到 SocketTimeoutException，不能据此判断 loopback 被系统拦截。
+     */
+    private void earlyConnectProbe(InetAddress loopback) {
+        new Thread(() -> {
+            long t0 = System.nanoTime();
+            try (Socket t = new Socket()) {
+                t.connect(new InetSocketAddress(loopback, IPC_PORT), 2000);
+                log("IPC EARLY_PROBE CONNECT_OK " + loopback.getHostAddress() + ":" + IPC_PORT
+                        + " elapsed_us=" + ((System.nanoTime() - t0) / 1000)
+                        + " (accept loop starts after QNN init; no reply expected)");
+            } catch (Throwable e) {
+                log("IPC EARLY_PROBE CONNECT_FAIL " + loopback.getHostAddress() + ":" + IPC_PORT
+                        + " error=" + e.getClass().getName() + " msg=" + e.getMessage());
+            }
+        }, "mcnpu-ipc-early-probe").start();
     }
 
     private void selfTestLoopback() {
