@@ -809,3 +809,143 @@ profile over 20s, 3180 passes, 28620 hits
 [21:57:57.658] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
 [21:57:57.658] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
 [21:57:57.666] [INFO] light engine calls=2981 mode=assist (fold pending)
+[21:57:58.057] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:57:58.058] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[21:57:58.058] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[21:57:58.873] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:57:58.873] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[21:57:58.873] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[21:58:03.005] [INFO] chunk batch: submitted=8 pending=210 (total 330 loaded, batch #17, dropped=0 skipped=0)
+[21:58:07.674] [INFO] light engine calls=4881 mode=assist (fold pending)
+[21:58:09.513] [INFO] chunk batch: submitted=8 pending=194 (total 378 loaded, batch #25, dropped=0 skipped=0)
+[21:58:11.598] [INFO] chunk batch: submitted=8 pending=159 (total 407 loaded, batch #33, dropped=0 skipped=0)
+[21:58:14.200] [INFO] chunk batch: submitted=8 pending=119 (total 431 loaded, batch #41, dropped=0 skipped=0)
+[21:58:16.518] [INFO] chunk batch: submitted=8 pending=85 (total 461 loaded, batch #49, dropped=0 skipped=0)
+[21:58:17.683] [INFO] light engine calls=7529 mode=assist (fold pending)
+[21:58:18.202] [INFO] chunk batch: submitted=8 pending=46 (total 486 loaded, batch #57, dropped=0 skipped=0)
+[21:58:19.912] [INFO] chunk batch: submitted=8 pending=26 (total 530 loaded, batch #65, dropped=0 skipped=0)
+[21:58:21.679] [INFO] chunk batch: submitted=4 pending=0 (total 563 loaded, batch #73, dropped=0 skipped=0)
+[21:58:24.397] [INFO] chunk batch: submitted=6 pending=0 (total 615 loaded, batch #81, dropped=0 skipped=0)
+[21:58:27.693] [INFO] light engine calls=11965 mode=assist (fold pending)
+[21:58:29.764] [INFO] chunk batch: submitted=5 pending=0 (total 664 loaded, batch #89, dropped=0 skipped=0)
+[21:58:35.030] [INFO] chunk batch: submitted=4 pending=0 (total 712 loaded, batch #97, dropped=0 skipped=0)
+[21:58:37.694] [INFO] light engine calls=15627 mode=assist (fold pending)
+[21:58:40.862] [INFO] chunk batch: submitted=8 pending=4 (total 767 loaded, batch #105, dropped=0 skipped=0)
+[21:58:45.983] [INFO] [NPU] terrain_assist hits=0 misses=0 hit_rate=0.0% prepared=0 cached=0/96 queued=0/256 dropped=0 failed=0 || render_assist frames=0 npu_frames=0 rate=0.0% boxes=0 last_npu_us=0 fallbacks=0 last_frame_us=0 scaleC=0.0 || chunks_seen=795 batches=111 pending=0/512 last_batch=8 dropped=0 skipped=0 | work submitted=795 processed=410 pending=365/512 dropped=0 failed=0 last_us=189857
+[21:58:47.706] [INFO] light engine calls=18779 mode=assist (fold pending)
+[21:58:47.776] [INFO] chunk batch: submitted=4 pending=0 (total 807 loaded, batch #113, dropped=0 skipped=0)
+[21:58:54.630] [INFO] chunk batch: submitted=5 pending=0 (total 860 loaded, batch #121, dropped=0 skipped=0)
+[21:58:57.731] [INFO] light engine calls=20697 mode=assist (fold pending)
+[21:59:07.718] [INFO] light engine calls=21891 mode=assist (fold pending)
+[21:59:10.409] [INFO] chunk batch: submitted=4 pending=0 (total 897 loaded, batch #129, dropped=0 skipped=0)
+[21:59:17.723] [INFO] light engine calls=23569 mode=assist (fold pending)
+[21:59:19.350] [INFO] chunk batch: submitted=6 pending=0 (total 945 loaded, batch #137, dropped=0 skipped=0)
+[21:59:27.833] [INFO] light engine calls=25343 mode=assist (fold pending)
+[21:59:32.211] [INFO] chunk batch: submitted=7 pending=0 (total 985 loaded, batch #145, dropped=0 skipped=0)
+[21:59:37.850] [INFO] light engine calls=27285 mode=assist (fold pending)
+[21:59:39.980] [INFO] chunk batch: submitted=5 pending=0 (total 1028 loaded, batch #153, dropped=0 skipped=0)
+[21:59:47.860] [INFO] light engine calls=29641 mode=assist (fold pending)
+[21:59:49.763] [INFO] chunk batch: submitted=4 pending=0 (total 1072 loaded, batch #161, dropped=0 skipped=0)
+[21:59:57.862] [INFO] light engine calls=31319 mode=assist (fold pending)
+[22:00:02.954] [INFO] chunk batch: submitted=4 pending=0 (total 1115 loaded, batch #169, dropped=0 skipped=0)
+[22:00:07.864] [INFO] light engine calls=33473 mode=assist (fold pending)
+
+==== session 2026-10-03T22:12:02.699706057 ====
+[22:12:02.697] [INFO] mod initialised
+[22:12:02.723] [INFO] boot: initialising runtime
+[22:12:02.730] [INFO] auto hooks registered (chunk load + server tick)
+[22:12:02.737] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[22:12:02.738] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[22:12:02.850] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[22:12:02.853] [INFO] boot: enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[22:12:22.940] [WARN] guard DEGRADED: p99 161370us over budget 8000us - features fall back to CPU until it recovers
+[22:12:23.003] [INFO] ==== NPU auto probe ====
+service: UP
+device: QNN HTP ready backendId=6 providers=1
+
+shape guidance (SM8635 / HTP v73):
+  INVALID: dimension above 65536; split the batch
+  req=16384x4x1 -> plan=16384x32x32  padding=12.81x  in=513.0 KiB  out=512.0 KiB  estCost=1280.0
+  ! padding wastes 12.8x -- round the request up to a bucket first, or batch with neighbours
+  req=4096x16x1 -> plan=4096x32x32  padding=3.78x  in=129.0 KiB  out=128.0 KiB  estCost=1088.0
+  ! padding wastes 3.8x -- round the request up to a bucket first, or batch with neighbours
+  req=128x64x16 -> plan=128x64x32  padding=1.27x  in=10.0 KiB  out=4.0 KiB  estCost=2052.0
+  req=33x33x33 -> plan=128x64x64  padding=6.27x  in=12.0 KiB  out=8.0 KiB  estCost=4104.0
+  ! padding wastes 6.3x -- round the request up to a bucket first, or batch with neighbours
+  ! m=33 is below the stable floor 128; padding to 128
+  req=1000x8x8 -> plan=1024x32x32  padding=4.14x  in=33.0 KiB  out=32.0 KiB  estCost=1040.0
+  ! padding wastes 4.1x -- round the request up to a bucket first, or batch with neighbours
+
+NPU bench sweep (each: 1 warmup + 5 measured)
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 161370us over budget 8000us
+==== end auto probe ====
+[22:12:23.126] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=77575 cpu_us=153081 speedup=1.97x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=264
+[22:12:23.131] [INFO] warmup steady: FAILED GUARD_DEGRADED p99 161370us over budget 8000us wall_ms=3
+[22:12:23.132] [INFO] boot: done, graphs are hot
+[22:13:07.017] [INFO] light engine calls=1 mode=assist (fold pending)
+[22:13:08.755] [INFO] chunk batch: submitted=8 pending=41 (total 49 loaded, batch #1, dropped=0 skipped=0)
+[22:13:09.473] [INFO] chunk batch: submitted=8 pending=19 (total 91 loaded, batch #9, dropped=0 skipped=0)
+[22:13:10.869] [INFO] chunk batch: submitted=8 pending=1 (total 133 loaded, batch #17, dropped=0 skipped=0)
+[22:13:12.898] [INFO] chunk batch: submitted=7 pending=0 (total 184 loaded, batch #25, dropped=0 skipped=0)
+[22:13:14.901] [INFO] chunk batch: submitted=8 pending=0 (total 240 loaded, batch #33, dropped=0 skipped=0)
+[22:13:16.510] [INFO] chunk batch: submitted=8 pending=2 (total 302 loaded, batch #41, dropped=0 skipped=0)
+[22:13:17.039] [INFO] light engine calls=951 mode=assist (fold pending)
+[22:13:18.007] [INFO] chunk batch: submitted=4 pending=0 (total 357 loaded, batch #49, dropped=0 skipped=0)
+[22:13:18.975] [INFO] chunk batch: submitted=7 pending=0 (total 406 loaded, batch #57, dropped=0 skipped=0)
+[22:13:20.664] [INFO] chunk batch: submitted=8 pending=7 (total 466 loaded, batch #65, dropped=0 skipped=0)
+[22:13:22.052] [INFO] chunk batch: submitted=8 pending=6 (total 521 loaded, batch #73, dropped=0 skipped=0)
+[22:13:22.969] [INFO] chunk batch: submitted=7 pending=0 (total 574 loaded, batch #81, dropped=0 skipped=0)
+[22:13:23.096] [INFO] heartbeat | NPU busy total: 62 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=1      cells=1          npu=   62.6ms host=   62.6ms x1.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 161370us over budget 8000us | service=UP
+[22:13:24.441] [INFO] chunk batch: submitted=6 pending=0 (total 625 loaded, batch #89, dropped=0 skipped=0)
+[22:13:25.919] [INFO] chunk batch: submitted=7 pending=0 (total 682 loaded, batch #97, dropped=0 skipped=0)
+[22:13:27.054] [INFO] light engine calls=2419 mode=assist (fold pending)
+[22:13:27.426] [INFO] chunk batch: submitted=4 pending=0 (total 729 loaded, batch #105, dropped=0 skipped=0)
+[22:13:28.207] [INFO] chunk batch: submitted=5 pending=0 (total 790 loaded, batch #113, dropped=0 skipped=0)
+[22:13:29.171] [INFO] chunk batch: submitted=6 pending=0 (total 834 loaded, batch #121, dropped=0 skipped=0)
+[22:13:37.055] [INFO] light engine calls=3603 mode=assist (fold pending)
+[22:13:47.058] [INFO] light engine calls=5197 mode=assist (fold pending)
+[22:13:55.973] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[22:13:55.976] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[22:13:55.977] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[22:13:56.924] [INFO] chunk batch: submitted=8 pending=71 (total 960 loaded, batch #129, dropped=0 skipped=0)
+[22:13:57.072] [INFO] light engine calls=7823 mode=assist (fold pending)
+[22:13:57.338] [INFO] chunk batch: submitted=8 pending=21 (total 974 loaded, batch #137, dropped=0 skipped=0)
+[22:13:59.443] [INFO] chunk batch: submitted=8 pending=1 (total 1008 loaded, batch #145, dropped=0 skipped=0)
+[22:14:01.381] [INFO] chunk batch: submitted=8 pending=0 (total 1054 loaded, batch #153, dropped=0 skipped=0)
+[22:14:04.015] [INFO] chunk batch: submitted=5 pending=0 (total 1104 loaded, batch #161, dropped=0 skipped=0)
+[22:14:06.139] [INFO] chunk batch: submitted=5 pending=0 (total 1151 loaded, batch #169, dropped=0 skipped=0)
+[22:14:07.075] [INFO] light engine calls=9233 mode=assist (fold pending)
+[22:14:09.726] [INFO] chunk batch: submitted=8 pending=0 (total 1202 loaded, batch #177, dropped=0 skipped=0)
+[22:14:11.658] [INFO] chunk batch: submitted=8 pending=2 (total 1260 loaded, batch #185, dropped=0 skipped=0)
+[22:14:13.761] [INFO] chunk batch: submitted=4 pending=0 (total 1311 loaded, batch #193, dropped=0 skipped=0)
+[22:14:15.878] [INFO] chunk batch: submitted=8 pending=1 (total 1366 loaded, batch #201, dropped=0 skipped=0)
+[22:14:17.082] [INFO] light engine calls=10455 mode=assist (fold pending)
+[22:14:17.632] [INFO] chunk batch: submitted=6 pending=0 (total 1414 loaded, batch #209, dropped=0 skipped=0)
+[22:14:19.015] [INFO] chunk batch: submitted=5 pending=0 (total 1470 loaded, batch #217, dropped=0 skipped=0)
+[22:14:20.304] [INFO] chunk batch: submitted=8 pending=13 (total 1532 loaded, batch #225, dropped=0 skipped=0)
+[22:14:21.034] [INFO] chunk batch: submitted=8 pending=5 (total 1582 loaded, batch #233, dropped=0 skipped=0)
+[22:14:22.218] [INFO] chunk batch: submitted=6 pending=0 (total 1626 loaded, batch #241, dropped=0 skipped=0)
+[22:14:23.254] [INFO] heartbeat | NPU busy total: 213 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=4      cells=4          npu=  213.1ms host=  213.1ms x1.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 161370us over budget 8000us | service=UP
+[22:14:23.429] [INFO] chunk batch: submitted=8 pending=0 (total 1674 loaded, batch #249, dropped=0 skipped=0)
+[22:14:26.079] [INFO] chunk batch: submitted=8 pending=3 (total 1731 loaded, batch #257, dropped=0 skipped=0)
+[22:14:27.088] [INFO] light engine calls=11985 mode=assist (fold pending)
+[22:14:31.434] [INFO] chunk batch: submitted=8 pending=4 (total 1782 loaded, batch #265, dropped=0 skipped=0)
+[22:14:32.102] [INFO] chunk batch: submitted=8 pending=4 (total 1837 loaded, batch #273, dropped=0 skipped=0)
+[22:14:32.597] [INFO] chunk batch: submitted=8 pending=12 (total 1903 loaded, batch #281, dropped=0 skipped=0)
+[22:14:33.171] [INFO] chunk batch: submitted=8 pending=5 (total 1959 loaded, batch #289, dropped=0 skipped=0)
+[22:14:33.637] [INFO] chunk batch: submitted=5 pending=0 (total 2004 loaded, batch #297, dropped=0 skipped=0)
+[22:14:34.357] [INFO] chunk batch: submitted=8 pending=17 (total 2077 loaded, batch #305, dropped=0 skipped=0)
+[22:14:34.798] [INFO] chunk batch: submitted=8 pending=2 (total 2123 loaded, batch #313, dropped=0 skipped=0)
+[22:14:35.223] [INFO] chunk batch: submitted=8 pending=5 (total 2184 loaded, batch #321, dropped=0 skipped=0)
+[22:14:37.093] [INFO] light engine calls=14383 mode=assist (fold pending)
