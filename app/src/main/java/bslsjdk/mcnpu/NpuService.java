@@ -305,7 +305,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8 max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8 max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
@@ -322,6 +322,8 @@ public final class NpuService extends Service {
                     reply = handleMatMul8(cmd.substring(13));
                 } else if (cmd.startsWith("MATMUL8 ")) {
                     reply = handleMatMul8(cmd.substring(8));
+                } else if (cmd.startsWith("SUBMIT_MATMUL8 ")) {
+                    reply = handleSubmitMatMul8(cmd.substring(15));
                 } else if (cmd.equals("QUIT")) {
                     reply(out, "BYE");
                     break;
@@ -377,6 +379,34 @@ public final class NpuService extends Service {
         } catch (Throwable t) {
             log("EXEC MATMUL8 exception=" + t);
             return "ERR MATMUL8_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+
+    /**
+     * SUBMIT_MATMUL8 m k n <base64 A> <base64 B>
+     * Real data path: caller-side int8 tensors (normalized to [-1,1]) go straight
+     * into the cached HTP graph; the reply carries scaleC plus the raw int8 result.
+     */
+    private String handleSubmitMatMul8(String payload) {
+        try {
+            String[] p = payload.trim().split(" ");
+            if (p.length != 5) return "ERR SUBMIT_FORMAT use: SUBMIT_MATMUL8 m k n <b64A> <b64B>";
+            int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
+            byte[] A = java.util.Base64.getDecoder().decode(p[3]);
+            byte[] B = java.util.Base64.getDecoder().decode(p[4]);
+            long t0 = System.nanoTime();
+            byte[] out = NpuRuntime.matMulInt8Buf(A, B, m, k, n);
+            long us = (System.nanoTime() - t0) / 1000;
+            if (out == null || out.length < 5) return "ERR SUBMIT_FAILED (see logcat for native reason)";
+            java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(out, 0, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            float scaleC = bb.getFloat();
+            String b64 = java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(out, 4, out.length));
+            log("SUBMIT_MATMUL8 m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC + " us=" + us);
+            return "OK SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
+                    + " cbytes=" + (out.length - 4) + " roundtrip_us=" + us + " c=" + b64;
+        } catch (Throwable t) {
+            log("SUBMIT_MATMUL8 exception=" + t);
+            return "ERR SUBMIT_EXCEPTION " + t.getClass().getSimpleName();
         }
     }
 
