@@ -599,3 +599,273 @@ Minecraft 26.3
 9. 最终以 Minecraft 实际 Chunk 生成吞吐、卡顿情况和原版相似度验收。
 
 **报告结束。**
+
+
+---
+
+# 20. 第二轮 GPT 代码审查：当前 main 分支新增发现
+
+本节是在读取当前 main 分支实际 mcnpu.cpp、NpuRuntime.java、NpuService.java、NpuServiceClient.java 后追加。
+
+## 20.1 【P0】JNI 入口在安全检查前就可能分配数 GB 内存
+
+当前 nativeMatMulInt8Buf 的顺序是：
+
+1. 检查 m/k/n > 0。
+2. 检查 mmSizeAllowed。
+3. 读取 Java byte[] 长度。
+4. 直接构造 A、B、C 三个 vector。
+5. 之后才进入 runMatMulInt8Buf 的 mmShapeSafe。
+
+因此 m=k=n=65536 时，入口可能先尝试构造约 4 GiB A、4 GiB B、4 GiB C，然后才执行 64 MiB tensor budget。
+
+这是当前代码最危险的内存安全问题之一。
+
+必须在任何 vector allocation 前检查：
+
+- uint64_t m*k、k*n、m*n
+- Java array 长度
+- bucket size
+- per-tensor byte budget
+- whole-request memory budget
+
+之后才允许分配。
+
+## 20.2 【P0】graphCount 在 graph 创建失败时可能错误增长
+
+当前创建 graph 前就执行 g.graphCount++。
+
+如果 graphCreate、tensorCreateGraphTensor、graphAddNode 或 graphFinalize 失败，代码会 erase C++ map entry，但没有同步减少 graphCount。
+
+更重要的是，QNN 2.27 下 graph 由 context 持有，erase map 不等于释放 QNN graph。
+
+建议：
+
+1. graph construction 全部成功后再正式计入 cache。
+2. 任意 construction failure 都把 context 标记为 dirty。
+3. 如果 QNN 没有 graphFree，则在安全点完整 context reset。
+4. reset 后清空 graph maps 和 graphCount。
+
+## 20.3 【P0】CPU affinity 绑错线程
+
+initRuntime 中 sched_setaffinity(0, ...) 只作用于调用 initRuntime 的当前线程。
+
+当前 QNN 初始化发生在 NpuService.serverLoop 线程，但真正的 matMulInt8Buf 等请求来自 clients 线程池。
+
+因此当前注释声称的“让服务远离 prime core”实际上只约束初始化线程，不能保证真正执行 QNN request 的线程远离 prime core。
+
+而 HTP/DSP 执行本身也不是由 sched_setaffinity 控制的。
+
+正确方案：
+
+NPU Job Queue + 专用 NPU worker 后，在 worker 启动时设置 affinity，然后只从该 worker 进入 QNN。再做 affinity on/off 实测。
+
+## 20.4 【P1】NpuRuntime 的 synchronized 让 Java 线程池也基本失去并行意义
+
+NpuRuntime 的 init、status、smoke、add、matMul、matMulFp16、matMulInt8、xform、matMulInt8Buf、shutdown 等大量方法都是 synchronized。
+
+因此：
+
+8 handlers
+→ NpuRuntime.class monitor
+→ 一次只允许一个调用
+
+之后 native 又有 gRuntimeMutex。
+
+也就是说当前存在 Java class lock + native runtime mutex 双重串行。
+
+不要直接删除同步。正确方向是：
+
+IPC handlers
+→ NpuJobQueue
+→ 唯一 NPU execution worker
+→ native QNN
+
+控制面 STATUS/PING 与数据面执行分开。
+
+## 20.5 【P1】accept loop 与 client handler 共用同一个 8-thread pool
+
+当前 clients = newFixedThreadPool(8)。
+
+serverLoop 本身也通过 clients.execute 运行，每个 accepted socket 又通过 clients.execute(handle)。
+
+因此这 8 个线程同时承担 accept supervisor 和 client handler。
+
+一旦改成持久连接，最坏情况是：
+
+1 个 accept worker + 7 个长期 client handler。
+
+第 8 个连接只能排队。
+
+必须拆分：
+
+- accept/supervisor：1 thread
+- client IO：独立 bounded pool
+- NPU execution：1 dedicated worker
+
+如果 Minecraft 使用单一持久连接，client IO 甚至可以只有少量线程。
+
+## 20.6 【P1】stall restart 存在 epoch / serverLoop 竞态窗口
+
+onStartCommand 检测 stall 后会提前把 serverLoopStarted 设为 false，然后重新 ensureServerLoop。
+
+旧 serverLoop 线程此时未必已经退出。
+
+于是新 worker 可能在旧 worker 清理期间启动并尝试 bind 38761，产生 bind collision、共享 server 状态竞争和 listener 状态短暂不一致。
+
+正确方式：
+
+request stop
+→ close server
+→ 等旧 worker 自己 finally
+→ finally 设置 serverLoopStarted=false
+→ supervisor 再启动新 worker
+
+不要在旧 worker 真正退出前提前清零运行标志。
+
+## 20.7 【P1】当前 binary path 仍然存在多重内存复制
+
+当前 SUBMITBIN_MATMUL8 路径大致是：
+
+socket
+→ Java byte[] A/B
+→ native vector A/B
+→ padding Ap/Bp
+→ QNN client buffer
+→ Cpad
+→ native C
+→ JNI byte[]
+→ Java result
+→ socket
+
+这对于高频 terrain workload 仍然偏重。
+
+目标：
+
+persistent socket
+→ pooled native/direct buffer
+→ QNN buffer
+→ NPU
+→ pooled output
+→ socket
+
+至少先用 scratch pool 消灭每次 vector allocation。
+
+## 20.8 【P1】binary header 应统一采用 64-bit 解析和内存预算
+
+handleSubmitBinMatMul8 当前最终还是以 int m/k/n/alen/blen 创建 Java byte[]。
+
+协议层应先解析 long，再统一检查：
+
+- dimension cap
+- tensor byte cap
+- whole-job byte cap
+- result byte cap
+
+检查通过后再 cast 到 int。
+
+## 20.9 【P1】loadRuntime 初始化失败路径需要统一 cleanup
+
+dlopen、provider lookup、backendCreate、deviceCreate、contextCreate 任一步失败时，都应该进入统一 cleanupRuntimeLocked。
+
+必须确保：
+
+backend/device/context/logger/dlopen
+
+不会因为中途失败而泄漏。
+
+否则重复初始化可能积累资源。
+
+## 20.10 【P1】contextFree 返回值没有检查
+
+resetContextLocked 直接调用 contextFree，然后把 g.context 设为 null，再创建新 context。
+
+必须记录 contextFree rc。
+
+如果释放失败，应把 runtime 标记为 unhealthy，并考虑完整 QNN stack restart，而不是默认旧 context 已经释放。
+
+## 20.11 【P2】首次 MatMul8 calibration 仍会制造 latency spike
+
+首次 shape 会：
+
+NPU execute
+→ CPU 4 rows × n × k dot product
+→ median
+→ scaleEff
+
+这已经比旧版全矩阵 calibration 好很多，但如果 terrain 运行时不断出现新 shape，仍会周期性出现第一次执行延迟尖峰。
+
+推荐：
+
+- 预热阶段 calibration。
+- 每个 bucket 保存 calibration result。
+- 正式 terrain 实时路径禁止临时 calibration。
+- 未校准 shape 不进入实时路径。
+
+## 20.12 【P2】MatMul8 固定 scale 不能直接作为 terrain 的最终量化方案
+
+当前实验使用固定 scaleA/scaleB/scaleC，再通过首次运行的 scaleEff 修正。
+
+正式 terrain pipeline 应采用 feature-specific quantization。
+
+Noise、Density、Height 等 feature 应分别统计：
+
+- min/max
+- scale
+- zero point
+- saturation rate
+- quantization error
+
+不要把 MatMul benchmark 的量化参数直接当成整个世界生成器的量化方案。
+
+## 20.13 【P2】JNI output 仍有额外复制
+
+当前结果存在 Cpad → Cout → tmp → NewByteArray → SetByteArrayRegion 的多级复制。
+
+后续 pooled/direct output path 至少应该消灭其中一到两次复制。
+
+## 20.14 第二轮问题优先级
+
+必须先修：
+
+1. JNI 入口提前分配巨大 vector。
+2. graph construction failure 后的 graph/context 资源处理。
+3. graphCount failure path。
+4. contextFree 返回值检查。
+
+接下来修：
+
+5. NpuRuntime 全局 synchronized 串行。
+6. accept/client/NPU 共用线程池。
+7. CPU affinity 绑错线程。
+8. stall restart 竞态。
+9. binary path 多重 copy。
+10. persistent IPC 与 execution queue 解耦。
+
+然后优化：
+
+11. calibration warmup。
+12. feature-specific quantization。
+13. JNI output copy。
+14. shared buffer A/B。
+15. terrain batch planner。
+
+## 20.15 第二轮结论
+
+当前项目已经从“能不能调用 HTP”进入“能不能让 Minecraft 高频 workload 持续、稳定、低内存地吃到 HTP”的阶段。
+
+因此下一阶段不要继续无限增加测试命令。
+
+应严格按照：
+
+安全边界
+→ 生命周期
+→ 线程模型
+→ 数据通道
+→ buffer 复用
+→ batch planner
+→ terrain
+
+推进。
+
+尤其在正式加入 terrain 之前，必须先消灭 JNI 巨大分配风险。
