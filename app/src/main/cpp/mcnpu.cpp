@@ -820,10 +820,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // -- and returns rc=1100 (unsupported) for any float/int32 output.
     const float scaleA = 0.001f;
     const float scaleB = 0.001f;
-    // Worst-case output magnitude is k*0.127*0.127 -- pick the scale that just
-    // fits it into int8, so nothing saturates for any input the caller may hand
-    // us. Resolution ends up around 1/sqrt(Kb) of the typical magnitude.
-    const float scaleC = (float)Kb*1.27e-4f;
+    // Calibrated value. The raw accumulator dump proved HTP DOES requantise
+    // (values like 3/-27/74/-1, not just +-127), but with a factor roughly k
+    // larger than scaleA*scaleB/scaleC predicts. Rather than keep guessing the
+    // exact formula, use the scaleC that the passing int8 probes use (0.02) and
+    // see how the numbers land.
+    const float scaleC = 0.02f;
     scaleCOut = scaleC;
 
     std::vector<int8_t> Ap, Bp;
