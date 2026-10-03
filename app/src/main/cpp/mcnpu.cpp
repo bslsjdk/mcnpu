@@ -35,6 +35,7 @@ namespace {
 struct Runtime {
     uint64_t diagCount=0;
     uint64_t graphSeq=0;
+    int graphCount=0;
     struct AddGraph {
         Qnn_GraphHandle_t graph=nullptr;
         uint32_t dims[1]={0};
@@ -377,6 +378,40 @@ Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t d
     return t;
 }
 
+// QNN 2.27 has no graphFree: a graph lives until its context dies, and a
+// failed graph cannot be reclaimed either. So the cache must be bounded, and
+// when the budget is exhausted the whole context is rebuilt (which frees every
+// graph at once). Without this, ~10 distinct shapes poison the context and
+// every later call fails with rc=1007.
+static const int MAX_CACHED_GRAPHS = 8;
+
+static bool resetContextLocked(){
+    if(!g.api) return false;
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    g.addGraphs.clear();
+    g.matMulGraphs.clear();
+    g.matMulGraphs8.clear();
+    if(f.contextFree && g.context) f.contextFree(g.context,nullptr);
+    g.context=nullptr;
+    if(!f.contextCreate) { g.ready=false; g.err="contextCreate missing"; return false; }
+    Qnn_ErrorHandle_t rc=f.contextCreate(g.backend,g.device,nullptr,&g.context);
+    if(rc!=QNN_SUCCESS || !g.context){
+        g.ready=false;
+        g.err="contextCreate rc="+std::to_string((int)rc)+" "+verbose(rc);
+        E("CONTEXT RESET FAILED %s",g.err.c_str());
+        return false;
+    }
+    g.graphCount=0;
+    I("CONTEXT RECREATED: graph cache flushed");
+    return true;
+}
+
+// Must be called while holding gRuntimeMutex.
+static bool ensureGraphBudget(){
+    if(g.graphCount < MAX_CACHED_GRAPHS) return true;
+    return resetContextLocked();
+}
+
 static bool addSizeAllowed(uint32_t n){
     static const uint32_t allow[]={16,64,256,1024,4096,16384};
     for(uint32_t v:allow) if(v==n) return true;
@@ -411,6 +446,8 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     if(!cached){
         // Insert the cache entry BEFORE creating graph tensors so every tensor
         // descriptor points at dimensions owned by the final cached object.
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        g.graphCount++;
         auto inserted=g.addGraphs.emplace(n, Runtime::AddGraph{});
         ag=&inserted.first->second;
         ag->dims[0]=n;
@@ -531,6 +568,8 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n,bool fp16){
     long long createUs=0, finalizeUs=0;
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!cached){
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        g.graphCount++;
         auto inserted=g.matMulGraphs.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=m; mg->k=k; mg->n=n; mg->fp16=fp16;
@@ -655,6 +694,8 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
     long long createUs=0, finalizeUs=0;
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!cached){
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        g.graphCount++;
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=m; mg->k=k; mg->n=n;
@@ -773,6 +814,8 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     if(found!=g.matMulGraphs8.end()) mg=&found->second;
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!mg){
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        g.graphCount++;
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=m; mg->k=k; mg->n=n;
@@ -842,6 +885,7 @@ void shutdownRuntime(){
     g.addGraphs.clear();
     g.matMulGraphs.clear();
     g.matMulGraphs8.clear();
+    g.graphCount=0;
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
