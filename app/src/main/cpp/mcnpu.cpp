@@ -51,6 +51,7 @@ struct Runtime {
     };
     std::unordered_map<uint32_t, AddGraph> addGraphs;
     std::unordered_map<uint64_t, MatMulGraph> matMulGraphs;
+    std::unordered_map<uint64_t, MatMulGraph> matMulGraphs8;
     void* qnn=nullptr;
     const QnnInterface_t* api=nullptr;
     Qnn_BackendHandle_t backend=nullptr;
@@ -337,6 +338,30 @@ static inline float h2f(uint16_t u){
     float f; std::memcpy(&f,&x,4); return f;
 }
 
+// Fixed scales so the deterministic benchmark stays in range. INT8 with explicit
+// quantize params is the only matmul path HTP computes natively and correctly.
+static const float Q_SCALE_A = 0.001f;
+static const float Q_SCALE_B = 0.005f;
+static const float Q_SCALE_C = 0.02f;
+
+Qnn_Tensor_t makeTensorQ(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank,float scale){
+    Qnn_Tensor_t t=makeTensorN(name,type,dt,dims,rank);
+    Qnn_QuantizeParams_t q=QNN_QUANTIZE_PARAMS_INIT;
+    q.encodingDefinition=QNN_DEFINITION_DEFINED;
+    q.quantizationEncoding=QNN_QUANTIZATION_ENCODING_SCALE_OFFSET;
+    q.scaleOffsetEncoding.scale=scale;
+    q.scaleOffsetEncoding.offset=0;
+    t.v1.quantizeParams=q;
+    return t;
+}
+
+static inline int8_t quantize8(float v,float scale){
+    float q=v/scale;
+    if(q>127.f) q=127.f;
+    if(q<-128.f) q=-128.f;
+    return (int8_t)(q>=0.f ? (int)(q+0.5f) : (int)(q-0.5f));
+}
+
 static bool mmSizeAllowed(uint32_t v){
     static const uint32_t allow[]={16,32,64,128,256,512};
     for(uint32_t a:allow) if(a==v) return true;
@@ -616,6 +641,117 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n,bool fp16){
     return buf;
 }
 
+std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    const auto total0=std::chrono::steady_clock::now();
+    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
+    Runtime::MatMulGraph* mg=nullptr;
+    bool cached=false;
+    auto found=g.matMulGraphs8.find(key);
+    if(found!=g.matMulGraphs8.end()){ mg=&found->second; cached=true; }
+    long long createUs=0, finalizeUs=0;
+    Qnn_ErrorHandle_t rc=QNN_SUCCESS;
+    if(!cached){
+        auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
+        mg=&inserted.first->second;
+        mg->m=m; mg->k=k; mg->n=n;
+        mg->dimsA[0]=k; mg->dimsA[1]=m;
+        mg->dimsB[0]=n; mg->dimsB[1]=k;
+        mg->dimsC[0]=n; mg->dimsC[1]=m;
+        const std::string graphName="mcnpu_mm8_"+std::to_string(++g.graphSeq);
+        auto tCreate0=std::chrono::steady_clock::now();
+        rc=f.graphCreate(g.context,graphName.c_str(),nullptr,&mg->graph);
+        createUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tCreate0).count();
+        if(rc!=QNN_SUCCESS||!mg->graph){
+            g.matMulGraphs8.erase(inserted.first);
+            return "ERR MM8_GRAPH_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,Q_SCALE_A);
+        mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,Q_SCALE_B);
+        mg->c=makeTensorQ("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsC,2,Q_SCALE_C);
+        rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
+        if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR MM8_TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        Qnn_Tensor_t mmIns[2]={mg->a,mg->b};
+        Qnn_OpConfig_t op=QNN_OPCONFIG_INIT;
+        op.v1.name="matmul";
+        op.v1.packageName="qti.aisw";
+        op.v1.typeName=QNN_OP_MAT_MUL;
+        op.v1.numOfParams=0;
+        op.v1.params=nullptr;
+        op.v1.numOfInputs=2;
+        op.v1.inputTensors=mmIns;
+        op.v1.numOfOutputs=1;
+        op.v1.outputTensors=&mg->c;
+        rc=f.graphAddNode(mg->graph,op);
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR MM8_GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        auto tF=std::chrono::steady_clock::now();
+        rc=f.graphFinalize(mg->graph,nullptr,nullptr);
+        finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tF).count();
+        if(rc!=QNN_SUCCESS){
+            g.matMulGraphs8.erase(key);
+            return "ERR MM8_GRAPH_FINALIZE rc="+std::to_string((int)rc)+" "+verbose(rc);
+        }
+        I("MATMUL8 GRAPH READY m=%u k=%u n=%u",(unsigned)m,(unsigned)k,(unsigned)n);
+    }
+
+    std::vector<float> A((size_t)m*k), B((size_t)k*n);
+    for(size_t i=0;i<A.size();i++) A[i]=0.01f*(float)((i*7)%23)-0.1f;
+    for(size_t i=0;i<B.size();i++) B[i]=0.05f*(float)((i*5)%17)-0.2f;
+
+    std::vector<float> Ccpu((size_t)m*n,0.f);
+    auto tc0=std::chrono::steady_clock::now();
+    for(uint32_t i=0;i<m;i++){
+        for(uint32_t p=0;p<k;p++){
+            const float av=A[(size_t)i*k+p];
+            for(uint32_t j=0;j<n;j++) Ccpu[(size_t)i*n+j]+=av*B[(size_t)p*n+j];
+        }
+    }
+    const long long cpuUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-tc0).count();
+
+    std::vector<int8_t> Aq(A.size()), Bq(B.size()), Cq((size_t)m*n,0);
+    for(size_t i=0;i<A.size();i++) Aq[i]=quantize8(A[i],Q_SCALE_A);
+    for(size_t i=0;i<B.size();i++) Bq[i]=quantize8(B[i],Q_SCALE_B);
+
+    Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
+    ea.v1.clientBuf.data=Aq.data(); ea.v1.clientBuf.dataSize=(uint32_t)Aq.size();
+    eb.v1.clientBuf.data=Bq.data(); eb.v1.clientBuf.dataSize=(uint32_t)Bq.size();
+    ec.v1.clientBuf.data=Cq.data(); ec.v1.clientBuf.dataSize=(uint32_t)Cq.size();
+    Qnn_Tensor_t execIn[2]={ea,eb};
+    Qnn_Tensor_t execOut[1]={ec};
+    auto t0=std::chrono::steady_clock::now();
+    rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
+    const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
+    if(rc!=QNN_SUCCESS) return "ERR MM8_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+
+    double maxAbs=0.0;
+    int bad=0;
+    for(size_t i=0;i<Cq.size();i++){
+        const double got=(double)Cq[i]*(double)Q_SCALE_C;
+        const double diff=std::fabs(got-(double)Ccpu[i]);
+        const double tol=0.15+0.10*std::fabs((double)Ccpu[i]);
+        if(diff>maxAbs) maxAbs=diff;
+        if(diff>tol) bad++;
+    }
+    const double speedup = execUs>0 ? (double)cpuUs/(double)execUs : 0.0;
+    const long long totalUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-total0).count();
+    char buf[768];
+    std::snprintf(buf,sizeof(buf),
+        "OK MATMUL8 m=%u k=%u n=%u dtype=int8 quantA=%.4f quantB=%.4f quantC=%.4f cached=%s create_us=%lld finalize_us=%lld npu_exec_us=%lld cpu_us=%lld speedup=%.2fx bad=%d max_abs=%.5g total_us=%lld",
+        (unsigned)m,(unsigned)k,(unsigned)n,Q_SCALE_A,Q_SCALE_B,Q_SCALE_C,cached?"true":"false",
+        createUs,finalizeUs,execUs,cpuUs,speedup,bad,maxAbs,totalUs);
+    return buf;
+}
+
 void shutdownRuntime(){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.api){
@@ -628,6 +764,7 @@ void shutdownRuntime(){
     // before releasing that context so a restart can never reuse stale data.
     g.addGraphs.clear();
     g.matMulGraphs.clear();
+    g.matMulGraphs8.clear();
     if(f.contextFree&&g.context)f.contextFree(g.context,nullptr);
     if(f.deviceFree&&g.device)f.deviceFree(g.device);
     if(f.backendFree&&g.backend)f.backendFree(g.backend);
@@ -679,5 +816,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulF
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,true).c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8(JNIEnv* e,jclass,jint m,jint k,jint n){
+    if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
+    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
+        return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,32,64,128,256,512");
+    return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
