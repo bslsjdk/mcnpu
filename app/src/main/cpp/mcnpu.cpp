@@ -366,7 +366,7 @@ static inline int8_t quantize8(float v,float scale){
 }
 
 static bool mmSizeAllowed(uint32_t v){
-    static const uint32_t allow[]={16,32,64,128,256,512};
+    static const uint32_t allow[]={16,32,64,128,256,512,1024};
     for(uint32_t a:allow) if(a==v) return true;
     return false;
 }
