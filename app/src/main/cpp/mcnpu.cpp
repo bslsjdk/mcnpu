@@ -340,6 +340,9 @@ static inline float h2f(uint16_t u){
 
 // Fixed scales so the deterministic benchmark stays in range. INT8 with explicit
 // quantize params is the only matmul path HTP computes natively and correctly.
+// Forward declaration: makeTensorN is defined further down this file.
+Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank);
+
 static const float Q_SCALE_A = 0.001f;
 static const float Q_SCALE_B = 0.005f;
 static const float Q_SCALE_C = 0.02f;
