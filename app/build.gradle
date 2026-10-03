@@ -5,7 +5,19 @@ android {
     compileSdk 35
     ndkVersion "27.0.12077973"
     defaultConfig {
-        applicationId "bslsjdk.mcnpu"
+        // Development builds install under a separate id so they do not collide with
+        // a release APK signed with a different key - "signatures do not match" blocks
+        // the install outright, and there is no way past it except uninstalling first.
+        //
+        // namespace is deliberately left as bslsjdk.mcnpu. It is the code identity:
+        // it sets the Java package, the R class and, critically, the JNI symbol names
+        // that mcnpu.cpp exports (Java_bslsjdk_mcnpu_NpuRuntime_*). Changing it here
+        // would require renaming every JNI entry point in C++, and a mismatch fails
+        // at runtime with UnsatisfiedLinkError, which the compiler cannot catch.
+        //
+        // applicationId and namespace are allowed to differ - one is the install
+        // identity, the other the code identity - so this change is self-contained.
+        applicationId "bslsjdk.mcnpu.dev"
         minSdk 30
         targetSdk 35
         versionCode 2
