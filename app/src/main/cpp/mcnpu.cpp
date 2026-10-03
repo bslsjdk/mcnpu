@@ -914,12 +914,27 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
 // Shape bucketing: any (m,k,n) is normalized to the nearest bucket andzero-padded,
 // so a bounded set of graphs is ever created. Without this, Minecraft's ever-
 // changing batch sizes would silently poison the context.
+// Keep this list in exact sync with NpuDispatcher.MM_BUCKETS on the Java side.
+// A mismatch is silent and expensive: Java rounds to a bucket the native side
+// does not have, native rounds again, and the caller pays for two paddings.
 static const uint32_t MM_BUCKETS[] = {32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536};
-static const int MM_BUCKET_COUNT = 7;
+static const uint32_t MM_BUCKET_MAX = 65536;
 
 static uint32_t bucketize(uint32_t v){
     for(size_t i=0;i<sizeof(MM_BUCKETS)/sizeof(MM_BUCKETS[0]);i++) if(v<=MM_BUCKETS[i]) return MM_BUCKETS[i];
     return 0;
+}
+
+// Exposed over IPC so the client can discover the real limits instead of
+// hard-coding them. Previously the client guessed and silently produced
+// shapes above MM_BUCKET_MAX, which always came back as ERR BUF_TOO_LARGE.
+static std::string mmLimits(){
+    std::string s="OK MM_LIMITS max="+std::to_string((unsigned)MM_BUCKET_MAX)+" buckets=";
+    for(size_t i=0;i<sizeof(MM_BUCKETS)/sizeof(MM_BUCKETS[0]);i++){
+        if(i) s+=",";
+        s+=std::to_string((unsigned)MM_BUCKETS[i]);
+    }
+    return s;
 }
 
 std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,uint32_t m,uint32_t k,uint32_t n,float& scaleCOut){
