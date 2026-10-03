@@ -368,7 +368,7 @@ static inline int8_t quantize8(float v,float scale){
 
 // Any reasonable shape is allowed (real workloads are not nice powers of two,
 // e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
-static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=2048; }
+static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=65536; }
 
 Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
@@ -813,15 +813,13 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
-    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 2048)";
+    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max 65536)";
     const float scaleA = 1.0f/127.0f;
     const float scaleB = 1.0f/127.0f;
-    // Bucketed output scale. The int8 graph computes c_int = sum(qA*qB), so with
-    // scaleA = scaleB = 1/127 the TRUE product scale would be 1/127^2 -- but that
-    // overflows instantly when k>1 (int8 holds +-127). The smallest scale that
-    // cannot saturate is C_max/127 with C_max = k*1*1, i.e. Kb/127. Anything
-    // smaller overflows, anything larger throws away resolution.
-    const float scaleC = (float)Kb/127.0f;
+    // The accumulator is int32 and holds sum(qA*qB) directly, so its natural
+    // scale is scaleA*scaleB = 1/127^2. The per-call output scale handed back to
+    // the caller is computed after execution by dynamic quantisation.
+    const float scaleC = scaleA*scaleB;
     scaleCOut = scaleC;
 
     std::vector<int8_t> Ap, Bp;
@@ -858,7 +856,11 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         }
         mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,scaleA);
         mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,scaleB);
-        mg->c=makeTensorQ("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsC,2,scaleC);
+        // Plain int32 accumulator, deliberately WITHOUT quantisation params.
+        // sum(qA*qB) for k=65536 reaches 1.06e9: an int8 output saturates at 127
+        // (that is exactly why bad was ~100% on every real-data call), while
+        // int32 holds it with room to spare.
+        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_INT_32,mg->dimsC,2);
         rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
@@ -890,16 +892,34 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
 
-    std::vector<int8_t> Cpad((size_t)Mb*Nb, 0);
+    std::vector<int32_t> C32((size_t)Mb*Nb, 0);
     Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
     ea.v1.clientBuf.data=(void*)Ause; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Kb);
     eb.v1.clientBuf.data=(void*)Buse; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)Kb*Nb);
-    ec.v1.clientBuf.data=Cpad.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb);
+    ec.v1.clientBuf.data=C32.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb*sizeof(int32_t));
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
     if(rc!=QNN_SUCCESS) return "ERR BUF_EXECUTE rc="+std::to_string((int)rc);
-    for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
+    // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
+    // Because C_int32 is in units of 1/127^2 of the real product, the scale we
+    // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
+    int32_t maxAbs=1;
+    for(uint32_t r=0;r<m;r++){
+        const int32_t* row=&C32[(size_t)r*Nb];
+        for(uint32_t j=0;j<n;j++){ int32_t v=row[j]; if(v<0)v=-v; if(v>maxAbs)maxAbs=v; }
+    }
+    const float inv=127.0f/(float)maxAbs;
+    for(uint32_t r=0;r<m;r++){
+        const int32_t* row=&C32[(size_t)r*Nb];
+        int8_t* out=&Cout[(size_t)r*n];
+        for(uint32_t j=0;j<n;j++){
+            int v=(int)std::lround((float)row[j]*inv);
+            if(v>127)v=127; if(v<-128)v=-128;
+            out[j]=(int8_t)v;
+        }
+    }
+    scaleCOut = (float)maxAbs/(127.0f*16129.0f);
     return "OK";
 }
 
