@@ -331,6 +331,13 @@ public final class NpuService extends Service {
                     reply = handleMatMul8(cmd.substring(13));
                 } else if (cmd.startsWith("MATMUL8 ")) {
                     reply = handleMatMul8(cmd.substring(8));
+                } else if (cmd.startsWith("EXEC_XFORM ") || cmd.startsWith("XFORM ")) {
+                    try {
+                        String[] pp = cmd.substring(cmd.startsWith("EXEC_XFORM ") ? 11 : 6).trim().split("[, ]+");
+                        if (pp.length != 2) reply = "ERR XFORM_FORMAT use: EXEC_XFORM op n";
+                        else reply = NpuRuntime.xform(Integer.parseInt(pp[0]), Integer.parseInt(pp[1]));
+                    } catch (Throwable t) { reply = "ERR XFORM_EXCEPTION " + t.getClass().getSimpleName(); }
+                    log("EXEC XFORM result=" + reply);
                 } else if (cmd.startsWith("SUBMIT_MATMUL8 ")) {
                     reply = handleSubmitMatMul8(cmd.substring(15));
                 } else if (cmd.equals("QUIT")) {
