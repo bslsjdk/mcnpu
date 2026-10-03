@@ -904,6 +904,8 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
     // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
+    I("MATMUL8BUF RAW bucket=%ux%ux%u scaleC=%.8g c[0..7]=%d %d %d %d %d %d %d %d",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut,
+      (int)Cpad[0],(int)Cpad[1],(int)Cpad[2],(int)Cpad[3],(int)Cpad[4],(int)Cpad[5],(int)Cpad[6],(int)Cpad[7]);
     for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
     I("MATMUL8BUF OK bucket=%ux%ux%u scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut);
     return "OK";
