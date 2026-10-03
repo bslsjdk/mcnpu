@@ -365,11 +365,9 @@ static inline int8_t quantize8(float v,float scale){
     return (int8_t)(q>=0.f ? (int)(q+0.5f) : (int)(q-0.5f));
 }
 
-static bool mmSizeAllowed(uint32_t v){
-    static const uint32_t allow[]={16,32,64,128,256,512,1024};
-    for(uint32_t a:allow) if(a==v) return true;
-    return false;
-}
+// Any reasonable shape is allowed (real workloads are not nice powers of two,
+// e.g. 128 entities x 8 features x 16 outputs). Graphs are cached per shape.
+static bool mmSizeAllowed(uint32_t v){ return v>=1 && v<=2048; }
 
 Qnn_Tensor_t makeTensorN(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims,uint32_t rank){
     Qnn_Tensor_t t=QNN_TENSOR_INIT;
@@ -764,7 +762,10 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const float scaleA = 1.0f/127.0f;
     const float scaleB = 1.0f/127.0f;
-    const float scaleC = (float)k/(127.0f*127.0f);
+    // Output scale: |C| scales like sqrt(k) for typical normalized data, so the
+    // worst case (k) would waste the whole int8 range. sqrt(k)/127 keeps the
+    // quantisation step useful instead of saturating the output.
+    const float scaleC = std::sqrt((float)k)/127.0f;
     scaleCOut = scaleC;
     const uint64_t key=((uint64_t)m<<42)|((uint64_t)k<<21)|(uint64_t)n;
     Runtime::MatMulGraph* mg=nullptr;
