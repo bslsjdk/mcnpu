@@ -856,11 +856,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         }
         mg->a=makeTensorQ("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsA,2,scaleA);
         mg->b=makeTensorQ("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_SFIXED_POINT_8,mg->dimsB,2,scaleB);
-        // Plain int32 accumulator, deliberately WITHOUT quantisation params.
-        // sum(qA*qB) for k=65536 reaches 1.06e9: an int8 output saturates at 127
-        // (that is exactly why bad was ~100% on every real-data call), while
-        // int32 holds it with room to spare.
-        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_INT_32,mg->dimsC,2);
+        // HTP rejects an int32 matmul output at execute time (rc=1100 =
+        // unsupported feature), but it does accept float32. A float32 output has
+        // the same 4-byte width as int32 and cannot saturate either, so the
+        // accumulator is float and the result is quantised back to int8 for the
+        // wire (see the tail of this function).
+        mg->c=makeTensorN("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,mg->dimsC,2);
         rc=f.tensorCreateGraphTensor(mg->graph,&mg->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->b);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(mg->graph,&mg->c);
@@ -892,11 +893,11 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
 
-    std::vector<int32_t> C32((size_t)Mb*Nb, 0);
+    std::vector<float> C32((size_t)Mb*Nb, 0.f);
     Qnn_Tensor_t ea=mg->a, eb=mg->b, ec=mg->c;
     ea.v1.clientBuf.data=(void*)Ause; ea.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Kb);
     eb.v1.clientBuf.data=(void*)Buse; eb.v1.clientBuf.dataSize=(uint32_t)((size_t)Kb*Nb);
-    ec.v1.clientBuf.data=C32.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb*sizeof(int32_t));
+    ec.v1.clientBuf.data=C32.data(); ec.v1.clientBuf.dataSize=(uint32_t)((size_t)Mb*Nb*sizeof(float));
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
@@ -904,22 +905,23 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
     // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
-    int32_t maxAbs=1;
+    float maxAbs=1e-20f;
     for(uint32_t r=0;r<m;r++){
-        const int32_t* row=&C32[(size_t)r*Nb];
-        for(uint32_t j=0;j<n;j++){ int32_t v=row[j]; if(v<0)v=-v; if(v>maxAbs)maxAbs=v; }
+        const float* row=&C32[(size_t)r*Nb];
+        for(uint32_t j=0;j<n;j++){ float v=row[j]; if(v<0)v=-v; if(v>maxAbs)maxAbs=v; }
     }
-    const float inv=127.0f/(float)maxAbs;
+    const float inv=127.0f/maxAbs;
     for(uint32_t r=0;r<m;r++){
-        const int32_t* row=&C32[(size_t)r*Nb];
+        const float* row=&C32[(size_t)r*Nb];
         int8_t* out=&Cout[(size_t)r*n];
         for(uint32_t j=0;j<n;j++){
-            int v=(int)std::lround((float)row[j]*inv);
+            int v=(int)std::lround(row[j]*inv);
             if(v>127)v=127; if(v<-128)v=-128;
             out[j]=(int8_t)v;
         }
     }
-    scaleCOut = (float)maxAbs/(127.0f*16129.0f);
+    scaleCOut = maxAbs/(127.0f*16129.0f);
+    I("MATMUL8BUF OK bucket=%ux%ux%u maxAbs=%.6g scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,maxAbs,scaleCOut);
     return "OK";
 }
 
