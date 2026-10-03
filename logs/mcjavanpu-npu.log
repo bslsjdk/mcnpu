@@ -1,0 +1,811 @@
+[2026-10-02 15:45:38] [INFO] STAGE INIT_BEGIN
+[2026-10-02 15:45:38] [INFO] STAGE QNN_LOAD_BEGIN
+[2026-10-02 15:45:38] [INFO] DLOPEN_BEGIN path=/odm/lib64/aiframe/libQnnHtp.so
+[2026-10-02 15:45:38] [ERROR] QNN_LOAD_FAIL path=/odm/lib64/aiframe/libQnnHtp.so error=dlopen failed: library "/odm/lib64/aiframe/libQnnHtp.so" needed or dlopened by "/data/app/~~g2DMITHel3HQKz7Pn8IgXw==/bslsjdk.mcfclnpu-OP1JBTtfgYvmAx31FG_0BQ==/lib/arm64/libmcjavanpu.so" is not accessible for the namespace "clns-9"
+[2026-10-02 15:45:38] [INFO] DLOPEN_BEGIN path=/odm/lib64/libQnnHtp.so
+[2026-10-02 15:45:38] [ERROR] QNN_LOAD_FAIL path=/odm/lib64/libQnnHtp.so error=dlopen failed: library "/odm/lib64/libQnnHtp.so" needed or dlopened by "/data/app/~~g2DMITHel3HQKz7Pn8IgXw==/bslsjdk.mcfclnpu-OP1JBTtfgYvmAx31FG_0BQ==/lib/arm64/libmcjavanpu.so" is not accessible for the namespace "clns-9"
+[2026-10-02 15:45:38] [ERROR] dlopen(libQnnHtp.so) failed
+[2026-10-02 16:29:38] [INFO] STAGE INIT_BEGIN
+[2026-10-02 16:29:38] [INFO] STAGE QNN_LOAD_BEGIN
+[2026-10-02 16:29:38] [INFO] DLOPEN_BEGIN path=libQnnHtp.so
+[2026-10-02 16:29:38] [ERROR] QNN_LOAD_FAIL path=libQnnHtp.so error=dlopen failed: library "libQnnHtp.so" not found
+[2026-10-02 16:29:38] [INFO] DLOPEN_BEGIN path=libQnnHtp.so
+[2026-10-02 16:29:38] [ERROR] QNN_LOAD_FAIL path=libQnnHtp.so error=dlopen failed: library "libQnnHtp.so" not found
+[2026-10-02 16:29:38] [INFO] DLOPEN_BEGIN path=/odm/lib64/aiframe/libQnnHtp.so
+[2026-10-02 16:29:38] [ERROR] QNN_LOAD_FAIL path=/odm/lib64/aiframe/libQnnHtp.so error=dlopen failed: library "/odm/lib64/aiframe/libQnnHtp.so" needed or dlopened by "/data/app/~~54pJds_PRiud6iBdcRwnMA==/bslsjdk.mcfclnpu-bsukcZr2FJ142XdUOlH29Q==/lib/arm64/libmcjavanpu.so" is not accessible for the namespace "clns-9"
+[2026-10-02 16:29:38] [INFO] DLOPEN_BEGIN path=/odm/lib64/libQnnHtp.so
+[2026-10-02 16:29:38] [ERROR] QNN_LOAD_FAIL path=/odm/lib64/libQnnHtp.so error=dlopen failed: library "/odm/lib64/libQnnHtp.so" needed or dlopened by "/data/app/~~54pJds_PRiud6iBdcRwnMA==/bslsjdk.mcfclnpu-bsukcZr2FJ142XdUOlH29Q==/lib/arm64/libmcjavanpu.so" is not accessible for the namespace "clns-9"
+[2026-10-02 16:29:38] [ERROR] dlopen(libQnnHtp.so) failed from bundled and vendor paths
+
+==== session 2026-10-03T19:00:02.577912124 ====
+[19:00:02.576] [INFO] mod initialised
+[19:00:02.584] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[19:00:02.584] [INFO] boot: initialising runtime
+[19:00:02.640] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[19:00:02.684] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:00:02.687] [INFO] boot: enabled=true autoWarmup=true debugLog=false lightBatch=128 lightFoldRadius=1
+[19:00:23.272] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=60679 cpu_us=500687 speedup=8.25x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=572
+[19:00:23.517] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=9770 cpu_us=203161 speedup=20.79x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=234
+[19:00:23.517] [INFO] boot: done, graphs are hot
+[19:00:46.621] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:00:46.623] [INFO] config toggled debugLog -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1
+[19:00:46.624] [INFO] screen toggle debugLog -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1
+[19:00:48.285] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:00:48.286] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2
+[19:00:48.286] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2
+[19:00:48.826] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:00:48.827] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:00:48.827] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:00:49.736] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:00:49.736] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4
+[19:00:49.736] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4
+[19:05:20.492] [INFO] [NPU] lightapply no DataLayer in range (sections not loaded)
+[19:05:46.725] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:46.726] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0
+[19:05:46.726] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0
+[19:05:48.649] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:48.649] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1
+[19:05:48.649] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1
+[19:05:49.327] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:49.327] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2
+[19:05:49.328] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2
+[19:05:50.096] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:50.097] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:05:50.099] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:05:52.932] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:52.933] [INFO] config toggled enabled -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:05:52.934] [INFO] screen toggle enabled -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:05:53.150] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:05:53.151] [INFO] config toggled enabled -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:05:53.151] [INFO] screen toggle enabled -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3
+[19:07:22.665] [INFO] [NPU] lightapply APPLIED sections=9 rows=72 written=0 | blocks_batch=128 cells=512 npu_us=37782 cpu_us=4491 speedup=0.12x bad=0/65536 max_abs=0.0432 pad_to=128x512x512
+
+==== session 2026-10-03T19:13:53.099211391 ====
+[19:13:53.096] [INFO] mod initialised
+[19:13:53.111] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[19:13:53.111] [INFO] boot: initialising runtime
+[19:13:53.159] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[19:13:53.164] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:13:53.168] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[19:14:13.338] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=39453 cpu_us=105332 speedup=2.67x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=158
+[19:14:13.476] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=17685 cpu_us=106615 speedup=6.03x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=135
+[19:14:13.477] [INFO] boot: done, graphs are hot
+[19:14:55.755] [INFO] [NPU] lightfold mode=assist folded sections=9 rows=72 nonzero=1878 | blocks_batch=128 cells=512 npu_us=18282 cpu_us=10987 speedup=0.60x bad=0/65536 max_abs=0.0432 pad_to=128x512x512
+[19:15:04.379] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:15:04.380] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=vanilla
+[19:15:04.381] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=vanilla
+[19:15:05.155] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:15:05.156] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=npu
+[19:15:05.156] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=npu
+[19:15:06.342] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:15:06.342] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=vanilla chunkMode=npu
+[19:15:06.342] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=vanilla chunkMode=npu
+[19:15:06.794] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:15:06.795] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[19:15:06.795] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+
+==== session 2026-10-03T19:39:15.325848568 ====
+[19:39:15.322] [INFO] mod initialised
+[19:39:15.339] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[19:39:15.338] [INFO] boot: initialising runtime
+[19:39:15.360] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[19:39:15.365] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:39:15.368] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[19:39:35.497] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=48845 cpu_us=59372 speedup=1.22x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=117
+[19:39:35.559] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=11476 cpu_us=44122 speedup=3.84x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=59
+[19:39:35.559] [INFO] boot: done, graphs are hot
+
+==== session 2026-10-03T19:43:29.437347013 ====
+[19:43:29.433] [INFO] mod initialised
+[19:43:29.450] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[19:43:29.454] [INFO] boot: initialising runtime
+[19:43:29.481] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[19:43:29.489] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:43:29.493] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[19:43:49.824] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=61804 cpu_us=191174 speedup=3.09x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=302
+[19:43:49.944] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=14025 cpu_us=88290 speedup=6.30x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=116
+[19:43:49.944] [INFO] boot: done, graphs are hot
+[19:43:56.624] [INFO] light engine calls=1 mode=npu (fold pending)
+[19:44:06.631] [INFO] light engine calls=1531 mode=npu (fold pending)
+[19:44:16.532] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:16.533] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=npu
+[19:44:16.534] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=npu
+[19:44:16.555] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 4
+[19:44:16.628] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:44:16.645] [INFO] light engine calls=3329 mode=assist (fold pending)
+[19:44:17.487] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:17.488] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[19:44:17.489] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[19:44:17.489] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 4
+[19:44:17.490] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:44:21.726] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:21.726] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[19:44:21.727] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[19:44:23.106] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:23.107] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[19:44:23.107] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[19:44:23.606] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:23.607] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[19:44:23.607] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[19:44:24.097] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:44:24.098] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[19:44:24.098] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[19:44:26.647] [INFO] light engine calls=5843 mode=assist (fold pending)
+[19:44:36.648] [INFO] light engine calls=8380 mode=assist (fold pending)
+[19:44:46.655] [INFO] light engine calls=10877 mode=assist (fold pending)
+[19:44:56.658] [INFO] light engine calls=13403 mode=assist (fold pending)
+[19:45:06.662] [INFO] light engine calls=17245 mode=assist (fold pending)
+[19:45:16.665] [INFO] light engine calls=19935 mode=assist (fold pending)
+[19:45:26.671] [INFO] light engine calls=21537 mode=assist (fold pending)
+[19:45:33.413] [INFO] [NPU] lightfold mode=assist ASSIST folded sections=9 rows=72 nonzero=0 raised=0/36864 (cpu continues from this) | blocks_batch=128 cells=512 npu_us=27026 cpu_us=36166 speedup=1.34x bad=0/65536 max_abs=0.0400 pad_to=128x512x512
+[19:45:36.675] [INFO] light engine calls=24935 mode=assist (fold pending)
+[19:45:46.680] [INFO] light engine calls=27073 mode=assist (fold pending)
+[19:45:56.488] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:45:56.489] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=assist
+[19:45:56.489] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=assist
+[19:45:56.491] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[19:45:56.494] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:45:57.276] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:45:57.277] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[19:45:57.277] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[19:45:57.278] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[19:45:57.285] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:45:57.862] [INFO] light engine ran 30000 times (vanilla, counted only)
+[19:45:59.390] [INFO] light engine ran 30500 times (vanilla, counted only)
+[19:46:02.042] [INFO] light engine ran 31000 times (vanilla, counted only)
+[19:46:05.150] [INFO] light engine ran 31500 times (vanilla, counted only)
+[19:46:08.005] [INFO] light engine ran 32000 times (vanilla, counted only)
+[19:46:09.846] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:46:09.847] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[19:46:09.847] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[19:46:09.848] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[19:46:09.852] [INFO] light engine calls=32487 mode=npu (fold pending)
+[19:46:09.855] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:46:10.419] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:46:10.420] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[19:46:10.420] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[19:46:10.421] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[19:46:10.424] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[19:46:19.861] [INFO] light engine calls=34595 mode=npu (fold pending)
+[19:46:29.882] [INFO] light engine calls=35963 mode=npu (fold pending)
+[19:46:39.887] [INFO] light engine calls=37435 mode=npu (fold pending)
+[19:46:49.905] [INFO] light engine calls=39973 mode=npu (fold pending)
+[19:46:55.923] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[19:46:55.931] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[19:46:55.932] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[19:46:59.910] [INFO] light engine calls=43141 mode=npu (fold pending)
+[19:47:09.912] [INFO] light engine calls=46619 mode=npu (fold pending)
+[19:47:19.914] [INFO] light engine calls=49475 mode=npu (fold pending)
+[19:47:29.917] [INFO] light engine calls=53649 mode=npu (fold pending)
+[19:47:39.921] [INFO] light engine calls=57217 mode=npu (fold pending)
+[19:47:49.935] [INFO] light engine calls=62043 mode=npu (fold pending)
+[19:47:59.937] [INFO] light engine calls=66819 mode=npu (fold pending)
+[19:48:09.949] [INFO] light engine calls=69591 mode=npu (fold pending)
+[19:48:19.960] [INFO] light engine calls=72735 mode=npu (fold pending)
+[19:48:29.966] [INFO] light engine calls=75721 mode=npu (fold pending)
+[19:48:39.967] [INFO] light engine calls=77441 mode=npu (fold pending)
+[19:48:50.009] [INFO] light engine calls=78297 mode=npu (fold pending)
+[19:49:00.018] [INFO] light engine calls=79361 mode=npu (fold pending)
+[19:49:10.026] [INFO] light engine calls=81867 mode=npu (fold pending)
+[19:49:20.028] [INFO] light engine calls=84755 mode=npu (fold pending)
+[19:49:30.036] [INFO] light engine calls=87175 mode=npu (fold pending)
+[19:49:40.057] [INFO] light engine calls=87815 mode=npu (fold pending)
+[19:49:50.075] [INFO] light engine calls=88443 mode=npu (fold pending)
+[19:50:00.098] [INFO] light engine calls=89057 mode=npu (fold pending)
+[19:50:10.100] [INFO] light engine calls=90279 mode=npu (fold pending)
+[19:50:20.104] [INFO] light engine calls=93403 mode=npu (fold pending)
+[19:50:30.106] [INFO] light engine calls=96963 mode=npu (fold pending)
+[19:50:40.107] [INFO] light engine calls=100265 mode=npu (fold pending)
+[19:50:50.112] [INFO] light engine calls=103989 mode=npu (fold pending)
+[19:51:00.120] [INFO] light engine calls=107053 mode=npu (fold pending)
+[19:51:10.139] [INFO] light engine calls=109061 mode=npu (fold pending)
+
+==== session 2026-10-03T20:41:24.470874903 ====
+[20:41:24.464] [INFO] mod initialised
+[20:41:24.482] [INFO] boot: initialising runtime
+[20:41:24.496] [INFO] auto hooks registered (chunk load + server tick)
+[20:41:24.498] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[20:41:24.565] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[20:41:24.574] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:41:24.579] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[20:41:45.128] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=70953 cpu_us=402017 speedup=5.67x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=504
+[20:41:45.204] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=12874 cpu_us=49680 speedup=3.86x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=74
+[20:41:45.204] [INFO] boot: done, graphs are hot
+[20:41:57.779] [INFO] light engine calls=1 mode=npu (fold pending)
+[20:42:06.590] [INFO] chunk batch ready: 49 chunks (total 49 loaded, batch #1)
+[20:42:07.799] [INFO] light engine calls=155 mode=npu (fold pending)
+[20:42:08.413] [INFO] chunk batch ready: 3 chunks (total 52 loaded, batch #2)
+[20:42:08.521] [INFO] chunk batch ready: 15 chunks (total 67 loaded, batch #3)
+[20:42:09.661] [INFO] chunk batch ready: 13 chunks (total 80 loaded, batch #4)
+[20:42:11.437] [INFO] chunk batch ready: 14 chunks (total 94 loaded, batch #5)
+[20:42:11.616] [INFO] chunk batch ready: 6 chunks (total 100 loaded, batch #6)
+[20:42:12.162] [INFO] chunk batch ready: 9 chunks (total 109 loaded, batch #7)
+[20:42:12.603] [INFO] chunk batch ready: 5 chunks (total 114 loaded, batch #8)
+[20:42:13.062] [INFO] chunk batch ready: 5 chunks (total 119 loaded, batch #9)
+[20:42:14.603] [INFO] chunk batch ready: 14 chunks (total 133 loaded, batch #10)
+[20:42:14.932] [INFO] chunk batch ready: 10 chunks (total 143 loaded, batch #11)
+[20:42:15.219] [INFO] chunk batch ready: 4 chunks (total 147 loaded, batch #12)
+[20:42:15.321] [INFO] chunk batch ready: 7 chunks (total 154 loaded, batch #13)
+[20:42:15.549] [INFO] chunk batch ready: 6 chunks (total 160 loaded, batch #14)
+[20:42:15.778] [INFO] chunk batch ready: 4 chunks (total 164 loaded, batch #15)
+[20:42:16.085] [INFO] chunk batch ready: 4 chunks (total 168 loaded, batch #16)
+[20:42:17.357] [INFO] chunk batch ready: 4 chunks (total 172 loaded, batch #17)
+[20:42:17.450] [INFO] chunk batch ready: 12 chunks (total 184 loaded, batch #18)
+[20:42:17.561] [INFO] chunk batch ready: 4 chunks (total 188 loaded, batch #19)
+[20:42:17.819] [INFO] light engine calls=665 mode=npu (fold pending)
+[20:42:27.828] [INFO] light engine calls=1799 mode=npu (fold pending)
+[20:42:37.839] [INFO] light engine calls=3103 mode=npu (fold pending)
+[20:42:38.857] [INFO] feature noise -> true
+[20:42:39.861] [INFO] feature blocks -> true
+
+==== session 2026-10-03T20:48:15.795463444 ====
+[20:48:15.791] [INFO] mod initialised
+[20:48:15.827] [INFO] auto hooks registered (chunk load + server tick)
+[20:48:15.822] [INFO] boot: initialising runtime
+[20:48:15.828] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[20:49:03.667] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:49:03.678] [INFO] light engine calls=1 mode=npu (fold pending)
+[20:49:03.970] [INFO] boot: available=false device=ERR SERVICE_UNAVAILABLE SocketTimeoutException(Read timed out)
+[20:49:03.973] [WARN] boot: NPU service unavailable, staying idle
+[20:49:14.471] [INFO] chunk batch ready: 49 chunks (total 49 loaded, batch #1)
+[20:49:14.607] [INFO] light engine calls=103 mode=npu (fold pending)
+[20:49:16.090] [INFO] chunk batch ready: 16 chunks (total 65 loaded, batch #2)
+[20:49:17.211] [INFO] chunk batch ready: 6 chunks (total 71 loaded, batch #3)
+[20:49:17.329] [INFO] chunk batch ready: 10 chunks (total 81 loaded, batch #4)
+[20:49:19.226] [INFO] chunk batch ready: 13 chunks (total 94 loaded, batch #5)
+[20:49:19.353] [INFO] chunk batch ready: 4 chunks (total 98 loaded, batch #6)
+[20:49:19.961] [INFO] chunk batch ready: 11 chunks (total 109 loaded, batch #7)
+[20:49:20.321] [INFO] chunk batch ready: 4 chunks (total 113 loaded, batch #8)
+[20:49:20.785] [INFO] chunk batch ready: 6 chunks (total 119 loaded, batch #9)
+[20:49:21.813] [INFO] chunk batch ready: 4 chunks (total 123 loaded, batch #10)
+[20:49:21.920] [INFO] chunk batch ready: 7 chunks (total 130 loaded, batch #11)
+[20:49:22.192] [INFO] chunk batch ready: 6 chunks (total 136 loaded, batch #12)
+[20:49:22.313] [INFO] chunk batch ready: 7 chunks (total 143 loaded, batch #13)
+[20:49:23.514] [INFO] chunk batch ready: 10 chunks (total 153 loaded, batch #14)
+[20:49:23.755] [INFO] chunk batch ready: 5 chunks (total 158 loaded, batch #15)
+[20:49:24.448] [INFO] chunk batch ready: 6 chunks (total 164 loaded, batch #16)
+[20:49:24.623] [INFO] light engine calls=589 mode=npu (fold pending)
+[20:49:24.938] [INFO] chunk batch ready: 5 chunks (total 169 loaded, batch #17)
+[20:49:26.394] [INFO] chunk batch ready: 19 chunks (total 188 loaded, batch #18)
+[20:49:26.952] [INFO] chunk batch ready: 4 chunks (total 192 loaded, batch #19)
+[20:49:27.445] [INFO] chunk batch ready: 9 chunks (total 201 loaded, batch #20)
+[20:49:27.698] [INFO] chunk batch ready: 4 chunks (total 205 loaded, batch #21)
+[20:49:28.041] [INFO] chunk batch ready: 6 chunks (total 211 loaded, batch #22)
+[20:49:28.591] [INFO] chunk batch ready: 8 chunks (total 219 loaded, batch #23)
+[20:49:28.756] [INFO] chunk batch ready: 5 chunks (total 224 loaded, batch #24)
+[20:49:29.382] [INFO] chunk batch ready: 4 chunks (total 228 loaded, batch #25)
+[20:49:29.528] [INFO] chunk batch ready: 12 chunks (total 240 loaded, batch #26)
+[20:49:30.875] [INFO] chunk batch ready: 12 chunks (total 252 loaded, batch #27)
+[20:49:31.031] [INFO] chunk batch ready: 8 chunks (total 260 loaded, batch #28)
+[20:49:31.319] [INFO] chunk batch ready: 7 chunks (total 267 loaded, batch #29)
+[20:49:31.748] [INFO] chunk batch ready: 5 chunks (total 272 loaded, batch #30)
+[20:49:32.388] [INFO] chunk batch ready: 4 chunks (total 276 loaded, batch #31)
+[20:49:32.516] [INFO] chunk batch ready: 4 chunks (total 280 loaded, batch #32)
+[20:49:32.681] [INFO] chunk batch ready: 4 chunks (total 284 loaded, batch #33)
+[20:49:33.016] [INFO] chunk batch ready: 7 chunks (total 291 loaded, batch #34)
+[20:49:33.724] [INFO] chunk batch ready: 13 chunks (total 304 loaded, batch #35)
+[20:49:34.067] [INFO] chunk batch ready: 5 chunks (total 309 loaded, batch #36)
+[20:49:34.628] [INFO] light engine calls=1559 mode=npu (fold pending)
+[20:49:34.669] [INFO] chunk batch ready: 6 chunks (total 315 loaded, batch #37)
+[20:49:34.807] [INFO] chunk batch ready: 12 chunks (total 327 loaded, batch #38)
+[20:49:35.267] [INFO] chunk batch ready: 13 chunks (total 340 loaded, batch #39)
+[20:49:35.641] [INFO] chunk batch ready: 4 chunks (total 344 loaded, batch #40)
+[20:49:36.210] [INFO] chunk batch ready: 5 chunks (total 349 loaded, batch #41)
+[20:49:36.234] [INFO] chunk batch ready: 6 chunks (total 355 loaded, batch #42)
+[20:49:36.318] [INFO] chunk batch ready: 5 chunks (total 360 loaded, batch #43)
+[20:49:36.438] [INFO] chunk batch ready: 4 chunks (total 364 loaded, batch #44)
+[20:49:37.224] [INFO] chunk batch ready: 5 chunks (total 369 loaded, batch #45)
+[20:49:37.399] [INFO] chunk batch ready: 11 chunks (total 380 loaded, batch #46)
+[20:49:37.819] [INFO] chunk batch ready: 11 chunks (total 391 loaded, batch #47)
+[20:49:37.934] [INFO] chunk batch ready: 4 chunks (total 395 loaded, batch #48)
+[20:49:38.802] [INFO] chunk batch ready: 16 chunks (total 411 loaded, batch #49)
+[20:49:39.467] [INFO] chunk batch ready: 8 chunks (total 419 loaded, batch #50)
+[20:49:39.824] [INFO] chunk batch ready: 8 chunks (total 427 loaded, batch #51)
+[20:49:40.198] [INFO] chunk batch ready: 13 chunks (total 440 loaded, batch #52)
+[20:49:44.637] [INFO] light engine calls=2855 mode=npu (fold pending)
+[20:49:45.894] [INFO] chunk batch ready: 94 chunks (total 534 loaded, batch #53)
+[20:49:46.215] [INFO] chunk batch ready: 17 chunks (total 551 loaded, batch #54)
+[20:49:47.087] [INFO] chunk batch ready: 8 chunks (total 559 loaded, batch #55)
+[20:49:47.227] [INFO] chunk batch ready: 4 chunks (total 563 loaded, batch #56)
+[20:49:47.374] [INFO] chunk batch ready: 5 chunks (total 568 loaded, batch #57)
+[20:49:47.738] [INFO] chunk batch ready: 6 chunks (total 574 loaded, batch #58)
+[20:49:48.470] [INFO] chunk batch ready: 6 chunks (total 580 loaded, batch #59)
+[20:49:49.018] [INFO] chunk batch ready: 5 chunks (total 585 loaded, batch #60)
+[20:49:49.046] [INFO] chunk batch ready: 4 chunks (total 589 loaded, batch #61)
+[20:49:49.226] [INFO] chunk batch ready: 4 chunks (total 593 loaded, batch #62)
+[20:49:49.429] [INFO] chunk batch ready: 5 chunks (total 598 loaded, batch #63)
+[20:49:49.680] [INFO] chunk batch ready: 7 chunks (total 605 loaded, batch #64)
+[20:49:50.082] [INFO] chunk batch ready: 11 chunks (total 616 loaded, batch #65)
+[20:49:50.488] [INFO] chunk batch ready: 9 chunks (total 625 loaded, batch #66)
+[20:49:51.627] [INFO] chunk batch ready: 17 chunks (total 642 loaded, batch #67)
+[20:49:52.181] [INFO] chunk batch ready: 9 chunks (total 651 loaded, batch #68)
+[20:49:52.251] [INFO] chunk batch ready: 5 chunks (total 656 loaded, batch #69)
+[20:49:52.490] [INFO] chunk batch ready: 8 chunks (total 664 loaded, batch #70)
+[20:49:52.729] [INFO] chunk batch ready: 6 chunks (total 670 loaded, batch #71)
+[20:49:53.478] [INFO] chunk batch ready: 4 chunks (total 674 loaded, batch #72)
+[20:49:53.567] [INFO] chunk batch ready: 6 chunks (total 680 loaded, batch #73)
+[20:49:53.665] [INFO] chunk batch ready: 5 chunks (total 685 loaded, batch #74)
+[20:49:54.261] [INFO] chunk batch ready: 11 chunks (total 696 loaded, batch #75)
+[20:49:54.645] [INFO] light engine calls=3873 mode=npu (fold pending)
+[20:49:54.648] [INFO] chunk batch ready: 4 chunks (total 700 loaded, batch #76)
+[20:49:54.716] [INFO] chunk batch ready: 9 chunks (total 709 loaded, batch #77)
+[20:49:54.907] [INFO] chunk batch ready: 4 chunks (total 713 loaded, batch #78)
+[20:49:55.053] [INFO] chunk batch ready: 7 chunks (total 720 loaded, batch #79)
+[20:49:55.442] [INFO] chunk batch ready: 6 chunks (total 726 loaded, batch #80)
+[20:49:55.978] [INFO] chunk batch ready: 6 chunks (total 732 loaded, batch #81)
+[20:49:56.937] [INFO] chunk batch ready: 7 chunks (total 739 loaded, batch #82)
+[20:49:57.060] [INFO] chunk batch ready: 7 chunks (total 746 loaded, batch #83)
+[20:49:57.151] [INFO] chunk batch ready: 11 chunks (total 757 loaded, batch #84)
+[20:49:57.356] [INFO] chunk batch ready: 4 chunks (total 761 loaded, batch #85)
+[20:50:04.647] [INFO] light engine calls=5535 mode=npu (fold pending)
+[20:50:10.854] [INFO] chunk batch ready: 85 chunks (total 846 loaded, batch #86)
+[20:50:12.810] [INFO] chunk batch ready: 9 chunks (total 855 loaded, batch #87)
+[20:50:12.879] [INFO] chunk batch ready: 4 chunks (total 859 loaded, batch #88)
+[20:50:13.214] [INFO] chunk batch ready: 9 chunks (total 868 loaded, batch #89)
+[20:50:13.395] [INFO] chunk batch ready: 5 chunks (total 873 loaded, batch #90)
+[20:50:14.651] [INFO] light engine calls=7875 mode=npu (fold pending)
+[20:50:15.360] [INFO] chunk batch ready: 2 chunks (total 875 loaded, batch #91)
+[20:50:24.652] [INFO] light engine calls=11401 mode=npu (fold pending)
+[20:50:26.282] [INFO] profile start: 20s
+[20:50:34.654] [INFO] light engine calls=15253 mode=npu (fold pending)
+[20:50:39.778] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:50:39.783] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:50:39.784] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:50:44.656] [INFO] light engine calls=17775 mode=npu (fold pending)
+[20:50:46.292] [INFO] == category split (what the NPU could eat) ==
+  other     97.91%  28023 hits
+  render     1.28%  366 hits
+  entity     0.53%  151 hits
+  gc         0.14%  39 hits
+  mesh       0.13%  36 hits
+  light      0.02%  5 hits
+== top frames ==
+profile over 20s, 3180 passes, 28620 hits
+ 87.76%  25117   Unsafe.park                                                 [Worker-Main-3]
+  2.47%  706     LambdaForm$MH/0x000000020174bc00.invoke                     [Render thread]
+  0.63%  181     LambdaForm$MH/0x000000020173d000.invoke                     [Render thread]
+  0.42%  121     LambdaForm$MH/0x000000020174dc00.invoke                     [Render thread]
+  0.36%  103     LambdaForm$MH/0x000000020173e800.invoke                     [Render thread]
+  0.34%  97      LambdaForm$MH/0x000000020172d800.invoke                     [Render thread]
+  0.28%  80      LambdaForm$MH/0x000000020174a400.invoke                     [Render thread]
+  0.28%  80      LambdaForm$MH/0x000000020172c000.invoke                     [Render thread]
+  0.21%  59      Unsafe.unpark                                               [Render thread]
+  0.20%  57      PalettedContainer.get                                       [Render thread]
+  0.14%  40      Unsafe.allocateInstance                                     [Render thread]
+  0.13%  38      LambdaForm$MH/0x0000000201745400.invoke                     [Render thread]
+  0.12%  33      LambdaForm$MH/0x0000000201745c00.invoke                     [Render thread]
+  0.11%  31      LambdaForm$MH/0x000000020176c000.invoke                     [Render thread]
+  0.10%  28      ImmutableCollections$ListItr.next                           [Render thread]
+  0.09%  27      Object2IntMaps$UnmodifiableMap.getOrDefault                 [Render thread]
+  0.08%  24      ArrayList.add                                               [Render thread]
+  0.08%  23      LambdaForm$MH/0x000000020174cc00.invoke                     [Render thread]
+  0.08%  22      LambdaForm$MH/0x000000020173d800.invoke                     [Render thread]
+  0.08%  22      VulkanRenderPass.pushDescriptors                            [Render thread]
+  0.08%  22      LambdaForm$MH/0x000000020174ac00.invoke                     [Render thread]
+  0.08%  22      SectionTree.isBoxVisible                                    [Render thread]
+  0.07%  21      Collection.removeIf                                         [Render thread]
+  0.07%  20      GuiRenderer.addElementToMesh                                [Render thread]
+  0.07%  19      Font.lambda$new$0                                           [Render thread]
+
+[20:50:46.293] [INFO] profile done
+== category split (what the NPU could eat) ==
+  other     97.91%  28023 hits
+  render     1.28%  366 hits
+  entity     0.53%  151 hits
+  gc         0.14%  39 hits
+  mesh       0.13%  36 hits
+  light      0.02%  5 hits
+== top frames ==
+profile over 20s, 3180 passes, 28620 hits
+ 87.76%  25117   Unsafe.park                                                 [Worker-Main-3]
+  2.47%  706     LambdaForm$MH/0x000000020174bc00.invoke                     [Render thread]
+  0.63%  181     LambdaForm$MH/0x000000020173d000.invoke                     [Render thread]
+  0.42%  121     LambdaForm$MH/0x000000020174dc00.invoke                     [Render thread]
+  0.36%  103     LambdaForm$MH/0x000000020173e800.invoke                     [Render thread]
+  0.34%  97      LambdaForm$MH/0x000000020172d800.invoke                     [Render thread]
+  0.28%  80      LambdaForm$MH/0x000000020174a400.invoke                     [Render thread]
+  0.28%  80      LambdaForm$MH/0x000000020172c000.invoke                     [Render thread]
+  0.21%  59      Unsafe.unpark                                               [Render thread]
+  0.20%  57      PalettedContainer.get                                       [Render thread]
+  0.14%  40      Unsafe.allocateInstance                                     [Render thread]
+  0.13%  38      LambdaForm$MH/0x0000000201745400.invoke                     [Render thread]
+  0.12%  33      LambdaForm$MH/0x0000000201745c00.invoke                     [Render thread]
+  0.11%  31      LambdaForm$MH/0x000000020176c000.invoke                     [Render thread]
+  0.10%  28      ImmutableCollections$ListItr.next                           [Render thread]
+  0.09%  27      Object2IntMaps$UnmodifiableMap.getOrDefault                 [Render thread]
+  0.08%  24      ArrayList.add                                               [Render thread]
+  0.08%  23      LambdaForm$MH/0x000000020174cc00.invoke                     [Render thread]
+  0.08%  22      LambdaForm$MH/0x000000020173d800.invoke                     [Render thread]
+  0.08%  22      VulkanRenderPass.pushDescriptors                            [Render thread]
+  0.08%  22      LambdaForm$MH/0x000000020174ac00.invoke                     [Render thread]
+  0.08%  22      SectionTree.isBoxVisible                                    [Render thread]
+  0.07%  21      Collection.removeIf                                         [Render thread]
+  0.07%  20      GuiRenderer.addElementToMesh                                [Render thread]
+  0.07%  19      Font.lambda$new$0                                           [Render thread]
+
+[20:50:50.466] [INFO] feature blocks -> true
+[20:50:52.954] [INFO] feature noise -> true
+[20:50:54.661] [INFO] light engine calls=20433 mode=npu (fold pending)
+[20:51:04.670] [INFO] light engine calls=22979 mode=npu (fold pending)
+[20:51:14.674] [INFO] light engine calls=25631 mode=npu (fold pending)
+[20:51:24.734] [INFO] light engine calls=28007 mode=npu (fold pending)
+[20:51:34.747] [INFO] light engine calls=29063 mode=npu (fold pending)
+[20:51:36.765] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:36.766] [INFO] config toggled enabled -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:36.766] [INFO] screen toggle enabled -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.210] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:37.212] [INFO] config toggled autoWarmup -> enabled=false autoWarmup=false debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.212] [INFO] screen toggle autoWarmup -> enabled=false autoWarmup=false debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.418] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:37.419] [INFO] config toggled debugLog -> enabled=false autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.419] [INFO] screen toggle debugLog -> enabled=false autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.665] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:37.666] [INFO] config toggled enabled -> enabled=true autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.667] [INFO] screen toggle enabled -> enabled=true autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.869] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:37.872] [INFO] config toggled enabled -> enabled=false autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:37.872] [INFO] screen toggle enabled -> enabled=false autoWarmup=false debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:38.479] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:38.479] [INFO] config toggled autoWarmup -> enabled=false autoWarmup=true debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:38.479] [INFO] screen toggle autoWarmup -> enabled=false autoWarmup=true debugLog=false lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:39.509] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:39.511] [INFO] config toggled debugLog -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:39.512] [INFO] screen toggle debugLog -> enabled=false autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:40.099] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:51:40.100] [INFO] config toggled enabled -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:40.101] [INFO] screen toggle enabled -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[20:51:44.755] [INFO] light engine calls=31693 mode=npu (fold pending)
+[20:51:54.764] [INFO] light engine calls=34821 mode=npu (fold pending)
+[20:52:04.767] [INFO] light engine calls=38201 mode=npu (fold pending)
+[20:52:14.770] [INFO] light engine calls=41335 mode=npu (fold pending)
+[20:52:24.771] [INFO] light engine calls=45535 mode=npu (fold pending)
+
+==== session 2026-10-03T20:58:52.206664399 ====
+[20:58:52.204] [INFO] mod initialised
+[20:58:52.214] [INFO] boot: initialising runtime
+[20:58:52.217] [INFO] auto hooks registered (chunk load + server tick)
+[20:58:52.217] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[20:58:52.263] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[20:58:52.268] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:58:52.272] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=npu chunkMode=npu
+[20:59:12.810] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=23623 cpu_us=471240 speedup=19.95x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=513
+[20:59:12.950] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=37919 cpu_us=74509 speedup=1.96x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=132
+[20:59:12.951] [INFO] boot: done, graphs are hot
+[20:59:14.885] [INFO] light engine calls=1 mode=npu (fold pending)
+[20:59:16.009] [INFO] chunk batch ready: 49 chunks (total 49 loaded, batch #1)
+[20:59:16.297] [INFO] chunk batch ready: 4 chunks (total 53 loaded, batch #2)
+[20:59:16.411] [INFO] chunk batch ready: 16 chunks (total 69 loaded, batch #3)
+[20:59:16.531] [INFO] chunk batch ready: 6 chunks (total 75 loaded, batch #4)
+[20:59:16.636] [INFO] chunk batch ready: 6 chunks (total 81 loaded, batch #5)
+[20:59:16.861] [INFO] chunk batch ready: 10 chunks (total 91 loaded, batch #6)
+[20:59:16.963] [INFO] chunk batch ready: 11 chunks (total 102 loaded, batch #7)
+[20:59:17.076] [INFO] chunk batch ready: 11 chunks (total 113 loaded, batch #8)
+[20:59:17.310] [INFO] chunk batch ready: 5 chunks (total 118 loaded, batch #9)
+[20:59:17.516] [INFO] chunk batch ready: 8 chunks (total 126 loaded, batch #10)
+[20:59:17.674] [INFO] chunk batch ready: 6 chunks (total 132 loaded, batch #11)
+[20:59:17.776] [INFO] chunk batch ready: 17 chunks (total 149 loaded, batch #12)
+[20:59:18.066] [INFO] chunk batch ready: 8 chunks (total 157 loaded, batch #13)
+[20:59:18.131] [INFO] chunk batch ready: 4 chunks (total 161 loaded, batch #14)
+[20:59:18.341] [INFO] chunk batch ready: 9 chunks (total 170 loaded, batch #15)
+[20:59:18.678] [INFO] chunk batch ready: 19 chunks (total 189 loaded, batch #16)
+[20:59:18.911] [INFO] chunk batch ready: 15 chunks (total 204 loaded, batch #17)
+[20:59:18.981] [INFO] chunk batch ready: 6 chunks (total 210 loaded, batch #18)
+[20:59:19.331] [INFO] chunk batch ready: 11 chunks (total 221 loaded, batch #19)
+[20:59:19.424] [INFO] chunk batch ready: 4 chunks (total 225 loaded, batch #20)
+[20:59:19.926] [INFO] chunk batch ready: 16 chunks (total 241 loaded, batch #21)
+[20:59:20.139] [INFO] chunk batch ready: 11 chunks (total 252 loaded, batch #22)
+[20:59:20.240] [INFO] chunk batch ready: 6 chunks (total 258 loaded, batch #23)
+[20:59:20.385] [INFO] chunk batch ready: 4 chunks (total 262 loaded, batch #24)
+[20:59:20.511] [INFO] chunk batch ready: 12 chunks (total 274 loaded, batch #25)
+[20:59:20.713] [INFO] chunk batch ready: 9 chunks (total 283 loaded, batch #26)
+[20:59:23.873] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[20:59:23.875] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[20:59:23.875] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[20:59:24.878] [INFO] light engine calls=2449 mode=npu (fold pending)
+[20:59:34.889] [INFO] light engine calls=3593 mode=npu (fold pending)
+[20:59:35.148] [INFO] feature blocks -> true
+[20:59:44.894] [INFO] light engine calls=5637 mode=npu (fold pending)
+[20:59:54.519] [INFO] feature noise -> true
+[20:59:54.901] [INFO] light engine calls=8057 mode=npu (fold pending)
+[21:00:03.132] [INFO] [NPU] lightfold FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:00:04.905] [INFO] light engine calls=11225 mode=npu (fold pending)
+[21:00:14.055] [INFO] [NPU] lightapply FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:00:14.909] [INFO] light engine calls=14525 mode=npu (fold pending)
+[21:00:15.225] [INFO] chunk batch ready: 558 chunks (total 841 loaded, batch #27)
+[21:00:24.917] [INFO] light engine calls=16255 mode=npu (fold pending)
+[21:00:34.921] [INFO] light engine calls=19633 mode=npu (fold pending)
+[21:00:44.928] [INFO] light engine calls=22891 mode=npu (fold pending)
+[21:00:54.933] [INFO] light engine calls=26153 mode=npu (fold pending)
+[21:01:04.938] [INFO] light engine calls=30211 mode=npu (fold pending)
+[21:01:14.949] [INFO] light engine calls=33907 mode=npu (fold pending)
+[21:01:24.951] [INFO] light engine calls=37097 mode=npu (fold pending)
+[21:01:34.956] [INFO] light engine calls=39777 mode=npu (fold pending)
+[21:01:44.059] [INFO] [NPU] lightfold FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:44.095] [INFO] [NPU] lightapply FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:44.122] [INFO] [NPU] lightapply FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:44.141] [INFO] [NPU] lightfold FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:44.957] [INFO] light engine calls=43155 mode=npu (fold pending)
+[21:01:47.992] [INFO] [NPU] lightapply FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:54.963] [INFO] light engine calls=46527 mode=npu (fold pending)
+[21:01:57.911] [INFO] [NPU] lightfold FAIL MCNPU_OFFLINE ERR SERVICE_BUSY SocketTimeoutException(Read timed out)
+[21:01:57.940] [INFO] [NPU] lightfold FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:01:57.955] [INFO] [NPU] lightapply FAIL MCNPU_OFFLINE ERR SERVICE_COOLDOWN SocketTimeoutException(Read timed out)
+[21:02:04.652] [INFO] chunk batch ready: 29 chunks (total 870 loaded, batch #28)
+[21:02:04.964] [INFO] light engine calls=49885 mode=npu (fold pending)
+[21:02:14.969] [INFO] light engine calls=54455 mode=npu (fold pending)
+[21:02:24.970] [INFO] light engine calls=59471 mode=npu (fold pending)
+[21:02:34.977] [INFO] light engine calls=62327 mode=npu (fold pending)
+[21:02:37.596] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:02:37.598] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[21:02:37.598] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[21:02:37.930] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:02:37.930] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[21:02:37.930] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[21:02:38.332] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:02:38.333] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=npu chunkMode=npu
+[21:02:38.334] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=npu chunkMode=npu
+[21:02:44.988] [INFO] light engine calls=65159 mode=npu (fold pending)
+[21:02:50.385] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:02:50.386] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=npu
+[21:02:50.387] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=npu
+[21:02:50.391] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 1
+[21:02:51.742] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[21:02:52.167] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:02:52.167] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[21:02:52.168] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[21:02:52.168] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 1
+[21:02:52.169] [INFO] [NPU] reloadchunks FAIL NoSuchMethodException: net.minecraft.server.level.ThreadedLevelLightEngine.setLightEnabled(net.minecraft.core.SectionPos,boolean)
+[21:02:54.989] [INFO] light engine calls=67957 mode=assist (fold pending)
+
+==== session 2026-10-03T21:30:56.470304290 ====
+[21:30:56.467] [INFO] mod initialised
+[21:30:56.482] [INFO] boot: initialising runtime
+[21:30:56.489] [INFO] auto hooks registered (chunk load + server tick)
+[21:30:56.490] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[21:30:56.510] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[21:30:56.515] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:30:56.520] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=0 lightMode=assist chunkMode=assist
+[21:31:16.685] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=46598 cpu_us=93532 speedup=2.01x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=154
+[21:31:16.779] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=14213 cpu_us=75192 speedup=5.29x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=91
+[21:31:16.779] [INFO] boot: done, graphs are hot
+[21:31:26.332] [INFO] light engine calls=1 mode=assist (fold pending)
+[21:31:27.907] [INFO] chunk batch: submitted=8 pending=41 (total 49 loaded, batch #1, dropped=0 skipped=0)
+[21:31:30.205] [INFO] chunk batch: submitted=6 pending=0 (total 69 loaded, batch #9, dropped=0 skipped=0)
+[21:31:36.341] [INFO] light engine calls=1683 mode=assist (fold pending)
+[21:31:38.422] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:31:38.423] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[21:31:38.423] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=1 lightMode=assist chunkMode=assist
+[21:31:40.157] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:31:40.158] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[21:31:40.158] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[21:31:46.344] [INFO] light engine calls=4535 mode=assist (fold pending)
+[21:31:56.348] [INFO] light engine calls=8131 mode=assist (fold pending)
+[21:31:58.126] [INFO] chunk batch: submitted=8 pending=472 (total 841 loaded, batch #17, dropped=241 skipped=0)
+[21:32:00.263] [INFO] chunk batch: submitted=8 pending=408 (total 841 loaded, batch #25, dropped=241 skipped=0)
+[21:32:04.216] [INFO] chunk batch: submitted=8 pending=344 (total 841 loaded, batch #33, dropped=241 skipped=0)
+[21:32:06.353] [INFO] light engine calls=9799 mode=assist (fold pending)
+[21:32:07.048] [INFO] chunk batch: submitted=8 pending=280 (total 841 loaded, batch #41, dropped=241 skipped=0)
+[21:32:09.874] [INFO] chunk batch: submitted=8 pending=216 (total 841 loaded, batch #49, dropped=241 skipped=0)
+[21:32:12.712] [INFO] chunk batch: submitted=8 pending=152 (total 841 loaded, batch #57, dropped=241 skipped=0)
+[21:32:14.651] [INFO] chunk batch: submitted=8 pending=88 (total 841 loaded, batch #65, dropped=241 skipped=0)
+[21:32:16.357] [INFO] light engine calls=11887 mode=assist (fold pending)
+[21:32:17.214] [INFO] chunk batch: submitted=8 pending=24 (total 841 loaded, batch #73, dropped=241 skipped=0)
+[21:32:26.359] [INFO] light engine calls=14601 mode=assist (fold pending)
+[21:32:36.362] [INFO] light engine calls=18153 mode=assist (fold pending)
+[21:32:46.364] [INFO] light engine calls=22317 mode=assist (fold pending)
+[21:32:46.862] [INFO] [NPU] terrain_assist hits=0 misses=0 hit_rate=0.0% prepared=0 cached=0/96 queued=0/256 dropped=0 failed=0 || render_assist frames=0 npu_frames=0 rate=0.0% boxes=0 last_npu_us=0 fallbacks=0 last_frame_us=0 scaleC=0.0 || chunks_seen=841 batches=76 pending=0/512 last_batch=8 dropped=241 skipped=0 | work submitted=600 processed=449 pending=142/512 dropped=0 failed=0 last_us=140653
+[21:32:51.500] [INFO] chunk batch: submitted=4 pending=0 (total 870 loaded, batch #81, dropped=241 skipped=0)
+[21:32:56.370] [INFO] light engine calls=27149 mode=assist (fold pending)
+[21:33:06.374] [INFO] light engine calls=32367 mode=assist (fold pending)
+[21:33:16.389] [INFO] light engine calls=36143 mode=assist (fold pending)
+[21:33:24.538] [INFO] chunk batch: submitted=4 pending=0 (total 910 loaded, batch #89, dropped=241 skipped=0)
+[21:33:26.390] [INFO] light engine calls=38467 mode=assist (fold pending)
+[21:33:30.735] [INFO] chunk batch: submitted=4 pending=0 (total 956 loaded, batch #97, dropped=241 skipped=0)
+[21:33:36.392] [INFO] light engine calls=40683 mode=assist (fold pending)
+[21:33:37.629] [INFO] chunk batch: submitted=5 pending=0 (total 1005 loaded, batch #105, dropped=241 skipped=0)
+[21:33:45.369] [INFO] chunk batch: submitted=8 pending=0 (total 1049 loaded, batch #113, dropped=241 skipped=0)
+[21:33:46.396] [INFO] light engine calls=43181 mode=assist (fold pending)
+[21:33:52.090] [INFO] chunk batch: submitted=7 pending=0 (total 1100 loaded, batch #121, dropped=241 skipped=0)
+[21:33:56.400] [INFO] light engine calls=46077 mode=assist (fold pending)
+[21:33:56.701] [INFO] chunk batch: submitted=5 pending=0 (total 1146 loaded, batch #129, dropped=241 skipped=0)
+[21:34:04.104] [INFO] chunk batch: submitted=4 pending=0 (total 1191 loaded, batch #137, dropped=241 skipped=0)
+[21:34:06.403] [INFO] light engine calls=48853 mode=assist (fold pending)
+[21:34:11.843] [INFO] chunk batch: submitted=5 pending=0 (total 1237 loaded, batch #145, dropped=241 skipped=0)
+[21:34:16.407] [INFO] light engine calls=51867 mode=assist (fold pending)
+[21:34:16.739] [INFO] chunk batch: submitted=5 pending=0 (total 1293 loaded, batch #153, dropped=241 skipped=0)
+[21:34:23.268] [INFO] chunk batch: submitted=8 pending=4 (total 1349 loaded, batch #161, dropped=241 skipped=0)
+[21:34:26.409] [INFO] light engine calls=54899 mode=assist (fold pending)
+[21:34:31.130] [INFO] chunk batch: submitted=4 pending=0 (total 1394 loaded, batch #169, dropped=241 skipped=0)
+[21:34:36.411] [INFO] light engine calls=58075 mode=assist (fold pending)
+[21:34:43.740] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:34:43.741] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=assist
+[21:34:43.741] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=assist
+[21:34:43.746] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:34:43.772] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=assist forced_recompute=49 chunks
+[21:34:44.477] [INFO] light engine ran 60500 times (vanilla, counted only)
+[21:34:44.512] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:34:44.512] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[21:34:44.513] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[21:34:44.513] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:34:44.524] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=49 chunks
+[21:34:45.961] [INFO] light engine ran 61000 times (vanilla, counted only)
+[21:34:47.544] [INFO] light engine ran 61500 times (vanilla, counted only)
+[21:34:49.067] [INFO] light engine ran 62000 times (vanilla, counted only)
+[21:34:50.394] [INFO] light engine ran 62500 times (vanilla, counted only)
+[21:34:51.730] [INFO] light engine ran 63000 times (vanilla, counted only)
+[21:34:53.498] [INFO] light engine ran 63500 times (vanilla, counted only)
+[21:34:54.491] [INFO] light engine ran 64000 times (vanilla, counted only)
+[21:34:55.722] [INFO] light engine ran 64500 times (vanilla, counted only)
+[21:34:57.045] [INFO] light engine ran 65000 times (vanilla, counted only)
+[21:34:58.471] [INFO] light engine ran 65500 times (vanilla, counted only)
+[21:34:59.859] [INFO] light engine ran 66000 times (vanilla, counted only)
+[21:35:01.448] [INFO] light engine ran 66500 times (vanilla, counted only)
+[21:35:03.077] [INFO] light engine ran 67000 times (vanilla, counted only)
+[21:35:04.949] [INFO] light engine ran 67500 times (vanilla, counted only)
+[21:35:05.108] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:35:05.108] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=npu
+[21:35:05.109] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=npu
+[21:35:05.109] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:35:05.111] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=npu forced_recompute=49 chunks
+[21:35:06.488] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:35:06.489] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[21:35:06.489] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[21:35:06.491] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:35:06.493] [INFO] light engine calls=67899 mode=npu (fold pending)
+[21:35:06.502] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=npu forced_recompute=49 chunks
+[21:35:16.495] [INFO] light engine calls=71495 mode=npu (fold pending)
+[21:35:22.160] [INFO] chunk batch: submitted=5 pending=0 (total 1438 loaded, batch #177, dropped=241 skipped=0)
+[21:35:26.503] [INFO] light engine calls=74011 mode=npu (fold pending)
+[21:35:26.880] [INFO] chunk batch: submitted=5 pending=0 (total 1490 loaded, batch #185, dropped=241 skipped=0)
+[21:35:29.885] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:35:29.890] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=npu
+[21:35:29.892] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=npu
+[21:35:29.894] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:35:29.895] [INFO] [NPU] reloadchunks mode_light=assist mode_chunk=npu forced_recompute=49 chunks
+[21:35:30.353] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:35:30.353] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[21:35:30.354] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[21:35:30.357] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[21:35:30.359] [INFO] [NPU] reloadchunks mode_light=assist mode_chunk=assist forced_recompute=49 chunks
+[21:35:31.980] [INFO] chunk batch: submitted=8 pending=42 (total 1596 loaded, batch #193, dropped=241 skipped=0)
+[21:35:33.994] [INFO] chunk batch: submitted=6 pending=0 (total 1616 loaded, batch #201, dropped=241 skipped=0)
+[21:35:36.514] [INFO] light engine calls=76677 mode=assist (fold pending)
+[21:35:46.516] [INFO] light engine calls=78677 mode=assist (fold pending)
+[21:35:52.115] [INFO] chunk batch: submitted=4 pending=0 (total 1658 loaded, batch #209, dropped=241 skipped=0)
+[21:35:56.522] [INFO] light engine calls=80191 mode=assist (fold pending)
+[21:36:02.684] [INFO] chunk batch: submitted=4 pending=0 (total 1693 loaded, batch #217, dropped=241 skipped=0)
+[21:36:06.581] [INFO] light engine calls=81673 mode=assist (fold pending)
+[21:36:16.587] [INFO] light engine calls=83269 mode=assist (fold pending)
+[21:36:26.598] [INFO] light engine calls=84879 mode=assist (fold pending)
+[21:36:36.606] [INFO] light engine calls=86479 mode=assist (fold pending)
+[21:36:46.614] [INFO] light engine calls=88099 mode=assist (fold pending)
+[21:36:53.700] [INFO] chunk batch: submitted=8 pending=9 (total 1747 loaded, batch #225, dropped=241 skipped=0)
+[21:36:56.618] [INFO] light engine calls=89899 mode=assist (fold pending)
+[21:37:03.692] [INFO] chunk batch: submitted=7 pending=0 (total 1784 loaded, batch #233, dropped=241 skipped=0)
+[21:37:06.622] [INFO] light engine calls=92061 mode=assist (fold pending)
+[21:37:12.481] [INFO] chunk batch: submitted=7 pending=0 (total 1837 loaded, batch #241, dropped=241 skipped=0)
+[21:37:16.629] [INFO] light engine calls=94891 mode=assist (fold pending)
+[21:37:20.244] [INFO] chunk batch: submitted=8 pending=0 (total 1888 loaded, batch #249, dropped=241 skipped=0)
+[21:37:26.634] [INFO] light engine calls=96775 mode=assist (fold pending)
+[21:37:28.488] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:37:28.488] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[21:37:28.489] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[21:37:30.353] [INFO] chunk batch: submitted=8 pending=57 (total 2001 loaded, batch #257, dropped=241 skipped=0)
+[21:37:33.566] [INFO] chunk batch: submitted=8 pending=6 (total 2014 loaded, batch #265, dropped=241 skipped=0)
+[21:37:36.638] [INFO] light engine calls=99251 mode=assist (fold pending)
+[21:37:42.400] [INFO] chunk batch: submitted=8 pending=0 (total 2059 loaded, batch #273, dropped=241 skipped=0)
+[21:37:46.648] [INFO] light engine calls=102863 mode=assist (fold pending)
+[21:37:50.185] [INFO] chunk batch: submitted=4 pending=0 (total 2111 loaded, batch #281, dropped=241 skipped=0)
+[21:37:54.064] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:37:54.065] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:37:54.069] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:37:56.649] [INFO] light engine calls=105995 mode=assist (fold pending)
+[21:37:56.702] [INFO] chunk batch: submitted=8 pending=7 (total 2182 loaded, batch #289, dropped=241 skipped=0)
+[21:38:03.379] [INFO] chunk batch: submitted=5 pending=0 (total 2227 loaded, batch #297, dropped=241 skipped=0)
+[21:38:06.651] [INFO] light engine calls=108951 mode=assist (fold pending)
+[21:38:13.726] [INFO] chunk batch: submitted=4 pending=0 (total 2272 loaded, batch #305, dropped=241 skipped=0)
+[21:38:16.654] [INFO] light engine calls=112061 mode=assist (fold pending)
+[21:38:22.356] [INFO] chunk batch: submitted=8 pending=0 (total 2318 loaded, batch #313, dropped=241 skipped=0)
+[21:38:26.655] [INFO] light engine calls=116097 mode=assist (fold pending)
+[21:38:30.073] [INFO] chunk batch: submitted=4 pending=0 (total 2365 loaded, batch #321, dropped=241 skipped=0)
+[21:38:36.665] [INFO] light engine calls=119447 mode=assist (fold pending)
+[21:38:38.692] [INFO] chunk batch: submitted=6 pending=0 (total 2412 loaded, batch #329, dropped=241 skipped=0)
+[21:38:44.377] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:38:44.379] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=vanilla chunkMode=assist
+[21:38:44.379] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=vanilla chunkMode=assist
+[21:38:44.380] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:38:44.383] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=assist forced_recompute=81 chunks
+[21:38:44.979] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:38:44.979] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=vanilla chunkMode=vanilla
+[21:38:44.980] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=vanilla chunkMode=vanilla
+[21:38:44.980] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:38:44.988] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=81 chunks
+[21:38:46.653] [INFO] light engine ran 121500 times (vanilla, counted only)
+[21:38:48.953] [INFO] light engine ran 122000 times (vanilla, counted only)
+[21:38:51.314] [INFO] light engine ran 122500 times (vanilla, counted only)
+[21:38:53.189] [INFO] light engine ran 123000 times (vanilla, counted only)
+[21:38:55.499] [INFO] light engine ran 123500 times (vanilla, counted only)
+[21:38:56.369] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:38:56.371] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=vanilla
+[21:38:56.371] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=vanilla
+[21:38:56.374] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:38:56.376] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=81 chunks
+[21:38:56.379] [INFO] light engine calls=123641 mode=npu (fold pending)
+[21:38:56.829] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:38:56.830] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[21:38:56.830] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[21:38:56.832] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:38:56.836] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=npu forced_recompute=81 chunks
+[21:38:58.742] [INFO] chunk batch: submitted=4 pending=0 (total 2461 loaded, batch #337, dropped=241 skipped=0)
+[21:39:05.442] [INFO] chunk batch: submitted=6 pending=0 (total 2502 loaded, batch #345, dropped=241 skipped=0)
+[21:39:06.384] [INFO] light engine calls=125633 mode=npu (fold pending)
+[21:39:13.657] [INFO] chunk batch: submitted=4 pending=0 (total 2548 loaded, batch #353, dropped=241 skipped=0)
+[21:39:16.385] [INFO] light engine calls=128175 mode=npu (fold pending)
+[21:39:20.484] [INFO] chunk batch: submitted=5 pending=0 (total 2599 loaded, batch #361, dropped=241 skipped=0)
+[21:39:26.417] [INFO] light engine calls=131457 mode=npu (fold pending)
+[21:39:27.683] [INFO] chunk batch: submitted=4 pending=0 (total 2651 loaded, batch #369, dropped=241 skipped=0)
+[21:39:34.633] [INFO] chunk batch: submitted=5 pending=0 (total 2703 loaded, batch #377, dropped=241 skipped=0)
+[21:39:36.446] [INFO] light engine calls=134097 mode=npu (fold pending)
+[21:39:40.716] [INFO] chunk batch: submitted=6 pending=0 (total 2748 loaded, batch #385, dropped=241 skipped=0)
+[21:39:46.449] [INFO] light engine calls=136443 mode=npu (fold pending)
+[21:39:48.193] [INFO] chunk batch: submitted=8 pending=0 (total 2795 loaded, batch #393, dropped=241 skipped=0)
+[21:39:53.861] [INFO] chunk batch: submitted=5 pending=0 (total 2841 loaded, batch #401, dropped=241 skipped=0)
+[21:39:56.455] [INFO] light engine calls=138493 mode=npu (fold pending)
+[21:40:01.125] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:40:01.136] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=assist
+[21:40:01.136] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=assist
+[21:40:01.137] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:40:01.146] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=assist forced_recompute=81 chunks
+[21:40:01.522] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:40:01.539] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:40:01.540] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:40:01.541] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 5
+[21:40:01.548] [INFO] [NPU] reloadchunks mode_light=assist mode_chunk=assist forced_recompute=81 chunks
+[21:40:02.532] [INFO] chunk batch: submitted=8 pending=70 (total 2961 loaded, batch #409, dropped=241 skipped=0)
+[21:40:04.239] [INFO] chunk batch: submitted=8 pending=14 (total 2969 loaded, batch #417, dropped=241 skipped=0)
+[21:40:06.485] [INFO] light engine calls=140657 mode=assist (fold pending)
+[21:40:09.135] [INFO] chunk batch: submitted=5 pending=0 (total 3009 loaded, batch #425, dropped=241 skipped=0)
+[21:40:16.501] [INFO] light engine calls=143933 mode=assist (fold pending)
+[21:40:17.138] [INFO] chunk batch: submitted=8 pending=1 (total 3063 loaded, batch #433, dropped=241 skipped=0)
+[21:40:26.507] [INFO] light engine calls=147279 mode=assist (fold pending)
+[21:40:28.013] [INFO] chunk batch: submitted=8 pending=1 (total 3115 loaded, batch #441, dropped=241 skipped=0)
+[21:40:36.509] [INFO] light engine calls=150991 mode=assist (fold pending)
+[21:40:41.254] [INFO] chunk batch: submitted=8 pending=0 (total 3162 loaded, batch #449, dropped=241 skipped=0)
+[21:40:46.538] [INFO] light engine calls=153359 mode=assist (fold pending)
+[21:40:50.063] [INFO] chunk batch: submitted=5 pending=0 (total 3210 loaded, batch #457, dropped=241 skipped=0)
+[21:40:56.542] [INFO] light engine calls=155591 mode=assist (fold pending)
+[21:40:56.834] [INFO] chunk batch: submitted=5 pending=0 (total 3253 loaded, batch #465, dropped=241 skipped=0)
+[21:41:03.555] [INFO] chunk batch: submitted=8 pending=1 (total 3301 loaded, batch #473, dropped=241 skipped=0)
+[21:41:06.546] [INFO] light engine calls=157801 mode=assist (fold pending)
+[21:41:10.905] [INFO] chunk batch: submitted=7 pending=0 (total 3349 loaded, batch #481, dropped=241 skipped=0)
+[21:41:16.549] [INFO] light engine calls=159875 mode=assist (fold pending)
+[21:41:20.092] [INFO] chunk batch: submitted=8 pending=0 (total 3397 loaded, batch #489, dropped=241 skipped=0)
+[21:41:26.486] [INFO] chunk batch: submitted=6 pending=0 (total 3442 loaded, batch #497, dropped=241 skipped=0)
+[21:41:26.569] [INFO] light engine calls=162693 mode=assist (fold pending)
+[21:41:33.637] [INFO] chunk batch: submitted=4 pending=0 (total 3483 loaded, batch #505, dropped=241 skipped=0)
+[21:41:36.570] [INFO] light engine calls=165544 mode=assist (fold pending)
+[21:41:40.299] [INFO] chunk batch: submitted=5 pending=0 (total 3524 loaded, batch #513, dropped=241 skipped=0)
+[21:41:46.572] [INFO] light engine calls=168315 mode=assist (fold pending)
+
+==== session 2026-10-03T21:57:07.972594628 ====
+[21:57:07.969] [INFO] mod initialised
+[21:57:07.985] [INFO] boot: initialising runtime
+[21:57:07.993] [INFO] auto hooks registered (chunk load + server tick)
+[21:57:07.994] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[21:57:08.029] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[21:57:08.037] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:57:08.043] [INFO] boot: enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=assist
+[21:57:28.332] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=40428 cpu_us=207979 speedup=5.14x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=281
+[21:57:28.431] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=21305 cpu_us=71396 speedup=3.35x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=98
+[21:57:28.432] [INFO] boot: done, graphs are hot
+[21:57:37.666] [INFO] light engine calls=1 mode=assist (fold pending)
+[21:57:38.853] [INFO] chunk batch: submitted=8 pending=41 (total 49 loaded, batch #1, dropped=0 skipped=0)
+[21:57:40.840] [INFO] chunk batch: submitted=5 pending=0 (total 69 loaded, batch #9, dropped=0 skipped=0)
+[21:57:47.655] [INFO] light engine calls=1155 mode=assist (fold pending)
+[21:57:57.241] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:57:57.242] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[21:57:57.242] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=3 lightMode=assist chunkMode=assist
+[21:57:57.657] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[21:57:57.658] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:57:57.658] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true lightBatch=128 lightFoldRadius=4 lightMode=assist chunkMode=assist
+[21:57:57.666] [INFO] light engine calls=2981 mode=assist (fold pending)
