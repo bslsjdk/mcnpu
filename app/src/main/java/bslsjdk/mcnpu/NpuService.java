@@ -172,10 +172,11 @@ public final class NpuService extends Service {
                     }
                     try {
                         Socket socket = ss.accept();
+                        long acceptedNs = System.nanoTime();
                         workerBeatMs = System.currentTimeMillis();
                         log("IPC ACCEPT " + socket.getRemoteSocketAddress());
                         try {
-                            clients.execute(() -> handle(socket));
+                            clients.execute(() -> handle(socket, acceptedNs));
                         } catch (Throwable t) {
                             try { socket.close(); } catch (Throwable ignored) {}
                             log("IPC client dispatch failed: " + t);
@@ -257,6 +258,19 @@ public final class NpuService extends Service {
                 BufferedReader br = new BufferedReader(
                         new InputStreamReader(t.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
                 String reply = br.readLine();
+                long[] samples = new long[1000];
+                for (int i = 0; i < samples.length; i++) {
+                    long p0 = System.nanoTime();
+                    t.getOutputStream().write("PING\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    t.getOutputStream().flush();
+                    String pr = br.readLine();
+                    if (!"PONG MCNPU/1".equals(pr)) throw new IOException("bad ping reply: " + pr);
+                    samples[i] = (System.nanoTime() - p0) / 1000L;
+                }
+                java.util.Arrays.sort(samples);
+                log("IPC PINGBENCH n=1000 min_us=" + samples[0]
+                        + " p50_us=" + samples[499] + " p95_us=" + samples[949]
+                        + " p99_us=" + samples[989] + " max_us=" + samples[999]);
                 log("IPC SELFTEST PASS addr=" + lo.getHostAddress()
                         + " localhost=" + InetAddress.getLoopbackAddress().getHostAddress()
                         + " all=" + java.util.Arrays.toString(InetAddress.getAllByName("localhost"))
@@ -288,12 +302,13 @@ public final class NpuService extends Service {
         }
     }
 
-    private void handle(Socket socket) {
+    private void handle(Socket socket, long acceptedNs) {
         try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
             InputStream in = s.getInputStream();
             OutputStream out = s.getOutputStream();
+            final long serviceQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
             String line;
             while ((line = readLineUtf8(in, 262144)) != null) {
                 String cmd = line.trim();
@@ -407,9 +422,11 @@ public final class NpuService extends Service {
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(res, 0, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
         float scaleC = bb.getFloat();
         int cbytes = res.length - 4;
-        log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC + " cbytes=" + cbytes + " us=" + us);
+        log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n
+                + " scaleC=" + scaleC + " cbytes=" + cbytes
+                + " service_queue_us=" + serviceQueueUs + " npu_service_us=" + us);
         writeLineUtf8(out, "OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
-                + " cbytes=" + cbytes + " us=" + us + " binary=1");
+                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + serviceQueueUs + " binary=1");
         out.write(res, 4, cbytes);
         out.flush();
     }
