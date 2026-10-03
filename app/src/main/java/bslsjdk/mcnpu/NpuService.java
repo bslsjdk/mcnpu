@@ -289,14 +289,23 @@ public final class NpuService extends Service {
     }
 
     private void handle(Socket socket) {
-        try (Socket s = socket;
-             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
-             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()))) {
+        try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
+            InputStream in = s.getInputStream();
+            OutputStream out = s.getOutputStream();
             String line;
-            while ((line = in.readLine()) != null) {
+            while ((line = readLineUtf8(in, 262144)) != null) {
                 String cmd = line.trim();
+                if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
+                    try {
+                        handleSubmitBinMatMul8(in, out, cmd.substring(18));
+                    } catch (Throwable t) {
+                        log("BIN SUBMIT exception=" + t);
+                        writeLineUtf8(out, "ERR BIN_SUBMIT_EXCEPTION " + t.getClass().getSimpleName());
+                    }
+                    continue;
+                }
                 String reply;
                 if (cmd.equals("PING")) reply = "PONG MCNPU/1";
                 else if (cmd.equals("STATUS")) reply = NpuRuntime.status();
@@ -305,7 +314,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8 max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8 max_elements=16384";
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
@@ -325,16 +334,77 @@ public final class NpuService extends Service {
                 } else if (cmd.startsWith("SUBMIT_MATMUL8 ")) {
                     reply = handleSubmitMatMul8(cmd.substring(15));
                 } else if (cmd.equals("QUIT")) {
-                    reply(out, "BYE");
+                    writeLineUtf8(out, "BYE");
                     break;
                 } else {
                     reply = "ERR UNKNOWN_COMMAND";
                 }
-                reply(out, reply);
+                writeLineUtf8(out, reply);
             }
         } catch (Throwable t) {
             log("IPC client closed: " + t);
         }
+    }
+
+    /** Reads one UTF-8 line byte-by-byte so binary payloads are never prefetched. */
+    private static String readLineUtf8(InputStream in, int maxBytes) throws IOException {
+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(256);
+        int ch;
+        while ((ch = in.read()) >= 0) {
+            if (ch == '\n') return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            if (ch != '\r') buf.write(ch);
+            if (buf.size() > maxBytes) throw new IOException("line too long");
+        }
+        if (buf.size() == 0) return null;
+        return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static void writeLineUtf8(OutputStream out, String s) throws IOException {
+        out.write((s + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    private static void readFully(InputStream in, byte[] dst, int len) throws IOException {
+        int off = 0;
+        while (off < len) {
+            int n = in.read(dst, off, len - off);
+            if (n < 0) throw new IOException("eof after " + off + " of " + len + " bytes");
+            off += n;
+        }
+    }
+
+    /**
+     * SUBMITBIN_MATMUL8 m k n alen blen\n<A raw bytes><B raw bytes>
+     * True binary data plane: no base64, no string parsing of tensor data.
+     * Reply: one text header line, then the raw int8 result bytes.
+     */
+    private void handleSubmitBinMatMul8(InputStream in, OutputStream out, String payload) throws IOException {
+        String[] p = payload.trim().split(" ");
+        if (p.length != 5) { writeLineUtf8(out, "ERR BIN_FORMAT use: SUBMITBIN_MATMUL8 m k n alen blen"); return; }
+        int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
+        int alen = Integer.parseInt(p[3]), blen = Integer.parseInt(p[4]);
+        if ((long) alen != (long) m * k || (long) blen != (long) k * n) {
+            writeLineUtf8(out, "ERR BIN_SIZE expect alen=" + (m * k) + " blen=" + (k * n));
+            return;
+        }
+        byte[] A = new byte[alen], B = new byte[blen];
+        readFully(in, A, alen);
+        readFully(in, B, blen);
+        long t0 = System.nanoTime();
+        byte[] res = NpuRuntime.matMulInt8Buf(A, B, m, k, n);
+        long us = (System.nanoTime() - t0) / 1000;
+        if (res == null || res.length < 5) {
+            writeLineUtf8(out, "ERR BIN_SUBMIT_FAILED (native layer, see logcat)");
+            return;
+        }
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(res, 0, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        float scaleC = bb.getFloat();
+        int cbytes = res.length - 4;
+        log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC + " cbytes=" + cbytes + " us=" + us);
+        writeLineUtf8(out, "OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
+                + " cbytes=" + cbytes + " us=" + us + " binary=1");
+        out.write(res, 4, cbytes);
+        out.flush();
     }
 
     /** EXEC_MATMUL m k n  -> deterministic fp32 matmul on HTP + CPU baseline. */
