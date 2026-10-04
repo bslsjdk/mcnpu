@@ -458,10 +458,94 @@ static bool ensureGraphBudget(){
 // up to the next bucket keeps the graph count bounded while accepting any
 // length. This is exactly what turned the 5x5 chunk-load simulation into
 // pass=0/100 - every one of its cases carried 8 values.
+// Base rungs. These are the sizes that have actually been seen to work on a
+// Snapdragon 8s Gen 3, so they are trusted without a probe.
+static const uint32_t ADD_LADDER_BASE[]={16,64,256,1024,4096,16384};
+
+// Highest rung the ladder may pad to. 16384 is NOT a device limit - it is only
+// the largest size we had verified, and it lives entirely in our own .so. The
+// real ceiling is whatever the HTP accepts, which is what nativeAddProbe()
+// measures on the device itself. Raising this by guesswork would be silently
+// wrong on any phone whose ceiling is lower.
+//
+// Guarded by gRuntimeMutex.
+static uint32_t g_addLadderMax = 16384;
+
 static uint32_t addPadSize(uint32_t n){
-    static const uint32_t allow[]={16,64,256,1024,4096,16384};
-    for(uint32_t v:allow) if(n<=v) return v;
+    for(uint32_t v:ADD_LADDER_BASE) if(n<=v) return v;
+    if(n<=g_addLadderMax) return g_addLadderMax;
     return 0;
+}
+
+// Ladder as a comma-separated list, for diagnostics.
+static std::string addLadderText(){
+    std::string s;
+    char buf[32];
+    for(uint32_t v:ADD_LADDER_BASE){ if(!s.empty()) s+=","; snprintf(buf,sizeof buf,"%u",(unsigned)v); s+=buf; }
+    if(g_addLadderMax>ADD_LADDER_BASE[5]){
+        snprintf(buf,sizeof buf,"%u",(unsigned)g_addLadderMax);
+        s+=","; s+=buf;
+    }
+    return s;
+}
+
+// Defined below; the probe calls it once per candidate size. Declared without
+// static to match the definition's linkage.
+std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify);
+
+// Walk candidate sizes on the real device and report which ones the HTP accepts.
+//
+// The point is to replace a guess with a measurement. Everything above 16384 is
+// unknown territory: the sizes were never tried because the ladder rejected them
+// before they could reach the device, so "the device caps ADD at 16384" was a
+// conclusion our own code produced, not something the HTP ever said.
+//
+// Ascending, and it stops at the first failure: if 65536 cannot be built then
+// 131072 will not either, and continuing would only burn graphs.
+//
+// Deliberately does NOT hold gRuntimeMutex. runAddEx takes it itself, and
+// std::mutex is not recursive, so a probe that held the lock across those calls
+// would deadlock on its own first candidate. The lock is taken only for the two
+// short updates at the end.
+static std::string probeAddLadder(){
+    static const uint32_t cand[]={16,64,256,1024,4096,16384,32768,65536,131072,262144,524288,1048576};
+    std::string lines;
+    uint32_t best=0;
+    char buf[256];
+    for(uint32_t c:cand){
+        std::vector<float> a(c,1.f), b(c,2.f), o(c,-999.f);
+        long long t0=std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        std::string r=runAddEx(a.data(),b.data(),c,o.data(),false);
+        long long us=std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count()-t0;
+        bool ok = r.rfind("OK",0)==0;
+        snprintf(buf,sizeof buf," %u %s elapsed_us=%lld",(unsigned)c, ok?"ok":"FAIL", us);
+        lines += buf;
+        if(ok){
+            // Surface the timings that matter: create is paid once per size,
+            // execute is paid on every call afterwards.
+            size_t p=r.find("create_us=");
+            if(p!=std::string::npos){ size_t e=r.find_first_of(' ',p); if(e==std::string::npos) e=r.size(); lines += " "+r.substr(p,e-p); }
+            p=r.find("execute_us=");
+            if(p!=std::string::npos){ size_t e=r.find_first_of(' ',p); if(e==std::string::npos) e=r.size(); lines += " "+r.substr(p,e-p); }
+            best=c;
+        }else{
+            lines += " "; lines += r;
+            break;
+        }
+        lines += "\n";
+    }
+    {
+        std::lock_guard<std::mutex> lock(gRuntimeMutex);
+        if(best>g_addLadderMax) g_addLadderMax=best;
+        // The probe just built one graph per candidate, which is exactly the
+        // cache pressure the ladder exists to avoid. Flush before real work.
+        resetContextLocked();
+        snprintf(buf,sizeof buf,"OK ADD_PROBE max=%u ladder=%s\n",
+                 (unsigned)g_addLadderMax,addLadderText().c_str());
+    }
+    return std::string(buf)+lines;
 }
 
 Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims){
@@ -1255,7 +1339,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
     jsize n=e->GetArrayLength(ja);
     if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
     const uint32_t padded=addPadSize((uint32_t)n);
-    if(padded==0) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=16384");
+    if(padded==0) return e->NewStringUTF(("ERR SIZE_UNSUPPORTED max="+std::to_string(g_addLadderMax)).c_str());
     std::vector<float>a(padded,0.f),b(padded,0.f);
     e->GetFloatArrayRegion(ja,0,n,a.data());
     e->GetFloatArrayRegion(jb,0,n,b.data());
@@ -1274,7 +1358,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddInto
     if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
     if(n>e->GetArrayLength(jo))return e->NewStringUTF("ERR OUT_TOO_SMALL");
     const uint32_t padded=addPadSize((uint32_t)n);
-    if(padded==0) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=16384");
+    if(padded==0) return e->NewStringUTF(("ERR SIZE_UNSUPPORTED max="+std::to_string(g_addLadderMax)).c_str());
     std::vector<float>a(padded,0.f),b(padded,0.f),out(padded,-999.f);
     e->GetFloatArrayRegion(ja,0,n,a.data());
     e->GetFloatArrayRegion(jb,0,n,b.data());
@@ -1287,6 +1371,14 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddInto
         }
     }
     return e->NewStringUTF(r.c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddProbe(JNIEnv* e,jclass){
+    if(!g.ready || !g.api || !g.context) return e->NewStringUTF("ERR NPU_NOT_READY");
+    return e->NewStringUTF(probeAddLadder().c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    return e->NewStringUTF(std::to_string(g_addLadderMax).c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
