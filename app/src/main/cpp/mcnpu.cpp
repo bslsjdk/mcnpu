@@ -1377,7 +1377,32 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         std::chrono::steady_clock::now() - exec0).count();
     I("MM8BUF EXEC queue_lock_wait_us=%lld qnn_execute_us=%lld graph_cached=%s bucket=%ux%ux%u",
       lockWaitUs,execUs,graphCached?"true":"false",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb);
-    if(rc!=QNN_SUCCESS) return "ERR BUF_EXECUTE rc="+std::to_string((int)rc);
+    if(rc!=QNN_SUCCESS){
+        // Enough context to tell "our tensors are wrong" from "the DSP link dropped".
+        //
+        // rc=1007 is QNN_COMMON_ERROR_SYSTEM_COMMUNICATION (QNN_MIN_ERROR_COMMON(1000)+7):
+        // communication with the platform/OS service failed, service recoverable. It is a
+        // COMMON error, not a GRAPH error - QNN never rejected the graph. So a 1007 here
+        // cannot be a shape, dtype or buffer-size mistake; it means the FastRPC link to the
+        // DSP is down, which matches rc=14001 (device not reachable) from the in-process
+        // probe. Reporting it as a bare code sent us looking at tensor shapes for three
+        // rounds instead of at the transport.
+        std::string ctx="ERR BUF_EXECUTE rc="+std::to_string((int)rc)
+            +" bucket="+std::to_string((unsigned)Mb)+"x"+std::to_string((unsigned)Kb)
+            +"x"+std::to_string((unsigned)Nb)
+            +" aBytes="+std::to_string((uint32_t)((size_t)Mb*Kb))
+            +" bBytes="+std::to_string((uint32_t)((size_t)Kb*Nb))
+            +" cBytes="+std::to_string((uint32_t)((size_t)Mb*Nb))
+            +" alignA="+std::to_string((unsigned)((uintptr_t)Ause%64))
+            +" alignB="+std::to_string((unsigned)((uintptr_t)Buse%64))
+            +" alignC="+std::to_string((unsigned)((uintptr_t)Cpad.data()%64))
+            +" cached="+(graphCached?std::string("true"):std::string("false"))
+            +" qnn_execute_us="+std::to_string((long long)execUs)
+            +" graphs="+std::to_string(g.graphCount)+"/"+std::to_string(MAX_CACHED_GRAPHS);
+        if((int)rc==1007) ctx += " (SYSTEM_COMMUNICATION: DSP link lost, not a graph/tensor problem)";
+        E("MM8BUF EXEC FAIL %s",ctx.c_str());
+        return ctx;
+    }
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
     // Because C_int32 is in units of 1/127^2 of the real product, the scale we
     // return must include that factor: C_real = Cq8 * (max|C|/127) / 127^2.
