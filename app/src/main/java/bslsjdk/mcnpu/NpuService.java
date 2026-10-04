@@ -336,7 +336,11 @@ public final class NpuService extends Service {
                     log("PREWARM8 result=" + reply);
                 } else if (cmd.equals("SMOKE")) {
                     long t = System.nanoTime();
-                    reply = NpuRuntime.smoke() ? "OK HTP_GRAPH_EXECUTE" : "ERR HTP_GRAPH_EXECUTE";
+                    // Pass the real reply through. It already starts with
+                    // "OK HTP_GRAPH_EXECUTE" on success and carries the timings,
+                    // so the client's existing prefix check still works - and on
+                    // failure it now says why instead of a constant.
+                    reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
                     reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8 max_elements=16384";
