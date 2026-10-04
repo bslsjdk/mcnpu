@@ -251,3 +251,83 @@ is now demonstrated rather than assumed.
 | `sweep.py` | batch-size and kernel-speed sweep |
 
 *—— 元宝*
+
+
+---
+
+# End-to-end model + the real bottleneck
+
+*元宝 · 2026-10-04*
+
+`assist.py` modelled the kernel in isolation. `fast_rpc.py` models the whole round trip:
+encode → send → kernel → encode → receive. That was needed to pick a protocol on numbers.
+
+```
+./fast_rpc.py          # encoding x dtype x bandwidth
+```
+
+## Transport is not the bottleneck
+
+One 16-chunk batch, SNAPDRAGON_8S_GEN3, batch=16:
+
+| component | time |
+|---|---|
+| kernel | 41 ms |
+| **per-call fixed** | **50 ms** |
+| wire | **0.16 ms** |
+
+**The wire is 0.2% of the total.** Even at a pessimistic 100 MB/s it stays small.
+
+Encoding still matters at low bandwidth, so `params` is the default: ship the lattice
+*definition* (chunk coords + minY + step, 160 bytes) and let the kernel generate points.
+The lattice is perfectly regular (step 4/8/4) so nothing is lost.
+
+| request encoding | bytes | vs listing coords |
+|---|---|---|
+| coords (3 floats/point) | 229 KB | — |
+| **params (lattice def)** | **160 B** | **1470x smaller** |
+
+Result side uses int8 (76 KB vs 306 KB fp32) — it sits at the INT8 accuracy floor
+(MAE 0.0004) so there is nothing to lose.
+
+## 🔴 The actual bottleneck: per-call fixed cost
+
+Every submission pays ~2485 µs before the kernel does any work
+(187 µs IPC + 2298 µs service queue). At 20 calls per 64 chunks that is **50 ms vs 41 ms
+of real kernel** — more than the work itself.
+
+| per-call fixed | ms/chunk | speedup |
+|---|---|---|
+| 2485 *(current)* | 1.41 | **4.71x** |
+| 800 | 0.89 | 7.51x |
+| 187 *(pure IPC)* | 0.70 | **9.57x** |
+
+**Cutting the fixed cost is worth more than making the kernel faster.** If the 2298 µs
+`service_queue_us` is a stale-timestamp artefact rather than real queueing, fixing it
+doubles the result. This remains the single highest-value question open with GPT.
+
+## A bug in the model, caught by the model
+
+An earlier version computed fixed cost as `FIXED_US * self.calls` **outside** the call
+loop, so it multiplied each batch by its running ordinal: 1.41 ms/chunk came out as
+2.59. It made the pessimistic kernel bound look like a loss when it was not.
+
+Worth noting because it is the same class of error as the sign-order bug: an
+accounting mistake that looks exactly like a performance result.
+
+## Verdict
+
+| route | verdict |
+|---|---|
+| matmul terrain | ❌ dead — 0.05x |
+| **assist: batched kernel** | ✅ **4.7x now, 9.6x if fixed cost is fixed** |
+
+Accuracy is unchanged at the INT8 floor. Batching changes grouping, not results.
+
+## Files
+
+| file | purpose |
+|---|---|
+| `fast_rpc.py` | end-to-end round-trip model + encoding comparison |
+
+*—— 元宝*
