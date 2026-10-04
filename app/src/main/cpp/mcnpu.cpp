@@ -472,7 +472,11 @@ Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt
     return t;
 }
 
-std::string runAdd(const float* av,const float* bv,uint32_t n){
+// runAddEx writes the result into outBuf. verify runs the per-element compare
+// against a CPU reference, which costs a full CPU pass over n floats - the same
+// work the graph was supposed to replace. It belongs in tests, never in the data
+// path, so it is opt-in here.
+std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
     if(!g.ready || !g.api || !g.context) { g_lastNativeError="ERR NPU_NOT_READY"; return g_lastNativeError; }
@@ -568,7 +572,6 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
           (unsigned)n,(unsigned)ag->a.v1.id,(unsigned)ag->b.v1.id,(unsigned)ag->c.v1.id);
     }
 
-    std::vector<float> out(n,-999.f);
 
     // QNN graphExecute requires the same tensor IDs assigned during
     // tensorCreateGraphTensor(). Reuse the registered descriptors and only
@@ -578,7 +581,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     ea.v1.clientBuf.dataSize=n*sizeof(float);
     eb.v1.clientBuf.data=(void*)bv;
     eb.v1.clientBuf.dataSize=n*sizeof(float);
-    ec.v1.clientBuf.data=out.data();
+    ec.v1.clientBuf.data=out;
     ec.v1.clientBuf.dataSize=n*sizeof(float);
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
@@ -598,7 +601,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     // values, which also distinguishes "slightly off" from "never written" - an
     // untouched output buffer reads back as the -999 fill, and that is visible
     // immediately instead of hiding behind a bare verify failure.
-    for(uint32_t i=0;i<n;i++){
+    if(verify) for(uint32_t i=0;i<n;i++){
         float want=av[i]+bv[i];
         float got=out[i];
         float diff=got-want;
@@ -623,6 +626,11 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         cached?"true":"false",(unsigned)n,createUs,finalizeUs,(long long)us,
         (long long)totalUs,(double)out[0],(double)out[n-1]);
     return buf;
+}
+
+std::string runAdd(const float* av,const float* bv,uint32_t n){
+    std::vector<float> tmp(n,-999.f);
+    return runAddEx(av,bv,n,tmp.data(),true);
 }
 
 // Deterministic matmul on HTP with an in-service CPU reference so the caller can
@@ -1257,6 +1265,26 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
     if(padded!=(uint32_t)n && r.rfind("OK",0)==0){
         r += " req_n=" + std::to_string((unsigned)n);
         r += " padded_to=" + std::to_string(padded);
+    }
+    return e->NewStringUTF(r.c_str());
+}
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddInto(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb,jfloatArray jo,jboolean verify){
+    if(!ja||!jb||!jo)return e->NewStringUTF("ERR NULL");
+    jsize n=e->GetArrayLength(ja);
+    if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
+    if(n>e->GetArrayLength(jo))return e->NewStringUTF("ERR OUT_TOO_SMALL");
+    const uint32_t padded=addPadSize((uint32_t)n);
+    if(padded==0) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=16384");
+    std::vector<float>a(padded,0.f),b(padded,0.f),out(padded,-999.f);
+    e->GetFloatArrayRegion(ja,0,n,a.data());
+    e->GetFloatArrayRegion(jb,0,n,b.data());
+    std::string r=runAddEx(a.data(),b.data(),padded,out.data(),verify==JNI_TRUE);
+    if(r.rfind("OK",0)==0){
+        e->SetFloatArrayRegion(jo,0,n,out.data());
+        if(padded!=(uint32_t)n){
+            r += " req_n=" + std::to_string((unsigned)n);
+            r += " padded_to=" + std::to_string(padded);
+        }
     }
     return e->NewStringUTF(r.c_str());
 }
