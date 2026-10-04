@@ -108,6 +108,29 @@ public final class NpuServiceClient {
      * failure is still readable in a log.
      */
     public static BinAddResult binAdd(float[][] a, float[][] b, int n) {
+        // A socket the service could not queue is closed without a reply, and a
+        // closed socket reads as a full 15 s timeout - two of the 9x9 segments
+        // paid that and looked like a stalled device. Retrying a transport
+        // failure is cheap and is what a queue overflow asks for; retrying a
+        // protocol error would only repeat it, so only the former is retried.
+        BinAddResult r = binAddOnce(a, b, n);
+        for (int attempt = 1; attempt < 3 && isTransportFailure(r.status); attempt++) {
+            try { Thread.sleep(200L * attempt); } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt(); break;
+            }
+            r = binAddOnce(a, b, n);
+        }
+        return r;
+    }
+
+    /** Reachable-but-refused, or accepted-then-dropped. Both mean "try again". */
+    private static boolean isTransportFailure(String status) {
+        return status.startsWith("ERR SERVICE_UNAVAILABLE")
+                || status.startsWith("ERR EMPTY_REPLY")
+                || status.startsWith("ERR OVERLOAD");
+    }
+
+    private static BinAddResult binAddOnce(float[][] a, float[][] b, int n) {
         BinAddResult res = new BinAddResult();
         if (a == null || b == null || a.length == 0 || a.length != b.length) {
             res.status = "ERR BINADD_ARGS";
@@ -150,13 +173,20 @@ public final class NpuServiceClient {
                     catch (NumberFormatException ignored) {}
                 }
             }
-            if (header.startsWith("OK")) {
+            // ok must equal cases, not merely "the header starts with OK". A
+            // partially served batch still carries a full-length body, so the
+            // body is drained either way to keep the stream in step, but a
+            // shortfall is reported instead of being handed back as results.
+            if (header.startsWith("OK") && res.okCount == cases) {
                 byte[] results = new byte[4 * n * cases];
                 readFully(is, results, results.length);
                 java.nio.ByteBuffer rb = java.nio.ByteBuffer.wrap(results)
                         .order(java.nio.ByteOrder.LITTLE_ENDIAN);
                 res.out = new float[cases][n];
                 for (int c = 0; c < cases; c++) for (int i = 0; i < n; i++) res.out[c][i] = rb.getFloat();
+            } else if (header.startsWith("OK")) {
+                readFully(is, new byte[4 * n * cases], 4 * n * cases);
+                res.status = "ERR BINADD_INCOMPLETE ok=" + res.okCount + "/" + cases + " " + header;
             }
             return res;
         } catch (Throwable t) {
