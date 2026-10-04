@@ -161,6 +161,10 @@ public final class NpuService extends Service {
         log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
+        // Spawned once, after the listener is up. Probing before that would delay
+        // the socket MC is waiting on, and the probe builds graphs - it must never
+        // sit between init and the first accept.
+        boolean addProbeStarted = false;
         while (running && workerEpoch.get() == myEpoch) {
             workerBeatMs = System.currentTimeMillis();
             ServerSocket ss = null;
@@ -183,6 +187,10 @@ public final class NpuService extends Service {
                 }
                 workerBeatMs = System.currentTimeMillis();
                 log("IPC 监听 LOOPBACK " + ss.getInetAddress().getHostAddress() + ":" + ss.getLocalPort());
+                if (ok && !addProbeStarted) {
+                    addProbeStarted = true;
+                    startAddProbe();
+                }
                 updateNotification(ok ? "MC NPU 在线 · HTP V73" : "MC NPU 在线 · HTP 初始化失败");
                 acceptAlive = true;
                 boolean selfTestDone = false;
@@ -405,7 +413,12 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8 max_elements=16384";
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE max_elements=" + NpuRuntime.maxAddElements();
+                } else if (cmd.equals("ADDPROBE")) {
+                    long t = System.nanoTime();
+                    reply = NpuRuntime.addProbe();
+                    log("EXEC ADDPROBE elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0)
+                            + "\n" + reply);
                 } else if (cmd.startsWith("EXEC_ADD ")) {
                     reply = handleAdd(cmd.substring(9));
                 } else if (cmd.startsWith("ADD ")) {
@@ -623,6 +636,33 @@ public final class NpuService extends Service {
      * The reply is still a text header because nativeAdd returns a string; making
      * the result binary too needs a new native entry that fills a float[].
      */
+    /**
+     * Measures the real ADD size ceiling on this device, off the IPC path.
+     *
+     * The 16384 in the native ladder was only the largest size we had verified -
+     * it lives in our own .so, not in the HTP - and every layer above it copied
+     * that number. Until it is measured on the device, a phone that accepts more
+     * will silently never use it. The result lands in the log as ADD_PROBE.
+     */
+    private void startAddProbe() {
+        Thread t = new Thread(() -> {
+            try {
+                // Give MC's first requests room. The probe builds a graph per
+                // candidate size and must not compete with real work at startup.
+                Thread.sleep(3000);
+                long t0 = System.nanoTime();
+                String r = NpuRuntime.addProbe();
+                log("ADD_PROBE elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + "\n" + r);
+                log("ADD max_elements=" + NpuRuntime.maxAddElements());
+            } catch (Throwable e) {
+                log("ADD_PROBE exception=" + e);
+            }
+        }, "mcnpu-add-probe");
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.setDaemon(true);
+        t.start();
+    }
+
     private void handleBinAdd(java.io.PushbackInputStream in, OutputStream out, String args, long serviceQueueUs) throws IOException {
         long t0 = System.nanoTime();
         String[] pp = args.trim().split("[ ]+");
@@ -634,7 +674,8 @@ public final class NpuService extends Service {
         } catch (NumberFormatException e) {
             writeLineUtf8(out, "ERR BINADD_FORMAT non-numeric"); return;
         }
-        if (n <= 0 || n > 16384 || cases <= 0 || cases > 4096) {
+        int maxAdd = NpuRuntime.maxAddElements();
+        if (n <= 0 || n > maxAdd || cases <= 0 || cases > 4096) {
             writeLineUtf8(out, "ERR BINADD_RANGE n=" + n + " cases=" + cases); return;
         }
         long bodyBytes = 4L * 2L * n * cases;
@@ -688,7 +729,7 @@ public final class NpuService extends Service {
             if (parts.length != 2) return "ERR ADD_FORMAT";
             String[] as = parts[0].split(",", -1);
             String[] bs = parts[1].split(",", -1);
-            if (as.length == 0 || as.length != bs.length || as.length > 16384) return "ERR ADD_SIZE";
+            if (as.length == 0 || as.length != bs.length || as.length > NpuRuntime.maxAddElements()) return "ERR ADD_SIZE";
             float[] a = new float[as.length], b = new float[bs.length];
             for (int i = 0; i < as.length; i++) {
                 a[i] = Float.parseFloat(as[i]);
