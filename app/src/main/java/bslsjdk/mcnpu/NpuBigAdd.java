@@ -14,9 +14,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * Three limits worth knowing before choosing wayElements:
  *
- * - The HTP graph is per size, and the accepted sizes top out at 16384. A way of
- *   884736 elements (nine chunks) does not exist as a shape and will be rejected;
- *   that is why the default way is 16384 and why total 7962624 becomes 486 ways.
+ * - The HTP graph is per size. 16384 was only the largest size we had verified,
+ *   not a device limit, so maxWay() now reads what the probe measured. A way of
+ *   884736 elements (nine chunks) is not an accepted shape either way; the
+ *   question is only where the ceiling actually sits on this phone.
  * - The service serialises execute behind one lock, so "parallel" here overlaps
  *   encode, transfer and decode with execute; it does not multiply the device.
  * - One IPC call must stay small. 486 ways of 16384 in a single call is a 63 MB
@@ -26,8 +27,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class NpuBigAdd {
 
-    /** Largest element count the ADD graph accepts. */
-    public static final int MAX_WAY = 16384;
+    /** Largest element count the ADD graph accepts on this device. */
+    public static int maxWay() {
+        // Read from the service, not from a local NpuRuntime: the App process has
+        // no NPU of its own, so a local query would only ever return the default.
+        int m = NpuServiceClient.maxAddElements();
+        return m > 0 ? m : 16384;
+    }
 
     /**
      * Body size one IPC call aims for. At n=16384 this is 16 cases (2 MB); at
@@ -70,7 +76,8 @@ public final class NpuBigAdd {
         if (a == null || b == null || a.length != b.length) {
             return new Result(null, 0, wayElements, 0, 0, 0, "ERR BIGADD_ARGS");
         }
-        int n = wayElements <= 0 ? MAX_WAY : Math.min(wayElements, MAX_WAY);
+        int cap = maxWay();
+        int n = wayElements <= 0 ? cap : Math.min(wayElements, cap);
         int p = Math.max(1, Math.min(parallelism <= 0 ? 4 : parallelism, 16));
         int total = a.length;
         int ways = (total + n - 1) / n;
