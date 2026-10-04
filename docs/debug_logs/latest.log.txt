@@ -1,0 +1,1081 @@
+[02:07:16] [main/INFO]: Loading Minecraft 26.3 with Fabric Loader 0.19.5
+[02:07:16] [main/INFO]: Mappings not present!
+[02:07:16] [main/INFO]: Loading 70 mods:
+	- chunky 1.5.3
+	- cloth-config 26.3.159
+	   \-- cloth-basic-math 0.6.1
+	- entityculling 1.11.2
+	   |-- transition 1.0.25
+	   \-- trender 1.0.17
+	- fabric-api 0.161.0+26.3
+	   |-- fabric-advancement-api-v1 1.0.0+38c7a2d55d
+	   |-- fabric-api-base 2.0.6+fcdff87f5d
+	   |-- fabric-api-lookup-api-v1 2.0.24+3434d6d95d
+	   |-- fabric-biome-api-v1 20.0.9+74ed1ea55d
+	   |-- fabric-block-api-v1 3.1.0+0ae6f9115d
+	   |-- fabric-block-getter-api-v2 2.0.9+3434d6d95d
+	   |-- fabric-command-api-v2 3.1.2+fcdff87f5d
+	   |-- fabric-content-registries-v0 15.0.4+74ed1ea55d
+	   |-- fabric-convention-tags-v2 4.10.3+6b5b47fd5d
+	   |-- fabric-crash-report-info-v1 1.0.7+fcdff87f5d
+	   |-- fabric-creative-tab-api-v1 5.0.21+fcdff87f5d
+	   |-- fabric-data-attachment-api-v1 2.2.30+3434d6d95d
+	   |-- fabric-data-generation-api-v1 27.2.4+427eab975d
+	   |-- fabric-debug-api-v1 1.0.4+3434d6d95d
+	   |-- fabric-dimensions-v1 5.1.19+47f74c985d
+	   |-- fabric-entity-events-v1 6.0.4+3434d6d95d
+	   |-- fabric-events-interaction-v0 5.3.6+3434d6d95d
+	   |-- fabric-game-rule-api-v1 4.0.10+3434d6d95d
+	   |-- fabric-item-api-v1 14.7.0+cf6bc2db5d
+	   |-- fabric-key-mapping-api-v1 2.0.8+3434d6d95d
+	   |-- fabric-lifecycle-events-v1 4.1.9+ffef5f675d
+	   |-- fabric-loot-api-v3 4.0.8+4068fd645d
+	   |-- fabric-menu-api-v1 2.0.27+ed66f0a35d
+	   |-- fabric-message-api-v1 7.0.10+3434d6d95d
+	   |-- fabric-model-loading-api-v1 8.0.35+fcdff87f5d
+	   |-- fabric-networking-api-v1 6.3.8+fcdff87f5d
+	   |-- fabric-object-builder-api-v1 24.1.9+3434d6d95d
+	   |-- fabric-particles-v1 5.0.24+3434d6d95d
+	   |-- fabric-permission-api-v1 1.0.8+fcdff87f5d
+	   |-- fabric-recipe-api-v1 10.0.8+fcdff87f5d
+	   |-- fabric-registry-sync-v0 8.0.1+fcdff87f5d
+	   |-- fabric-renderer-api-v1 17.0.15+79385d0b5d
+	   |-- fabric-renderer-indigo 9.1.23+b9d63e335d
+	   |-- fabric-rendering-fluids-v1 6.0.6+3434d6d95d
+	   |-- fabric-rendering-v1 27.0.14+901a437c5d
+	   |-- fabric-resource-conditions-api-v1 6.1.5+3434d6d95d
+	   |-- fabric-resource-loader-v0 3.3.26+4fc5413f5d
+	   |-- fabric-resource-loader-v1 3.0.4+fcdff87f5d
+	   |-- fabric-screen-api-v1 5.2.4+48607d035d
+	   |-- fabric-serialization-api-v1 2.0.7+74ed1ea55d
+	   |-- fabric-sound-api-v1 2.0.7+3434d6d95d
+	   |-- fabric-tag-api-v1 2.1.10+fcdff87f5d
+	   |-- fabric-transfer-api-v1 8.0.25+fcdff87f5d
+	   \-- fabric-transitive-access-wideners-v1 8.1.16+52268a0e5d
+	- fabricloader 0.19.5
+	   \-- mixinextras 0.5.5
+	- ferritecore 9.0.0
+	- i18nautoupdatemod 1.1.0
+	- java 25
+	- krypton 0.3.2
+	   \-- com_velocitypowered_velocity-native 3.4.0-SNAPSHOT
+	- lithium 0.26.2+mc26.3
+	- mcjavanpu 0.1.2
+	- minecraft 26.3
+	- modmenu 21.0.0
+	   |-- fabric-api-base 2.0.6+fcdff87f5d
+	   |-- fabric-key-mapping-api-v1 2.0.8+3434d6d95d
+	   |-- fabric-lifecycle-events-v1 4.1.9+ffef5f675d
+	   |-- fabric-resource-loader-v1 3.0.4+fcdff87f5d
+	   \-- fabric-screen-api-v1 5.2.4+48607d035d
+	- moreculling 1.9.0
+	   \-- conditional-mixin 0.6.3
+	- placeholder-api 3.2.0+26.3
+	- sodium 0.9.3-alpha.1+mc26.3
+	- spark 1.10.187
+	   \-- fabric-permissions-api-v0 0.7.0
+	- xaeroworldmap 1.46.4
+	   \-- xaerolib 1.7.17
+[02:07:16] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/storage/emulated/0/26.3/libraries/net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[02:07:17] [main/WARN]: Reference map 'entityculling.refmap.mixins.json' for entityculling.mixins.json could not be read. If this is a development environment you can ignore this message
+[02:07:17] [main/INFO]: Loaded configuration file for Lithium: 170 options available, 0 override(s) found.
+[02:07:17] [main/INFO]: Loaded configuration file for Sodium: 37 options available, 0 override(s) found
+[02:07:17] [main/WARN]: Reference map 'xaerolib.refmap.json' for xaerolib.mixins.json could not be read. If this is a development environment you can ignore this message
+[02:07:17] [main/WARN]: Reference map 'xaeroworldmap.refmap.json' for xaeroworldmap.mixins.json could not be read. If this is a development environment you can ignore this message
+[02:07:19] [main/INFO]: Searching for graphics cards...
+[02:07:19] [main/WARN]: Could not find any graphics adapters! Probably the device is not on a bus we can probe, or there are no devices supporting 3D acceleration.
+[02:07:19] [main/WARN]: Sodium has applied one or more workarounds to prevent crashes or other issues on your system: [NO_ERROR_CONTEXT_UNSUPPORTED]
+[02:07:19] [main/WARN]: This is not necessarily an issue, but it may result in certain features or optimizations being disabled. You can sometimes fix these issues by upgrading your graphics driver.
+[02:07:19] [main/INFO]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
+[02:07:22] [Datafixer Bootstrap #0/INFO]: 307 Datafixer optimizations took 976 milliseconds
+[02:07:23] [main/WARN]: Did not find udev library in operating system. Some features may not work.
+[02:07:23] [main/WARN]: File not found or not readable: /proc/stat
+[02:07:23] [main/WARN]: File not found or not readable: /etc/os-release
+[02:07:23] [main/WARN]: File not found or not readable: /etc/lsb-release
+[02:07:23] [main/WARN]: File not found or not readable: /proc/version
+[02:07:33] [Render thread/INFO]: Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[02:07:34] [Render thread/INFO]: Setting user: mengmo25
+[02:07:34] [Render thread/INFO]: Compression will use Java, encryption will use Java
+[02:07:34] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.606] [INFO] mod initialised
+[02:07:34] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.620] [INFO] boot: initialising runtime
+[02:07:34] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.628] [INFO] auto hooks registered (chunk load + server tick)
+[02:07:34] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.633] [INFO] config loaded from /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:07:34] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.635] [INFO] dedicated log: /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/logs/mcjavanpu-npu.log
+[02:07:34] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] persistent MCNPU service connected
+[02:07:34] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] PING=PONG MCNPU/1 | STATUS=QNN HTP ready backendId=6 providers=1 | CAPABILITIES=OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8 max_elements=16384
+[02:07:34] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.653] [INFO] boot: available=true device=QNN HTP ready backendId=6 providers=1
+[02:07:34] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:34.658] [INFO] boot: enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[02:07:34] [Render thread/INFO]: [Indigo] Different rendering plugin detected; not applying Indigo.
+[02:07:34] [Render thread/INFO]: Krypton is now accelerating your Minecraft client's networking stack 🚀
+[02:07:34] [Render thread/INFO]: Note that Krypton is most effective on servers, not the client.
+[02:07:34] [mcjavanpu-client-init/INFO]: [STDOUT]: [MCJavaNPU] external MCNPU service: QNN HTP ready backendId=6 providers=1
+[02:07:35] [Render thread/INFO]: Checking mod updates...
+[02:07:35] [Render thread/INFO]: [STDOUT]: [TRender] Initializing Client...
+[02:07:35] [Render thread/INFO]: Registering common data for channel xaerolib:main!
+[02:07:35] [Render thread/INFO]: Registering client data for channel xaerolib:main!
+[02:07:35] [Render thread/INFO]: Loading primary common config for channel xaerolib:main!
+[02:07:35] [Render thread/INFO]: Loading server config profiles for channel xaerolib:main!
+[02:07:36] [Render thread/INFO]: Loading primary client config for channel xaerolib:main!
+[02:07:36] [Render thread/INFO]: Loading client config profiles for channel xaerolib:main!
+[02:07:36] [Render thread/INFO]: Loading XaeroLib common 1/2!
+[02:07:36] [Render thread/INFO]: Loading XaeroLib client 1/3!
+[02:07:36] [Download-2/ERROR]: Failed to fetch user properties
+com.mojang.authlib.exceptions.InvalidCredentialsException: Status: 401
+	at knot//com.mojang.authlib.exceptions.MinecraftClientHttpException.toAuthenticationException(MinecraftClientHttpException.java:70)
+	at knot//com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:168)
+	at knot//net.minecraft.client.Minecraft.lambda$new$1(Minecraft.java:451)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+Caused by: MinecraftClientHttpException[type=HTTP_ERROR, status=401, response=ErrorResponse[path=/player/attributes, error=null, errorMessage=null, details=null]]
+	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.buildHttpException(MinecraftClient.java:170)
+	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.readServiceResponse(MinecraftClient.java:147)
+	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.getWithEtag(MinecraftClient.java:81)
+	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.get(MinecraftClient.java:65)
+	at knot//com.mojang.authlib.services.MinecraftServicesUserApiService.fetchProperties(MinecraftServicesUserApiService.java:118)
+	... 5 more
+[02:07:38] [Render thread/INFO]: Registering common data for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Registering client data for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Loading primary common config for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Loading server config profiles for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Loading primary client config for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Loading client config profiles for channel xaeroworldmap:main!
+[02:07:38] [Render thread/INFO]: Loading Xaero's World Map - Stage 1/3
+[02:07:39] [Render thread/INFO]: Backend library: LWJGL version 3.4.1-snapshot
+[02:07:39] [Render thread/INFO]: SDL [SYSTEM]: App name: Minecraft
+[02:07:39] [Render thread/INFO]: SDL [SYSTEM]: App version: 26.3
+[02:07:39] [Render thread/INFO]: SDL [SYSTEM]: App ID: com.mojang.minecraft
+[02:07:39] [Render thread/INFO]: SDL [SYSTEM]: SDL revision: 
+[02:07:39] [Render thread/INFO]: Optional FeatureSet [NV Diagnostic Checkpoint] not supported
+[02:07:39] [Render thread/INFO]: Optional FeatureSet [Calibrated Timestamps] not supported
+[02:07:39] [Render thread/INFO]: Optional FeatureSet [AMD Buffer Marker] not supported
+[02:07:39] [Render thread/INFO]: Optional FeatureSet [EXT MultiDraw] not supported
+[02:07:39] [Render thread/INFO]: Enabling optional FeatureSet [Wireframe]
+[02:07:39] [Render thread/INFO]: Using graphics backend Vulkan, using drivers: 1.3.128 Qualcomm Technologies Inc. Adreno Vulkan Driver Driver Build: f6b5df5188, I29aebc4401, 1758283784
+Date: 09/19/25
+Compiler Version: E031.45.02.26
+Driver Branch: 
+
+[02:07:39] [Render thread/INFO]: Using graphics device: Adreno (TM) 735 (QUALCOMM)
+[02:07:39] [Render thread/INFO]: Using graphics device extensions: VK_KHR_synchronization2 (D), VK_EXT_vertex_attribute_divisor (D), VK_KHR_android_surface (I), VK_KHR_swapchain (D), VK_KHR_surface (I), VK_KHR_push_descriptor (D), VK_EXT_debug_utils (I), VK_KHR_dynamic_rendering (D)
+[02:07:39] [Render thread/INFO]: Created window using SDL video driver: android
+[02:07:39] [Render thread/ERROR]: Couldn't leave fullscreen: That operation is not supported
+[02:07:39] [Render thread/WARN]: Failed to set window icon: That operation is not supported
+[02:07:41] [Render thread/INFO]: Reloading ResourceManager: file/Minecraft-Mod-Language-Modpack-Converted-26.3.zip, vanilla, vanilla, chunky, cloth-config, conditional-mixin, entityculling, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, krypton, lithium, modmenu, moreculling, placeholder-api, sodium, spark, trender, xaerolib, xaeroworldmap
+[02:07:43] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[02:07:43] [Download-1/ERROR]: Failed to fetch Realms feature flags
+com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 0'
+	at knot//com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
+	at knot//com.mojang.realmsclient.client.RealmsClient.fetchFeatureFlags(RealmsClient.java:204)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+[02:07:43] [Worker-Main-2/INFO]: Found unifont_pua-17.0.01.hex, loading
+[02:07:43] [Worker-Main-4/INFO]: Found unifont_all_no_pua-17.0.01.hex, loading
+[02:07:43] [Worker-Main-2/INFO]: Found unifont_jp_patch-17.0.01.hex, loading
+[02:07:43] [Render thread/INFO]: Cached all modded block culling states
+[02:07:44] [Render thread/INFO]: Loading Xaero's World Map - Stage 2/3
+[02:07:46] [Render thread/ERROR]: io exception while checking versions: Read timed out
+[02:07:46] [Render thread/INFO]: Registered player tracker system: map_synced
+[02:07:46] [Render thread/INFO]: No Optifine!
+[02:07:46] [Render thread/INFO]: Xaero's World Map: No Vivecraft!
+[02:07:46] [Render thread/INFO]: Loading Xaero's World Map - Stage 3/3
+[02:07:46] [Render thread/INFO]: New world map region cache hash code: 1581808673
+[02:07:46] [Render thread/INFO]: Loading XaeroLib common 2/2!
+[02:07:46] [Render thread/INFO]: Loading XaeroLib client 2/3!
+[02:07:46] [Render thread/INFO]: Loading XaeroLib client 3/3!
+[02:07:48] [Render thread/INFO]: OpenAL initialized on device OpenSL
+[02:07:48] [Render thread/INFO]: Sound engine started
+[02:07:48] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/blocks.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[02:07:48] [Render thread/INFO]: Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[02:07:49] [Render thread/INFO]: 35727 cache(s) were cleared!
+[02:07:51] [Download-1/INFO]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[02:07:51] [Download-1/ERROR]: Couldn't connect to realms
+com.mojang.realmsclient.exception.RealmsServiceException: Realms authentication error with message 'java.lang.RuntimeException: Failed to parse into SignedJWT: 0'
+	at knot//com.mojang.realmsclient.client.RealmsClient.execute(RealmsClient.java:625)
+	at knot//com.mojang.realmsclient.client.RealmsClient.clientCompatible(RealmsClient.java:354)
+	at knot//com.mojang.realmsclient.RealmsAvailability.lambda$check$0(RealmsAvailability.java:48)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1789)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+[02:07:54] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:54.926] [INFO] warmup first (build+calibrate): blocks_batch=128 cells=512 npu_us=76938 cpu_us=168414 speedup=2.19x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=259
+[02:07:54] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:07:54.979] [WARN] guard DEGRADED: p99 10806us over budget 8000us - features fall back to CPU until it recovers
+[02:07:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:07:55.009] [INFO] ==== NPU auto probe ====
+service: UP
+device: QNN HTP ready backendId=6 providers=1
+
+shape guidance (SM8635 / HTP v73):
+  INVALID: dimension above 65536; split the batch
+  req=16384x4x1 -> plan=16384x32x32  padding=12.81x  in=513.0 KiB  out=512.0 KiB  estCost=1280.0
+  ! padding wastes 12.8x -- round the request up to a bucket first, or batch with neighbours
+  req=4096x16x1 -> plan=4096x32x32  padding=3.78x  in=129.0 KiB  out=128.0 KiB  estCost=1088.0
+  ! padding wastes 3.8x -- round the request up to a bucket first, or batch with neighbours
+  req=128x64x16 -> plan=128x64x32  padding=1.27x  in=10.0 KiB  out=4.0 KiB  estCost=2052.0
+  req=33x33x33 -> plan=128x64x64  padding=6.27x  in=12.0 KiB  out=8.0 KiB  estCost=4104.0
+  ! padding wastes 6.3x -- round the request up to a bucket first, or batch with neighbours
+  ! m=33 is below the stable floor 128; padding to 128
+  req=1000x8x8 -> plan=1024x32x32  padding=4.14x  in=33.0 KiB  out=32.0 KiB  estCost=1040.0
+  ! padding wastes 4.1x -- round the request up to a bucket first, or batch with neighbours
+
+NPU bench sweep (each: 1 warmup + 5 measured)
+
+shape 128x8x8  iters=5
+  prepare  p50=31us p99=51us
+  submit   p50=4.48ms p99=9.73ms
+  cpuRef   p50=262us p99=347us
+  execSpeedup=0.06x  pipelineSpeedup=0.06x
+  correctness bad=0.00% maxAbs=0.08264
+  VERDICT: slower than CPU end to end. prepare costs 0.7% of the job; move that work into the NPU or drop this path.
+
+shape 128x16x16  iters=5
+  prepare  p50=73us p99=79us
+  submit   p50=5.41ms p99=8.01ms
+  cpuRef   p50=177us p99=239us
+  execSpeedup=0.03x  pipelineSpeedup=0.03x
+  correctness bad=0.00% maxAbs=0.09605
+  VERDICT: slower than CPU end to end. prepare costs 1.3% of the job; move that work into the NPU or drop this path.
+
+shape 256x16x16  iters=5
+  prepare  p50=38us p99=739us
+  submit   p50=6.59ms p99=14.08ms
+  cpuRef   p50=124us p99=345us
+  execSpeedup=0.02x  pipelineSpeedup=0.02x
+  correctness bad=9.28% maxAbs=2.593
+  VERDICT: slower than CPU end to end. prepare costs 0.6% of the job; move that work into the NPU or drop this path.
+
+BENCH FAILED: GUARD_DEGRADED p99 10806us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 10806us over budget 8000us
+
+BENCH FAILED: GUARD_DEGRADED p99 10806us over budget 8000us
+==== end auto probe ====
+[02:07:55] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:55.042] [INFO] warmup steady: blocks_batch=128 cells=512 npu_us=26030 cpu_us=86600 speedup=3.33x bad=0/65536 max_abs=0.0435 pad_to=128x512x512 wall_ms=114
+[02:07:55] [mcjavanpu-init/INFO]: [STDOUT]: [MCJavaNPU] [02:07:55.042] [INFO] boot: done, graphs are hot
+[02:08:25] [Worker-Main-7/INFO]: Loaded 1866 advancements
+[02:08:26] [Render thread/INFO]: Applied 0 biome modifications to 0 of 67 new biomes in 3.198 ms
+[02:08:26] [Server thread/INFO]: Starting background profiler...
+[02:08:26] [Server thread/WARN]: Unable to initialise the async-profiler engine: A runtime error occurred whilst loading the native library (/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-ad00496e33af-libasyncProfiler.so.tmp: dlopen failed: library "/storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/spark/tmp/spark-ad00496e33af-libasyncProfiler.so.tmp" needed or dlopened by "/data/data/com.movtery.zalithlauncher.v2/files/games/runtimes/Internal-25/lib/server/libjvm.so" is not accessible for the namespace "clns-9")
+[02:08:26] [Server thread/WARN]: Please see here for more information: https://spark.lucko.me/docs/misc/Using-async-profiler
+[02:08:26] [Server thread/INFO]: Starting integrated minecraft server version 26.3
+[02:08:26] [Server thread/INFO]: Generating keypair
+[02:08:27] [Server thread/INFO]: Loading 0 persistent chunks...
+[02:08:27] [Server thread/INFO]: 准备生成区域中：16%
+[02:08:27] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:08:27] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:08:27] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:08:28] [Render thread/WARN]: Failed to find a usable hardware address from the network interfaces; using random bytes: e4:ad:79:a5:9c:90:8e:30
+[02:08:28] [Server thread/INFO]: Loading 49 chunks for player spawn...
+[02:08:28] [Server thread/INFO]: 准备生成区域中：16%
+[02:08:28] [Server thread/INFO]: 准备生成区域中：16%
+[02:08:28] [Server thread/INFO]: 准备生成区域中：16%
+[02:08:29] [Worker-Main-4/INFO]: [STDOUT]: [MCJavaNPU] [02:08:29.302] [INFO] light engine calls=1 mode=npu (fold pending)
+[02:08:29] [Server thread/INFO]: 准备生成区域中：16%
+[02:08:29] [Server thread/INFO]: Time elapsed: 2449 ms
+[02:08:30] [Server thread/INFO]: mengmo25[local:E:bc06f025] logged in with entity id 33 at (-9730.531001622752, 126.9992034713513, 8801.190760148194)
+[02:08:30] [Server thread/INFO]: System chat: mengmo25加入了游戏
+[02:08:30] [Render thread/INFO]: Fullscreen map required item set to nothing.
+[02:08:30] [Render thread/INFO]: New world map session initialized!
+[02:08:30] [Render thread/INFO]: Started 2 worker threads
+[02:08:30] [Server thread/INFO]: Changing view distance to 12, from 10
+[02:08:30] [Server thread/INFO]: Changing simulation distance to 5, from 0
+[02:08:30] [Render thread/INFO]: Loaded 63 advancements
+[02:08:31] [Render thread/INFO]: Stopping worker threads
+[02:08:31] [Render thread/INFO]: Started 2 worker threads
+[02:08:31] [Render thread/WARN]: Requested post effect does not exist: minecraft:end_of_frame
+[02:08:31] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
+[02:08:31] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 4 reached during a single frame. New capacity will be 8.
+[02:08:31] [Render thread/INFO]: Resizing Dynamic Transforms UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
+[02:08:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:08:32.735] [INFO] chunk batch: submitted=1 pending=0 (total 160 loaded, batch #1, dropped=0 skipped=159)
+[02:08:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:08:32.749] [INFO] chunk work: reflection cached for ThreadedLevelLightEngine / BlockLightEngine
+[02:08:37] [Worker-Main-1/INFO]: [STDOUT]: [MCJavaNPU] [02:08:37.709] [INFO] MIXIN_ACTIVE DensitySampler$Bound.sampleVolume called by the game
+[02:08:39] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:08:39.301] [INFO] light engine calls=1391 mode=npu (fold pending)
+[02:08:43] [Server thread/INFO]: Saving and pausing game...
+[02:08:43] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:08:43] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:08:43] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:08:49] [Worker-Main-6/INFO]: [STDOUT]: [MCJavaNPU] [02:08:49.318] [INFO] light engine calls=2775 mode=npu (fold pending)
+[02:08:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:08:55.070] [INFO] heartbeat | NPU busy total: 0 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 10806us over budget 8000us | service=UP
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 160!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 320!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 640!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 1280!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 160!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 320!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 3808!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 640!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 1280!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 2560!
+[02:08:58] [Render thread/INFO]: Resized a dynamic immediate buffer to 2560!
+[02:08:58] [Server thread/INFO]: Saving and pausing game...
+[02:08:58] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:08:58] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:08:58] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:08:59] [Worker-Main-2/INFO]: [STDOUT]: [MCJavaNPU] [02:08:59.322] [INFO] light engine calls=4555 mode=npu (fold pending)
+[02:09:09] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:09.343] [INFO] light engine calls=7141 mode=npu (fold pending)
+[02:09:19] [Worker-Main-2/INFO]: [STDOUT]: [MCJavaNPU] [02:09:19.352] [INFO] light engine calls=8813 mode=npu (fold pending)
+[02:09:29] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:29.376] [INFO] light engine calls=10855 mode=npu (fold pending)
+[02:09:30] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:30.786] [INFO] self_cost us: tick avg=99 max=30843 n=1037 | chunk avg=0 n=0 | sampler avg=0 max=0 n=0
+[02:09:38] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:38.989] [INFO] heartbeat | chunks_seen=1628 batches=5 pending=0/512 last_batch=1 dropped=0 skipped=1623 | work submitted=5 processed=0 pending=0/512 dropped=0 failed=0 overruns=0 last_us=2581 budget_us=4000 | guard=DEGRADED(p99 10806us over budget 8000us) | service=UP | telemetry: no jobs recorded yet | guard DEGRADED p50=9357us p99=10806us budget=8000us calls=27 rejected=1665 trips=1 p99 10806us over budget 8000us | ipc_calls=25 queue_wait_avg_us=3479 ipc_send_avg_us=890 service_wait_avg_us=7053 ipc_recv_avg_us=123 npu_service_avg_us=6087 prepare_avg_us=30 assemble_avg_us=40 total_avg_us=12116 npu_service_last_us=1375 | in_lock avg_us=8679 max_us=70017 n=25 | lock_wait_avg_us=3479 lock_wait_max_us=66839 | vanilla_tree=no() samples=0 eval_ms=0 per_sample_us=0 prog_insn=-1 prog_regs=-1
+[02:09:39] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:39.382] [INFO] light engine calls=12573 mode=npu (fold pending)
+[02:09:42] [Render thread/INFO]: Loaded 63 advancements
+[02:09:49] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:49.391] [INFO] light engine calls=14887 mode=npu (fold pending)
+[02:09:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:09:55.121] [INFO] heartbeat | NPU busy total: 0 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 10806us over budget 8000us | service=UP
+[02:09:56] [Server thread/INFO]: Saving and pausing game...
+[02:09:56] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:09:56] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:09:56] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:09:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.398] [INFO] light engine calls=18005 mode=npu (fold pending)
+[02:09:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.851] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:09:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.852] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=assist
+[02:09:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.853] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=assist
+[02:09:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.882] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:09:59] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.938] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=assist forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:09:59] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=npu mode_chunk=assist forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:09:59] [Worker-Main-7/INFO]: [STDOUT]: [MCJavaNPU] [02:09:59.990] [INFO] terrain assist worker started
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.063] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.135] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.236] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.278] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.310] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.344] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.352] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.440] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.471] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.478] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.494] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.501] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.547] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.603] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.660] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.694] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.749] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.834] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.842] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.878] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.946] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:00] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:00.974] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.005] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.085] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.114] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.142] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.169] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.172] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.228] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.322] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.356] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.384] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.391] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.393] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.459] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.462] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.489] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.490] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.524] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.554] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.557] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.559] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.589] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.620] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.677] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.715] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.749] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.778] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.788] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.810] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.842] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.926] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.955] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:01] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:01.983] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.010] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.019] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.021] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.022] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.053] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.055] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.082] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.118] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.147] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.179] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.214] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.248] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.276] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.288] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.358] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.387] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.414] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.450] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.458] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.480] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.546] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.581] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.587] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.601] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.638] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.639] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.673] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.689] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.754] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.782] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.825] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.853] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.899] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.939] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:02] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:02.970] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.003] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.041] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.116] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.133] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.147] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.179] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.181] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.187] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.242] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.280] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.300] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.301] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.328] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.339] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.341] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.344] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.346] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.348] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.376] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.378] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.380] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.427] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.442] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.502] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.544] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.579] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.597] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.607] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.676] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.708] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.711] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.752] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.790] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.804] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.846] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.875] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.912] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.939] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.966] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:03] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:03.999] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.040] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.043] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.062] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.097] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.124] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.126] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.128] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.165] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.192] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.225] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.254] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.288] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.315] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.327] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.372] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.378] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.380] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.406] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.441] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.446] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.528] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.557] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.562] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.573] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.590] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.591] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.620] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.662] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.697] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.730] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.757] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.798] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.835] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.838] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.848] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.853] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.888] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.920] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.956] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:04] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:04.964] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.037] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.065] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.073] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.075] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.107] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.139] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.141] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.143] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.177] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.210] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.212] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.214] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.216] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.243] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.271] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.311] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.316] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.317] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.318] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.319] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.386] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.424] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.458] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.491] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.523] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.525] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.526] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.568] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.595] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.598] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.599] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.601] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.633] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.669] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.673] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.675] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.693] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.732] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.770] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.829] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.831] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.860] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.901] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.914] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.925] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.955] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:05] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:05.990] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.000] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.034] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.036] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.066] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.099] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.108] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.110] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.140] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.171] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.204] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.239] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.274] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.310] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.320] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.350] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.410] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.437] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.441] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.442] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.470] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.472] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.474] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.476] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.480] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.481] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.516] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.521] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.550] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.551] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.555] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.567] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.569] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.575] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.613] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.615] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.644] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.651] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.683] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.686] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.727] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.765] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.800] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.809] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.838] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.867] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.882] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.948] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:06] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:06.976] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.004] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.032] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.051] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.089] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.116] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.146] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.179] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.192] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.229] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.238] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.265] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.295] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.323] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.363] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.400] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.470] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.501] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.536] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.568] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.599] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.638] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.642] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.676] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.679] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.752] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.782] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.790] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.791] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.793] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.807] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.842] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.854] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.859] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.888] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.916] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.920] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.956] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:07] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:07.984] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.018] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.047] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.104] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.132] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.171] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.229] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.260] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.278] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.310] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.337] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.340] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.348] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.359] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.366] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.395] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.397] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.401] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.432] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.462] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.463] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.471] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.528] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.556] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.558] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.586] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.587] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.589] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.590] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.647] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.675] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.708] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.737] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.745] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.777] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.784] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.814] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.843] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.846] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.877] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.906] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.933] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.936] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.944] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.977] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.979] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.981] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:08] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:08.982] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.010] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.011] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.013] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.045] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.076] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.103] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.136] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.178] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.214] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.242] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.270] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.272] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.274] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.304] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.333] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.363] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.401] [INFO] light engine calls=20619 mode=npu (fold pending)
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.404] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.413] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.445] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.480] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.482] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.483] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.488] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.516] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.519] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.555] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.557] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.591] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.618] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.620] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.622] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.624] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.630] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.658] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.718] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.746] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.783] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.817] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.823] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.839] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [Server thread/INFO]: Saving and pausing game...
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.872] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.906] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.926] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.927] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.928] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:10:09] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.955] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.963] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:09] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:09.995] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.047] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.056] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.094] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.124] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.128] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.129] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.159] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.186] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.189] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.220] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.246] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.279] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.314] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.346] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.377] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.389] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.447] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.448] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.478] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.483] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.491] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.534] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.569] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.578] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.609] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.637] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.668] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.698] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.700] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.701] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.703] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.704] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.734] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.756] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.825] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.853] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.887] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.916] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.943] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.973] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.975] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.976] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:10] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:10.991] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.026] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.029] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.031] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.062] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.096] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.131] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.136] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.150] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.182] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.189] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.217] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.218] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.220] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.224] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.331] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.367] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.374] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.431] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.473] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.474] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.475] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.477] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.503] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.508] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.512] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.514] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.530] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.532] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.567] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.610] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.625] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.660] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.697] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.699] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.728] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.756] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.785] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.787] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.820] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.828] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.848] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.877] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.904] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.915] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:11] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:11.947] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.009] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.036] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.067] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.094] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.127] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.154] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.159] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.166] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.223] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.250] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.288] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.317] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.352] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.383] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.385] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.426] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.431] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.436] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.439] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.447] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:12] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.448] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:12] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.448] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:12] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.448] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:12] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.452] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:12] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.503] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.509] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.539] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.564] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.565] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.620] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.648] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.649] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.689] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.720] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.726] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.758] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.765] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.823] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.850] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.884] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.886] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.887] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.931] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.933] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.942] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:12] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:12.992] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.034] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.046] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.055] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.059] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.060] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.119] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.152] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.176] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.212] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.256] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.346] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.376] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.406] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.434] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.509] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.538] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.587] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.667] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.708] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.748] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.779] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.803] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.868] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.895] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.913] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.916] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.963] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.966] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.967] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:13] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:13.970] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.020] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.023] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.051] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.082] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.118] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.145] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.148] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.180] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.212] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.214] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.281] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.308] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.311] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.313] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.346] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.353] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.399] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.431] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.478] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.484] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.550] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.577] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.579] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.580] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.614] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.641] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.646] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.684] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.688] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:14] [npu-terrain-assist/INFO]: [STDOUT]: [MCJavaNPU] [02:10:14.689] [INFO] vanilla density tree ready | instructions=7 registers=21 folded_constants=14 | add(min(squeeze(const(0.0)),rangeChoice),const(0.0))
+[02:10:19] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:19.406] [INFO] light engine calls=23181 mode=npu (fold pending)
+[02:10:22] [Server thread/INFO]: Saving and pausing game...
+[02:10:22] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:10:22] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:10:22] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:10:24] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:24.923] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:24] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:24.924] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=vanilla
+[02:10:24] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:24.924] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=vanilla
+[02:10:24] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:24.924] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:24] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:24.928] [INFO] [NPU] reloadchunks mode_light=assist mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:24] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=assist mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:26] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:26.702] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:26] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:26.702] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[02:10:26] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:26.702] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[02:10:26] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:26.703] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:26] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:26.707] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:26] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.090] [INFO] light engine ran 25500 times (vanilla, counted only)
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.189] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.189] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.189] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.190] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:27] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.192] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:27] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.739] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.739] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=vanilla
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.739] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=assist chunkMode=vanilla
+[02:10:27] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.740] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:27] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:27.742] [INFO] [NPU] reloadchunks mode_light=assist mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:27] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=assist mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.339] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.339] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.340] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=vanilla chunkMode=vanilla
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.340] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:28] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.354] [INFO] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:28] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=vanilla mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:28] [Worker-Main-4/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.789] [INFO] light engine ran 26000 times (vanilla, counted only)
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.890] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.891] [INFO] config toggled lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.891] [INFO] screen toggle lightMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=vanilla
+[02:10:28] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.892] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:28] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:28.897] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:28] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=npu mode_chunk=vanilla forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:29] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:29.409] [INFO] light engine calls=26205 mode=npu (fold pending)
+[02:10:30] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:30.156] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:30] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:30.156] [INFO] config toggled chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[02:10:30] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:30.156] [INFO] screen toggle chunkMode -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=2 lightMode=npu chunkMode=npu
+[02:10:30] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:30.157] [INFO] mode switched, asked engine to rebuild light: /npu reloadchunks 3
+[02:10:30] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:30.158] [INFO] [NPU] reloadchunks mode_light=npu mode_chunk=npu forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:30] [Render thread/INFO]: [System] [CHAT] [NPU] reloadchunks mode_light=npu mode_chunk=npu forced_recompute=49 chunks via=setLightEnabled(ChunkPos,boolean)
+[02:10:31] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:31.742] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:31] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:31.742] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[02:10:31] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:31.743] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=3 lightMode=npu chunkMode=npu
+[02:10:32] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:32.148] [INFO] config saved to /storage/emulated/0/26.3/versions/26.3 Fabric 0.19.5/config/mcjavanpu.properties
+[02:10:32] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:32.148] [INFO] config toggled lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu
+[02:10:32] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:32.148] [INFO] screen toggle lightFoldRadius -> enabled=true autoWarmup=true debugLog=true autoProbe=true skyLight=true guardEnabled=true lightBatch=128 lightFoldRadius=4 lightMode=npu chunkMode=npu[02:10:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:32.706] [INFO] self_cost us: tick avg=103 max=51124 n=1907 | chunk avg=0 n=0 | sampler avg=0 max=0 n=0
+[02:10:34] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:34.993] [INFO] chunk batch: submitted=1 pending=0 (total 2781 loaded, batch #9, dropped=0 skipped=2828)
+[02:10:39] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:39.411] [INFO] light engine calls=28541 mode=npu (fold pending)
+[02:10:48] [Server thread/INFO]: Saving and pausing game...
+[02:10:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:10:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:10:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:10:49] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:49.412] [INFO] light engine calls=31273 mode=npu (fold pending)
+[02:10:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:10:55.177] [INFO] heartbeat | NPU busy total: 0 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=4207   cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 10806us over budget 8000us | service=UP
+[02:10:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:10:59.413] [INFO] light engine calls=34767 mode=npu (fold pending)
+[02:11:00] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:00.562] [INFO] heartbeat | chunks_seen=3405 batches=10 pending=0/512 last_batch=1 dropped=0 skipped=3451 | work submitted=10 processed=0 pending=0/512 dropped=0 failed=0 overruns=0 last_us=9978 budget_us=4000 | guard=DEGRADED(p99 10806us over budget 8000us) | service=UP | telemetry: no jobs recorded yet | guard DEGRADED p50=9357us p99=10806us budget=8000us calls=27 rejected=3528 trips=1 p99 10806us over budget 8000us | ipc_calls=25 queue_wait_avg_us=3479 ipc_send_avg_us=890 service_wait_avg_us=7053 ipc_recv_avg_us=123 npu_service_avg_us=6087 prepare_avg_us=30 assemble_avg_us=40 total_avg_us=12116 npu_service_last_us=1375 | in_lock avg_us=8679 max_us=70017 n=25 | lock_wait_avg_us=3479 lock_wait_max_us=66839 | vanilla_tree=ready samples=1863225 eval_ms=235 per_sample_us=0 prog_insn=7 prog_regs=21
+[02:11:09] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:09.429] [INFO] light engine calls=37455 mode=npu (fold pending)
+[02:11:19] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:19.430] [INFO] light engine calls=40851 mode=npu (fold pending)
+[02:11:29] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:29.435] [INFO] light engine calls=44821 mode=npu (fold pending)
+[02:11:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:32.756] [INFO] self_cost us: tick avg=80 max=51124 n=3044 | chunk avg=0 n=0 | sampler avg=0 max=0 n=0
+[02:11:39] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:39.441] [INFO] light engine calls=48327 mode=npu (fold pending)
+[02:11:49] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:49.455] [INFO] light engine calls=51057 mode=npu (fold pending)
+[02:11:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:11:55.231] [INFO] heartbeat | NPU busy total: 0 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=4207   cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 10806us over budget 8000us | service=UP
+[02:11:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:11:59.462] [INFO] light engine calls=54313 mode=npu (fold pending)
+[02:12:00] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:00.581] [INFO] heartbeat | chunks_seen=5289 batches=14 pending=0/512 last_batch=1 dropped=0 skipped=5331 | work submitted=14 processed=0 pending=0/512 dropped=0 failed=0 overruns=0 last_us=1436 budget_us=4000 | guard=DEGRADED(p99 10806us over budget 8000us) | service=UP | telemetry: no jobs recorded yet | guard DEGRADED p50=9357us p99=10806us budget=8000us calls=27 rejected=5436 trips=1 p99 10806us over budget 8000us | ipc_calls=25 queue_wait_avg_us=3479 ipc_send_avg_us=890 service_wait_avg_us=7053 ipc_recv_avg_us=123 npu_service_avg_us=6087 prepare_avg_us=30 assemble_avg_us=40 total_avg_us=12116 npu_service_last_us=1375 | in_lock avg_us=8679 max_us=70017 n=25 | lock_wait_avg_us=3479 lock_wait_max_us=66839 | vanilla_tree=ready samples=1863225 eval_ms=235 per_sample_us=0 prog_insn=7 prog_regs=21
+[02:12:04] [Server thread/INFO]: Saving and pausing game...
+[02:12:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:12:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:12:04] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:12:09] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:09.464] [INFO] light engine calls=58959 mode=npu (fold pending)
+[02:12:19] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:19.468] [INFO] light engine calls=64829 mode=npu (fold pending)
+[02:12:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:21.284] [INFO] shape req=8x512x512 -> plan=128x512x512  padding=1.45x  in=320.0 KiB  out=64.0 KiB  estCost=262656.0
+  ! m=8 is below the stable floor 128; padding to 128
+  ! k=512 is wide; cost is ~O(k*n), so splitting k across calls is usually cheaper than one wide call
+[02:12:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:21.286] [INFO] shape req=8x512x512 -> plan=128x512x512  padding=1.45x  in=320.0 KiB  out=64.0 KiB  estCost=262656.0
+  ! m=8 is below the stable floor 128; padding to 128
+  ! k=512 is wide; cost is ~O(k*n), so splitting k across calls is usually cheaper than one wide call
+[02:12:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:21.372] [WARN] guard: non-transport failure ignored: ERR BIN_SUBMIT_FAILED (native layer, see logcat)
+[02:12:21] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:21.372] [WARN] guard DEGRADED: p99 85806us over budget 8000us - features fall back to CPU until it recovers
+[02:12:29] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:29.475] [INFO] light engine calls=67379 mode=npu (fold pending)
+[02:12:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:32.772] [INFO] self_cost us: tick avg=93 max=93555 n=3914 | chunk avg=0 n=0 | sampler avg=0 max=0 n=0
+[02:12:39] [Worker-Main-5/INFO]: [STDOUT]: [MCJavaNPU] [02:12:39.488] [INFO] light engine calls=70455 mode=npu (fold pending)
+[02:12:41] [Server thread/INFO]: Saving and pausing game...
+[02:12:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:12:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:12:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:12:49] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:49.494] [INFO] light engine calls=73277 mode=npu (fold pending)
+[02:12:55] [mcjavanpu-autoprobe/INFO]: [STDOUT]: [MCJavaNPU] [02:12:55.340] [INFO] heartbeat | NPU busy total: 0 ms ; [on ] light  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=4207   cells=0          npu=    0.0ms host=    0.0ms x0.00 | guard=DEGRADED p99 85806us over budget 8000us | service=UP
+[02:12:59] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:12:59.495] [INFO] light engine calls=75973 mode=npu (fold pending)
+[02:13:06] [Render thread/INFO]: [System] [CHAT] [NPU] submit FAILED: ERR BIN_SUBMIT_FAILED (native layer, see logcat)
+[02:13:09] [Render thread/INFO]: [System] [CHAT] 错误的命令参数
+[02:13:09] [Render thread/INFO]: [System] [CHAT] npu noise 512<--[此处]
+[02:13:09] [Render thread/INFO]: [System] [CHAT] 错误的命令参数
+[02:13:09] [Render thread/INFO]: [System] [CHAT] npu noise 512<--[此处]
+[02:13:09] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:09.500] [INFO] light engine calls=78625 mode=npu (fold pending)
+[02:13:10] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:10.153] [INFO] [NPU] lightfold no DataLayer in range (sections not loaded)
+[02:13:10] [Render thread/INFO]: [System] [CHAT] [NPU] lightfold no DataLayer in range (sections not loaded)
+[02:13:11] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:11.503] [INFO] lightapply: player section 7 empty, using 4
+[02:13:11] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:11.555] [INFO] shape req=72x512x512 -> plan=128x512x512  padding=1.17x  in=320.0 KiB  out=64.0 KiB  estCost=262656.0
+  ! m=72 is below the stable floor 128; padding to 128
+  ! k=512 is wide; cost is ~O(k*n), so splitting k across calls is usually cheaper than one wide call
+[02:13:11] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:11.557] [INFO] [NPU] lightapply FAIL GUARD_DEGRADED p99 85806us over budget 8000us
+[02:13:11] [Render thread/INFO]: [System] [CHAT] [NPU] lightapply FAIL GUARD_DEGRADED p99 85806us over budget 8000us
+[02:13:19] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:19.503] [INFO] light engine calls=81607 mode=npu (fold pending)
+[02:13:29] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:29.506] [INFO] light engine calls=85579 mode=npu (fold pending)
+[02:13:32] [Server thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:32.808] [INFO] self_cost us: tick avg=85 max=93555 n=4401 | chunk avg=0 n=0 | sampler avg=0 max=0 n=0
+[02:13:34] [Render thread/INFO]: [System] [CHAT] [NPU] service=UP lastFailure=none | PING=PONG MCNPU/1\nSTATUS=QNN HTP ready backendId=6 providers=1\nCAPABILITIES=OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8 max_elements=16384 | NPU busy total: 0 ms ; [on ] light  calls=1      cells=36864      npu=    0.0ms host=    0.0ms x0.00 ; [on ] chunk  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [off] noise  calls=0      cells=0          npu=    0.0ms host=    0.0ms x0.00 ; [on ] blocks calls=4207   cells=0          npu=    0.0ms host=    0.0ms x0.00
+[02:13:39] [Server thread/INFO]: Saving and pausing game...
+[02:13:39] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:13:39] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:13:39] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:13:39] [Render thread/INFO]: [STDOUT]: [MCJavaNPU] [02:13:39.507] [INFO] light engine calls=89567 mode=npu (fold pending)
+[02:13:40] [Render thread/INFO]: Finalizing world map session...
+[02:13:40] [Server thread/INFO]: mengmo25 lost connection: 连接中断
+[02:13:40] [Server thread/INFO]: System chat: mengmo25退出了游戏
+[02:13:40] [Thread-4/INFO]: World map force-cleaned!
+[02:13:40] [Server thread/INFO]: Stopping singleplayer server as player logged out
+[02:13:40] [Render thread/INFO]: World map session finalized.
+[02:13:40] [Server thread/INFO]: Stopping server
+[02:13:40] [Server thread/INFO]: Saving players
+[02:13:40] [Server thread/INFO]: Saving worlds
+[02:13:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:overworld
+[02:13:42] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_nether
+[02:13:42] [Server thread/INFO]: Saving chunks for level 'ServerLevel[新的世界]'/minecraft:the_end
+[02:13:43] [Render thread/INFO]: Stopping worker threads
+[02:13:43] [CullThread/INFO]: [STDOUT]: Shutting down culling task!
+[02:13:43] [Render thread/INFO]: Stopping!
