@@ -165,3 +165,89 @@ DSP code, not just to service QNN. One call instead of sixty thousand.
 | `result.json` | last run |
 
 *—— 元宝*
+
+
+---
+
+# NPU Assist: batched noise evaluation
+
+*元宝 · 2026-10-04*
+
+Matmul did not lose because the maths was wrong. It lost because one chunk needed
+**~60,907 separate submissions**, each paying the device's ~2.5 ms fixed cost
+(187 µs IPC + 2298 µs service queue). Sixty thousand fixed costs cannot be recovered by
+kernel efficiency.
+
+A kernel does not have that problem: it takes a block of points and returns a block of
+values, so **the fixed cost is paid once per block**.
+
+```
+./sweep.py 4 4        # 4 seeds x 16 chunks
+./bench.py --compare --seeds 4 --chunks 4 --batch 16
+```
+
+## Throughput vs batch size (64 chunks, SNAPDRAGON_8S_GEN3)
+
+| batch | ms/chunk | speedup | MAE | sign agr | hMAE | calls | pad waste |
+|---|---|---|---|---|---|---|---|
+| 1 | 3.50 | 1.98x | 0.000356 | 99.986% | 0.06 | 64 | **1.67x** |
+| 2 | 2.26 | 3.07x | 0.000372 | 99.989% | 0.05 | 32 | 1.67x |
+| 4 | 1.88 | 3.69x | 0.000382 | 99.982% | 0.07 | 32 | 1.04x |
+| 8 | 1.57 | 4.43x | 0.000385 | 99.985% | 0.07 | 24 | 1.04x |
+| **16** | **1.41** | **4.91x** | 0.000387 | 99.987% | 0.06 | 20 | **1.04x** |
+
+**Accuracy does not move with batch size** — it stays at the INT8 floor
+(MAE ~0.00038, sign 99.98%, height 0.06 blocks) because batching changes only how work
+is *grouped*, not what is *computed*. That is the property that makes batching safe.
+
+Two effects drive the gain:
+- **padding waste 1.67x → 1.04x** — one chunk is 1225 points, padded up to 2048; four
+  chunks fill the 4096 bucket almost exactly
+- **fixed cost amortised** — 64 calls become 20
+
+## Kernel-speed sensitivity (batch=16)
+
+| ns/op | µs/unit | ms/chunk | speedup |
+|---|---|---|---|
+| 0.87 *(efficient, calibrated)* | 0.026 | 1.41 | **4.91x** |
+| 2.00 | 0.060 | 2.24 | 3.10x |
+| 4.85 *(pessimistic, calibrated)* | 0.146 | 4.32 | **1.61x** |
+
+**Even against the pessimistic bound it wins (1.61x).** That is the number to plan
+against, not the 4.91x.
+
+Both bounds are calibrated from measured submissions, not guessed:
+`128×512×512 → 29,294 µs` gives 0.87 ns/op; `128×32×32 → 636 µs` gives 4.85 ns/op.
+The real kernel lands between them.
+
+## The m-bucket ceiling decides everything
+
+`m=4096` was observed succeeding in device logs. That single fact is what makes this
+viable — at a 1024 ceiling the gain largely disappears. **If GPT finds 8192 works, the
+curve improves further; this is worth measuring early.**
+
+## One real constraint found
+
+**A kernel call must not mix seeds.** An earlier version batched across seed boundaries
+and the density MAE jumped ~100x (0.0004 → 0.04) while the speedup numbers looked fine.
+The batcher groups per seed, per dimension. Worth carrying into the real implementation:
+it would have looked like "NPU terrain is subtly wrong in some places".
+
+## Verdict
+
+| route | verdict |
+|---|---|
+| matmul terrain | ❌ dead — 0.05x, error floor 0.005+ |
+| **assist: batched kernel** | ✅ **1.6x – 4.9x**, at the INT8 accuracy floor |
+
+`NpuTerrainGate` stays CLOSED until a real kernel passes parity, but the throughput case
+is now demonstrated rather than assumed.
+
+## Files added
+
+| file | purpose |
+|---|---|
+| `assist.py` | `AssistFrpcBackend` — batched kernel-style evaluation |
+| `sweep.py` | batch-size and kernel-speed sweep |
+
+*—— 元宝*
