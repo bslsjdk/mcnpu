@@ -168,17 +168,23 @@ public final class NpuRuntime {
     private static native String nativeAddMax();
 
     /**
-     * Ends an in-flight probe at its next candidate.
+     * Drop every cached graph and rebuild the QNN context.
      *
-     * The probe builds one graph per size and holds the device lock for each, so
-     * a real request that arrives mid-probe would otherwise wait for a diagnostic
-     * it has no interest in. The probe reports what it learned up to that point
-     * instead of nothing.
+     * Call this after a diagnostic sweep. The graph budget is small on purpose and
+     * a benchmark builds one graph per candidate shape, so a sweep can fill the
+     * cache before the game submits real work - and then the first production
+     * shape is the one that pays the teardown.
      */
-    public static void abortProbe() {
-        try { nativeAbortProbe(); } catch (Throwable ignored) { }
+    public static String flushGraphs() {
+        if (!ready) return "ERR not ready";
+        try {
+            String r = nativeFlushGraphs();
+            return r == null ? "ERR FLUSH_GRAPHS_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR FLUSH_GRAPHS_EXCEPTION " + t.getClass().getSimpleName();
+        }
     }
-    private static native void nativeAbortProbe();
+    private static native String nativeFlushGraphs();
 
     /**
      * Self test that keeps the reason.

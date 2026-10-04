@@ -448,7 +448,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE max_elements=" + NpuRuntime.maxAddElements();
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE,FLUSHGRAPHS max_elements=" + NpuRuntime.maxAddElements();
                 } else if (cmd.equals("ADDPROBE")) {
                     long t = System.nanoTime();
                     reply = NpuRuntime.addProbe();
@@ -479,6 +479,16 @@ public final class NpuService extends Service {
                     log("EXEC XFORM result=" + reply);
                 } else if (cmd.startsWith("SUBMIT_MATMUL8 ")) {
                     reply = handleSubmitMatMul8(cmd.substring(15));
+                } else if (cmd.equals("FLUSHGRAPHS")) {
+                    // The graph budget is small on purpose and a benchmark builds one
+                    // graph per candidate shape, so a sweep can fill the cache before
+                    // the game submits real work - and then the first production shape
+                    // is the one that pays the teardown. Callers flush when their
+                    // diagnostic ends instead of leaving that for production to hit.
+                    long tf = System.nanoTime();
+                    reply = NpuRuntime.flushGraphs();
+                    log("EXEC FLUSHGRAPHS elapsed_ms=" + ((System.nanoTime() - tf) / 1_000_000.0)
+                            + " " + reply);
                 } else if (cmd.equals("QUIT")) {
                     writeLineUtf8(out, "BYE");
                     break;
