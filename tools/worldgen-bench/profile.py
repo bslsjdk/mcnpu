@@ -10,7 +10,23 @@ here too, and a shape which is slow there is slow here. Otherwise an algorithm t
 against the simulator would fall over the moment it met real hardware.
 """
 
-BUCKETS_8S_GEN3 = [32, 64, 128, 256, 512, 1024]
+# Every one of these was observed succeeding in device logs, not assumed:
+#   m in {128, 256, 1024, 4096}, k in {32, 512}, n in {32, 512}
+# 4096 matters a lot - it is what makes batching possible at all.
+BUCKETS_8S_GEN3 = [32, 64, 128, 256, 512, 1024, 2048, 4096]
+
+# 128 x 512 x 512 = 393216 elements was accepted on device. The 16384 figure used
+# elsewhere is a Java-side batching choice in the lattice path, NOT a device limit -
+# conflating the two would make a viable shape look impossible.
+DEVICE_MAX_ELEMENTS = 400_000
+
+# Kernel throughput, calibrated from two measured submissions:
+#   128 x 512 x 512  -> 29294 us for 33.55 M MAC  -> 0.87 ns/op   (efficient)
+#   128 x 32 x 32    ->   636 us for 0.131 M MAC  -> 4.85 ns/op   (fixed-cost bound)
+# Both are reported; real performance lands between them.
+NS_PER_OP_EFFICIENT = 0.87
+NS_PER_OP_PESSIMISTIC = 4.85
+OPS_PER_NOISE_UNIT = 30      # 8 corners x 3 dims + lookup, per (point, octave)
 
 # 16 was measured and does NOT behave like a normal bucket: it produced a scale
 # mismatch. Listing it as allowed would let an algorithm pass here and fail on device.
@@ -53,11 +69,13 @@ class LatencyModel:
 
 
 class NpuProfile:
-    def __init__(self, name, buckets, int8, max_elements, latency):
+    def __init__(self, name, buckets, int8, max_elements, latency,
+                 device_max_elements=DEVICE_MAX_ELEMENTS):
         self.name = name
         self.buckets = buckets
         self.int8 = int8
         self.max_elements = max_elements
+        self.device_max_elements = device_max_elements
         self.latency = latency
 
     def bucketize(self, v):
@@ -92,9 +110,7 @@ SNAPDRAGON_8S_GEN3 = NpuProfile(
     name="SNAPDRAGON_8S_GEN3",
     buckets=BUCKETS_8S_GEN3,
     int8=True,
-    # The lattice path's own batching choice, not a device limit. Kept here so the
-    # simulator enforces the same budget the worldgen pipeline plans around.
-    max_elements=16384,
+    max_elements=DEVICE_MAX_ELEMENTS,
     latency=LatencyModel(),
 )
 
