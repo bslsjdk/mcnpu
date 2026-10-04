@@ -169,3 +169,4 @@ jobs:
           name: MCNPU-arm64-signed
           path: app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           if-no-files-found: error
+          retention-days: 3
