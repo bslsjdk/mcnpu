@@ -54,6 +54,10 @@ public final class NpuService extends Service {
                 log("NEARBY_WIFI_DEVICES=" + (nearby ? "GRANTED" : "NOT_GRANTED"));
             }
 
+            // Ask Shizuku to keep us out of doze / background-freeze before the world
+            // load starts. Runs on its own thread; never blocks or fails startup.
+            NpuKeepAlive.apply(this);
+
             running = true;
             ensureServerLoop("onCreate");
         } catch (Throwable t) {
