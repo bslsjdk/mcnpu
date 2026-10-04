@@ -434,6 +434,11 @@ static bool resetContextLocked(){
     g.matMulGraphs8.clear();
     if(f.contextFree && g.context) f.contextFree(g.context,nullptr);
     g.context=nullptr;
+    // Log why this happened. A silent teardown looks exactly like a slow call:
+    // the caller sees one 800 ms submit and no indication that every cached graph
+    // (and its calibration) was just thrown away.
+    I("CONTEXT RESET: graph budget %d/%d exhausted, dropping every cached graph",
+      g.graphCount, MAX_CACHED_GRAPHS);
     if(!f.contextCreate) { g.ready=false; g.err="contextCreate missing"; return false; }
     Qnn_ErrorHandle_t rc=f.contextCreate(g.backend,g.device,nullptr,&g.context);
     if(rc!=QNN_SUCCESS || !g.context){
@@ -451,6 +456,31 @@ static bool resetContextLocked(){
 static bool ensureGraphBudget(){
     if(g.graphCount < MAX_CACHED_GRAPHS) return true;
     return resetContextLocked();
+}
+
+// Last-resort recovery. resetContextLocked() drops the context and rebuilds it;
+// if that rebuild returns an error it also clears g.ready, and every later call
+// then fails with NPU_NOT_READY for the rest of the process lifetime. The backend
+// and device handles survive (only the context is freed), so the same call can be
+// retried. Without this one bad rebuild turns a recoverable hiccup into a
+// permanently dead service that still reports itself as up.
+static bool tryRecoverContextLocked(){
+    if(!g.api || !g.backend || !g.device) return false;
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    if(!f.contextCreate) return false;
+    Qnn_ErrorHandle_t rc=f.contextCreate(g.backend,g.device,nullptr,&g.context);
+    if(rc!=QNN_SUCCESS || !g.context){
+        g.err="contextRecover rc="+std::to_string((int)rc)+" "+verbose(rc);
+        E("CONTEXT RECOVER FAILED %s",g.err.c_str());
+        return false;
+    }
+    g.addGraphs.clear();
+    g.matMulGraphs.clear();
+    g.matMulGraphs8.clear();
+    g.graphCount=0;
+    g.ready=true;
+    I("CONTEXT RECOVERED: graph cache flushed");
+    return true;
 }
 
 // Smallest supported size that can hold n, or 0 when n is too large.
@@ -684,7 +714,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
     if(!cached){
         // Insert the cache entry BEFORE creating graph tensors so every tensor
         // descriptor points at dimensions owned by the final cached object.
-        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+        if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED graphs="+std::to_string(g.graphCount)+"/"+std::to_string(MAX_CACHED_GRAPHS);
         g.graphCount++;
         auto inserted=g.addGraphs.emplace(key, Runtime::AddGraph{});
         ag=&inserted.first->second;
@@ -1226,7 +1256,12 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         std::chrono::steady_clock::now() - lockWait0).count();
     I("MM8BUF QUEUE lock_wait_us=%lld m=%u k=%u n=%u",
       lockWaitUs,(unsigned)m,(unsigned)k,(unsigned)n);
-    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    if(!g.ready || !g.api || !g.context){
+        if(!tryRecoverContextLocked()){
+            g_lastNativeError="ERR NPU_NOT_READY (context lost and rebuild failed: "+g.err+")";
+            return g_lastNativeError;
+        }
+    }
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
     if(Mb==0||Kb==0||Nb==0) { g_lastNativeError="ERR BUF_TOO_LARGE (max "+std::to_string((unsigned)MM_BUCKET_MAX)+")"; return g_lastNativeError; }
@@ -1275,7 +1310,10 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!mg){
         if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
-        g.graphCount++;
+        // Do NOT increment here. The old code counted a graph before it was built
+        // AND again after finalize, so every matmul8 graph cost 2 against
+        // MAX_CACHED_GRAPHS and only four shapes fit before the whole context was
+        // torn down. A failed create is erased below and must not be counted at all.
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=Mb; mg->k=Kb; mg->n=Nb;
@@ -1529,10 +1567,22 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetLast
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
-    if(!ja||!jb||m<=0||k<=0||n<=0) return nullptr;
-    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n)) return nullptr;
+    // Every rejection below must set g_lastNativeError. These paths used to return
+    // nullptr silently, so the service replied "ERR BIN_SUBMIT_FAILED " with an empty
+    // reason and Minecraft could only print "see logcat". That is why 47 consecutive
+    // failures in one session produced no usable diagnosis.
+    if(!ja||!jb||m<=0||k<=0||n<=0){ g_lastNativeError="ERR BAD_ARGS null=" + std::to_string(!ja||!jb)
+        + " m="+std::to_string(m)+" k="+std::to_string(k)+" n="+std::to_string(n); return nullptr; }
+    if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n)){
+        g_lastNativeError="ERR SIZE_UNSUPPORTED allowed=1.."+std::to_string((unsigned)MM_BUCKET_MAX)
+            +" got m="+std::to_string(m)+" k="+std::to_string(k)+" n="+std::to_string(n);
+        return nullptr; }
     const jsize alen=e->GetArrayLength(ja), blen=e->GetArrayLength(jb);
-    if(alen!=(jsize)((size_t)m*k) || blen!=(jsize)((size_t)k*n)) return nullptr;
+    if(alen!=(jsize)((size_t)m*k) || blen!=(jsize)((size_t)k*n)){
+        g_lastNativeError="ERR BIN_SIZE expect alen="+std::to_string((long long)m*(long long)k)
+            +" blen="+std::to_string((long long)k*(long long)n)
+            +" got alen="+std::to_string((int)alen)+" blen="+std::to_string((int)blen);
+        return nullptr; }
     std::vector<int8_t> A((size_t)alen), B((size_t)blen), C((size_t)m*n,0);
     e->GetByteArrayRegion(ja,0,alen,(jbyte*)A.data());
     e->GetByteArrayRegion(jb,0,blen,(jbyte*)B.data());
@@ -1544,7 +1594,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatM
     std::memcpy(tmp.data(),&scaleC,4);
     std::memcpy(tmp.data()+4,C.data(),C.size());
     jbyteArray out=e->NewByteArray(total);
-    if(!out) return nullptr;
+    if(!out){ g_lastNativeError="ERR OOM allocating result byte["+std::to_string((int)total)+"]"; return nullptr; }
     e->SetByteArrayRegion(out,0,total,tmp.data());
     return out;
 }
