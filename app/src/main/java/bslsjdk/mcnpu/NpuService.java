@@ -336,8 +336,21 @@ public final class NpuService extends Service {
             OutputStream out = new BufferedOutputStream(s.getOutputStream(), 256 * 1024);
             final long serviceQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
             String line;
+            boolean helloDone = false;
             while ((line = readLineUtf8(in, 262144)) != null) {
                 String cmd = line.trim();
+                if (!helloDone) {
+                    if (cmd.equals("HELLO MCJAVA_NPU/1")) {
+                        writeLineUtf8(out, "OK HELLO MCNPU/1");
+                        helloDone = true;
+                        log("IPC SESSION HELLO remote=" + s.getRemoteSocketAddress());
+                        continue;
+                    }
+                    // Keep backwards compatibility with older clients, but only the
+                    // first command is allowed to be a handshake. Legacy clients can
+                    // continue directly because their protocol predates HELLO.
+                    helloDone = true;
+                }
                 if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
                     try {
                         handleSubmitBinMatMul8(in, out, cmd.substring(18), serviceQueueUs);
