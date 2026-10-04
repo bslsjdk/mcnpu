@@ -127,6 +127,47 @@ public final class NpuRuntime {
     public static synchronized boolean smoke() { return ready && nativeTest(); }
 
     /**
+     * Largest ADD length this device accepted.
+     *
+     * The 16384 default is not a device limit - it is only the largest size we had
+     * verified, and it lives in our own native code. The real ceiling is measured
+     * by addProbe(). Everything that caps an ADD length must read this instead of
+     * hardcoding 16384, or a device that accepts more will silently never use it.
+     */
+    public static int maxAddElements() {
+        if (!ready) return 16384;
+        try {
+            String s = nativeAddMax();
+            if (s != null) return Integer.parseInt(s.trim());
+        } catch (Throwable t) { /* fall through to the default */ }
+        return 16384;
+    }
+
+    /**
+     * Walks candidate ADD sizes on the real HTP and reports which ones build.
+     *
+     * This replaces a guess with a measurement: the ladder used to reject anything
+     * above 16384 before it could reach the device, so "the device caps ADD at
+     * 16384" was a conclusion our own code produced, not something the HTP said.
+     * Runs one graph build per candidate size and then flushes the graph cache,
+     * so it is a diagnostic, not something to call on a hot path.
+     */
+    // Not synchronized on purpose. The native side already serializes on
+    // gRuntimeMutex, and holding the class lock across a probe that builds one
+    // graph per candidate size would stall every IPC request for its duration.
+    public static String addProbe() {
+        if (!ready) return "ERR NPU_NOT_READY";
+        try {
+            String r = nativeAddProbe();
+            return r == null ? "ERR ADD_PROBE_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR ADD_PROBE_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativeAddProbe();
+    private static native String nativeAddMax();
+
+    /**
      * Self test that keeps the reason.
      *
      * smoke() returns a bit, so a failing self test reaches the client as one fixed
