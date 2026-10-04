@@ -29,6 +29,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class MainActivity extends Activity {
     private static final int REQ_LOCAL_NETWORK = 5101;
     private TextView npuState, npuDetail, shizukuState, log;
+    /**
+     * Everything appended to the on-screen log this session.
+     *
+     * The TextView is trimmed for rendering (trimVisibleLog keeps the last 20000 chars), so it
+     * cannot be used as the copy source. This buffer is what copy/share actually reads.
+     */
+    private static final StringBuilder sessionLog = new StringBuilder();
+    private static final int SESSION_LOG_CAP = 200_000;
     private ScrollView logScroll;
     private String lastServiceLog = "";
     private final ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -304,7 +312,9 @@ public final class MainActivity extends Activity {
                 + "KEEPALIVE: " + NpuKeepAlive.lastReport() + "\n"
 + "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
                 + "--- PERSISTENT SERVICE LOG ---\n"
-                + readLocalLog();
+                + readLocalLog()
+                + "\n--- UI SESSION LOG ---\n"
+                + sessionLogSnapshot();
     }
 
     private void copyLog() {
@@ -349,7 +359,23 @@ public final class MainActivity extends Activity {
     private void appendLog(String s) {
         if (log == null) return;
         String line = "\n[" + new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date()) + "] " + s;
+        // Keep everything the screen ever showed, not just what still fits in the TextView.
+        // The view is trimmed to the last 20000 chars for rendering, but copy/share must not
+        // lose the beginning of the session - imported test results showed on screen and were
+        // then missing from the clipboard, because only the persistent file was being copied.
+        synchronized (sessionLog) {
+            sessionLog.append(line);
+            if (sessionLog.length() > SESSION_LOG_CAP) {
+                sessionLog.delete(0, sessionLog.length() - SESSION_LOG_CAP);
+            }
+        }
         appendRawLogDelta(line);
+    }
+
+    private static String sessionLogSnapshot() {
+        synchronized (sessionLog) {
+            return sessionLog.length() == 0 ? "(本会话无本地事件)" : sessionLog.toString();
+        }
     }
 
     private void trimVisibleLog() {
