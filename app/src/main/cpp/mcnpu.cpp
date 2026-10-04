@@ -483,6 +483,40 @@ static bool tryRecoverContextLocked(){
     return true;
 }
 
+// Consecutive transport-class failures, counted across calls.
+//
+// rc=1007 is QNN_COMMON_ERROR_SYSTEM_COMMUNICATION (QNN_MIN_ERROR_COMMON(1000)+7):
+// communication with the platform service failed, service recoverable. It is a
+// COMMON error, not a GRAPH error, so QNN never rejected the graph - the FastRPC
+// link to the DSP dropped underneath a perfectly valid one.
+//
+// That is precisely why it is invisible to the existing recovery: g.ready stays
+// true and the context handle stays non-null, so the `!g.ready` branch above
+// never fires. Every later call reuses the dead context and fails identically,
+// which is the shape of the outage - tens of thousands of submits all returning
+// the same rc while the service still advertised itself as UP. Rebuilding on a
+// small run of these is what turns a dropped link back into working NPU.
+static int g_dspFaults = 0;
+static const int DSP_FAULT_REBUILD_THRESHOLD = 3;
+
+static bool isTransportError(Qnn_ErrorHandle_t rc){
+    const int v=(int)rc;
+    return v>=1000 && v<2000;   // QNN_COMMON_ERROR_*: system/transport, not graph
+}
+
+// Must be called while holding gRuntimeMutex.
+static void noteTransportFaultLocked(int rc){
+    if(!isTransportError((Qnn_ErrorHandle_t)rc)){ g_dspFaults=0; return; }
+    g_dspFaults++;
+    if(g_dspFaults < DSP_FAULT_REBUILD_THRESHOLD) return;
+    g_dspFaults=0;
+    I("DSP LINK FAULT x%d rc=%d: rebuilding context (g.ready was still true)",
+      DSP_FAULT_REBUILD_THRESHOLD, rc);
+    resetContextLocked();
+}
+
+static void noteTransportSuccessLocked(){ g_dspFaults=0; }
+
 // Smallest supported size that can hold n, or 0 when n is too large.
 //
 // runAdd builds one QNN graph per size and the graph cache is bounded, which is
@@ -818,6 +852,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
     auto us=std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now()-t0).count();
     if(rc!=QNN_SUCCESS){
+        noteTransportFaultLocked((int)rc);
         E("ADD GRAPH_EXECUTE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
         return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
     }
@@ -828,6 +863,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
     // values, which also distinguishes "slightly off" from "never written" - an
     // untouched output buffer reads back as the -999 fill, and that is visible
     // immediately instead of hiding behind a bare verify failure.
+    noteTransportSuccessLocked();
     if(fp16) for(uint32_t i=0;i<n;i++) out[i]=f16ToF32(o32[i]);
 
     if(verify) for(uint32_t i=0;i<n;i++){
@@ -969,7 +1005,11 @@ std::string runMatMul(uint32_t m,uint32_t k,uint32_t n,bool fp16){
     auto t0=std::chrono::steady_clock::now();
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
     const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
-    if(rc!=QNN_SUCCESS) return "ERR MM_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    if(rc!=QNN_SUCCESS){
+        noteTransportFaultLocked((int)rc);
+        return "ERR MM_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    }
+    noteTransportSuccessLocked();
 
     if(fp16) for(size_t i=0;i<CnpuF.size();i++) CnpuF[i]=h2f(Ch[i]);
 
@@ -1066,7 +1106,7 @@ std::string runBatchXform(uint32_t n,int op){
     auto t0=std::chrono::steady_clock::now();
     rc=f.graphExecute(mg->graph,ein,2,eout,1,nullptr,nullptr);
     const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
-    if(rc!=QNN_SUCCESS) return "ERR XF_EXECUTE rc="+std::to_string((int)rc);
+    if(rc!=QNN_SUCCESS){ noteTransportFaultLocked((int)rc); return "ERR XF_EXECUTE rc="+std::to_string((int)rc); }
     int bad=0; double maxAbs=0.0;
     for(uint32_t i=0;i<n;i++){
         const double d=std::fabs((double)C[i]-(double)ref[i]);
@@ -1172,7 +1212,7 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
     auto t0=std::chrono::steady_clock::now();
     rc=f.graphExecute(mg->graph,execIn,2,execOut,1,nullptr,nullptr);
     const long long execUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
-    if(rc!=QNN_SUCCESS) return "ERR MM8_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    if(rc!=QNN_SUCCESS){ noteTransportFaultLocked((int)rc); return "ERR MM8_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc); }
 
     double maxAbs=0.0;
     int bad=0;
@@ -1401,6 +1441,7 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
             +" graphs="+std::to_string(g.graphCount)+"/"+std::to_string(MAX_CACHED_GRAPHS);
         if((int)rc==1007) ctx += " (SYSTEM_COMMUNICATION: DSP link lost, not a graph/tensor problem)";
         E("MM8BUF EXEC FAIL %s",ctx.c_str());
+        noteTransportFaultLocked((int)rc);
         return ctx;
     }
     // Dynamic quantisation: normalise the true magnitudes first, then map to int8.
@@ -1455,6 +1496,7 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
         }
     }
     for(uint32_t r=0;r<m;r++) std::memcpy(&Cout[(size_t)r*n], &Cpad[(size_t)r*Nb], n);
+    noteTransportSuccessLocked();
     I("MATMUL8BUF OK bucket=%ux%ux%u scaleC=%.8g",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleCOut);
     return "OK";
 }
@@ -1561,6 +1603,25 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddProb
 // of making the request wait for a diagnostic.
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAbortProbe(JNIEnv*,jclass){
     g_probeAbort.store(true);
+}
+// Drop every cached graph and rebuild the context.
+//
+// MAX_CACHED_GRAPHS is small on purpose, and a benchmark builds one graph per
+// candidate shape. Left alone, a sweep can occupy the entire budget before the
+// game submits any real work, and then the first production shape is the one
+// that pays a full context teardown - every cached graph, including the warmup
+// graph the hot path depends on, is destroyed underneath it. Flushing when the
+// diagnostic ends hands production a clean cache instead of a landmine.
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeFlushGraphs(JNIEnv* e,jclass){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    if(!g.api) return e->NewStringUTF("ERR not initialised");
+    const int before=g.graphCount;
+    const bool ok=resetContextLocked();
+    std::string r=std::string(ok?"OK":"ERR")+" FLUSH_GRAPHS dropped="+std::to_string(before)
+        +" now="+std::to_string(g.graphCount)+"/"+std::to_string(MAX_CACHED_GRAPHS);
+    if(!ok) r+=" err="+g.err;
+    I("%s",r.c_str());
+    return e->NewStringUTF(r.c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
