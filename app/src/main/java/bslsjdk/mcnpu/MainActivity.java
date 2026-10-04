@@ -65,6 +65,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.start).setOnClickListener(v -> startNpuService());
         findViewById(R.id.test).setOnClickListener(v -> runSmoke());
         findViewById(R.id.importTest).setOnClickListener(v -> chooseTestFile());
+        findViewById(R.id.importBin).setOnClickListener(v -> chooseBinFile());
         findViewById(R.id.ipcWhitelist).setOnClickListener(v -> editIpcWhitelist());
         findViewById(R.id.shizukuOpen).setOnClickListener(v -> openShizuku());
         findViewById(R.id.shizukuRequest).setOnClickListener(v -> requestShizuku());
@@ -146,6 +147,7 @@ public final class MainActivity extends Activity {
     }
 
     private static final int PICK_TEST_FILE = 4101;
+    private static final int PICK_BIN_FILE = 4102;
 
     private void chooseTestFile() {
         try {
@@ -160,9 +162,45 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != PICK_TEST_FILE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
-        new Thread(() -> runImportedTest(uri)).start();
+        if (requestCode == PICK_TEST_FILE) {
+            new Thread(() -> runImportedTest(uri)).start();
+        } else if (requestCode == PICK_BIN_FILE) {
+            new Thread(() -> runImportedBin(uri)).start();
+        }
+    }
+
+    /**
+     * Binary import. The picker is opened with a wildcard type because .binadd is
+     * not a registered MIME type; the header magic is what actually identifies a
+     * valid file, so a wrong pick is reported as a magic mismatch rather than
+     * being silently rejected by the intent filter.
+     */
+    private void chooseBinFile() {
+        try {
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("*/*");
+            i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/octet-stream", "*/*"});
+            startActivityForResult(i, PICK_BIN_FILE);
+        } catch (Throwable t) {
+            appendLog("打开文件选择器失败: " + t);
+        }
+    }
+
+    private void runImportedBin(Uri uri) {
+        try {
+            runOnUiThread(() -> appendLog("二进制导入：正在复制到缓存…"));
+            File f = NpuBinFile.materialize(this, uri);
+            String desc = NpuBinFile.describe(f);
+            runOnUiThread(() -> appendLog("文件就绪 " + (f.length() / 1048576.0) + " MB\n" + desc));
+            NpuBinFile.Progress sink = line -> runOnUiThread(() -> appendLog(line));
+            String report = NpuBinFile.run(f, sink);
+            runOnUiThread(() -> appendLog(report));
+        } catch (Throwable t) {
+            runOnUiThread(() -> appendLog("二进制导入失败: " + t));
+        }
     }
 
     private void runImportedTest(Uri uri) {
