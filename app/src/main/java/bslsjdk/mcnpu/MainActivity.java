@@ -28,8 +28,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
-    /** Matches the native ceiling: runAdd pads up to at most 16384. */
-    private static final int MAX_CASE_LEN = 16384;
+    /**
+     * Read at use time, not frozen here. The native ladder's top rung is measured
+     * on the device at startup; a hardcoded copy of it would keep rejecting sizes
+     * the phone actually accepts, which is exactly how 4096 and 16384 spent
+     * several rounds looking like an HTP limitation.
+     */
+    private static int maxCaseLen() { return NpuServiceClient.maxAddElements(); }
     private static final int REQ_LOCAL_NETWORK = 5101;
     private TextView npuState, npuDetail, shizukuState, log;
     /**
@@ -218,6 +223,10 @@ public final class MainActivity extends Activity {
             JSONObject root = new JSONObject(json);
             String task = root.optString("task", "add");
             JSONArray cases = root.getJSONArray("inputs");
+            // Ask the service what its probe measured before deciding what is too
+            // long. Without this the cap stays at the pre-probe default and sizes
+            // the device actually accepts keep being rejected locally.
+            NpuServiceClient.refreshMaxAddElements();
             StringBuilder result = new StringBuilder();
             result.append("=== IMPORTED NPU TEST ===\n")
                   .append("task=").append(task).append("\n")
@@ -236,7 +245,7 @@ public final class MainActivity extends Activity {
                 if (!"add".equalsIgnoreCase(task)) bad = "task not add";
                 else if (aa.length() != bb.length()) bad = "len mismatch a=" + aa.length() + " b=" + bb.length();
                 else if (aa.length() == 0) bad = "empty";
-                else if (aa.length() > MAX_CASE_LEN) bad = "len " + aa.length() + " exceeds cap " + MAX_CASE_LEN;
+                else if (aa.length() > maxCaseLen()) bad = "len " + aa.length() + " exceeds cap " + maxCaseLen();
                 if (bad != null) {
                     result.append("CASE ").append(k).append(": INVALID ").append(bad).append("\n");
                     continue;
