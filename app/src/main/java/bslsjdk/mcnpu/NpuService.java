@@ -19,6 +19,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public final class NpuService extends Service {
+    /**
+     * A n=16384 ADD command is ~360 KB of decimal text. The old 256 KB ceiling
+     * rejected it before it ever reached the HTP.
+     */
+    private static final int MAX_LINE_BYTES = 8 * 1024 * 1024;
+    /** Read granularity for control lines; also the pushback buffer size. */
+    private static final int LINE_BLOCK = 8192;
     private static final int IPC_PORT = 38761;
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
@@ -336,12 +343,13 @@ public final class NpuService extends Service {
             // BufferedInputStream is safe here: unlike BufferedReader it does not decode or
             // pre-consume the binary tensor payload. It also removes thousands of tiny read()
             // calls from the control header path. The client already uses the same buffer size.
-            InputStream in = new BufferedInputStream(s.getInputStream(), 256 * 1024);
+            java.io.PushbackInputStream in = new java.io.PushbackInputStream(
+                    new BufferedInputStream(s.getInputStream(), 256 * 1024), LINE_BLOCK);
             OutputStream out = new BufferedOutputStream(s.getOutputStream(), 256 * 1024);
             final long serviceQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
             String line;
             boolean helloDone = false;
-            while ((line = readLineUtf8(in, 262144)) != null) {
+            while ((line = readLineUtf8(in, MAX_LINE_BYTES)) != null) {
                 String cmd = line.trim();
                 if (!helloDone) {
                     if (cmd.equals("HELLO MCJAVA_NPU/1")) {
@@ -425,14 +433,36 @@ public final class NpuService extends Service {
         }
     }
 
-    /** Reads one UTF-8 line byte-by-byte so binary payloads are never prefetched. */
-    private static String readLineUtf8(InputStream in, int maxBytes) throws IOException {
+    /**
+     * Reads one UTF-8 line in blocks so binary payloads are never prefetched.
+     *
+     * The previous byte-at-a-time loop existed to avoid consuming the raw tensor
+     * bytes that follow a SUBMITBIN header. It also meant one read() per byte, so
+     * a 360 KB ADD command cost ~360K calls. Blocks plus pushback keep the same
+     * guarantee: everything after the newline goes back to the stream untouched.
+     *
+     * The 256 KB ceiling was the second problem. A n=16384 ADD command is about
+     * 360 KB of decimal text, so it was rejected as "line too long" even though
+     * 16384 is a size the HTP accepts - the imported test then reported INVALID
+     * for a shape that was never actually sent.
+     */
+    private static String readLineUtf8(java.io.PushbackInputStream in, int maxBytes) throws IOException {
         java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(256);
-        int ch;
-        while ((ch = in.read()) >= 0) {
-            if (ch == '\n') return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
-            if (ch != '\r') buf.write(ch);
-            if (buf.size() > maxBytes) throw new IOException("line too long");
+        byte[] block = new byte[LINE_BLOCK];
+        while (true) {
+            int n = in.read(block);
+            if (n < 0) break;
+            int nl = -1;
+            for (int i = 0; i < n; i++) if (block[i] == '\n') { nl = i; break; }
+            if (nl >= 0) {
+                // Push back everything after the newline, including any binary payload.
+                if (nl + 1 < n) in.unread(block, nl + 1, n - (nl + 1));
+                if (nl > 0 && block[nl - 1] != '\r') buf.write(block, 0, nl);
+                else if (nl > 0) buf.write(block, 0, nl - 1);
+                return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            buf.write(block, 0, n);
+            if (buf.size() > maxBytes) throw new IOException("line too long >" + maxBytes + " bytes");
         }
         if (buf.size() == 0) return null;
         return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
