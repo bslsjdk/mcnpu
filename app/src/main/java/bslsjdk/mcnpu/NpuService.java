@@ -376,10 +376,25 @@ public final class NpuService extends Service {
             java.io.PushbackInputStream in = new java.io.PushbackInputStream(
                     new BufferedInputStream(s.getInputStream(), 256 * 1024), LINE_BLOCK);
             OutputStream out = new BufferedOutputStream(s.getOutputStream(), 256 * 1024);
-            final long serviceQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
-            String line;
+            // Queue time is genuine server-side queueing: accept -> the moment this
+            // connection starts being served. It is measured once per connection
+            // because that is the only place queueing happens in this design - once a
+            // handler owns the socket it is dedicated to it.
+            //
+            // It used to be computed once and then stamped onto every command on the
+            // connection, so a session with 30 requests reported the same
+            // service_queue_us 30 times. A per-request field that cannot vary is not a
+            // measurement, and it made the figure look like a fixed hardware cost.
+            final long connQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
             boolean helloDone = false;
-            while ((line = readLineUtf8(in, MAX_LINE_BYTES)) != null) {
+            while (true) {
+                // readUs is how long this handler sat blocked waiting for the request's
+                // bytes. It is the only part of the request's life that varies per
+                // command, and when it is large the client is the one being slow.
+                long readStartNs = System.nanoTime();
+                String line = readLineUtf8(in, MAX_LINE_BYTES);
+                long readUs = (System.nanoTime() - readStartNs) / 1000L;
+                if (line == null) break;
                 String cmd = line.trim();
                 if (!helloDone) {
                     if (cmd.equals("HELLO MCJAVA_NPU/1")) {
@@ -395,7 +410,7 @@ public final class NpuService extends Service {
                 }
                 if (cmd.startsWith("BINADD ")) {
                     try {
-                        handleBinAdd(in, out, cmd.substring(7), serviceQueueUs);
+                        handleBinAdd(in, out, cmd.substring(7), connQueueUs, readUs);
                     } catch (Throwable t) {
                         log("BIN ADD exception=" + t);
                         writeLineUtf8(out, "ERR BINADD_EXCEPTION " + t.getClass().getSimpleName());
@@ -404,7 +419,7 @@ public final class NpuService extends Service {
                 }
                 if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
                     try {
-                        handleSubmitBinMatMul8(in, out, cmd.substring(18), serviceQueueUs);
+                        handleSubmitBinMatMul8(in, out, cmd.substring(18), connQueueUs, readUs);
                     } catch (Throwable t) {
                         log("BIN SUBMIT exception=" + t);
                         writeLineUtf8(out, "ERR BIN_SUBMIT_EXCEPTION " + t.getClass().getSimpleName());
@@ -532,12 +547,12 @@ public final class NpuService extends Service {
      * Reply: one text header line, then the raw int8 result bytes.
      */
     /**
-     * acceptedQueueUs is the time this connection spent waiting before we started
-     * serving it, measured in handle(). It has to be passed in - it belongs to the
-     * caller's frame and cannot be referenced from here.
+     * connQueueUs is accept -> dispatch, measured once per connection in handle().
+     * readUs is how long we blocked waiting for this command's bytes. Both belong to
+     * the caller's frame, so they are passed in rather than re-derived here.
      */
     private void handleSubmitBinMatMul8(InputStream in, OutputStream out, String payload,
-                                        long acceptedQueueUs) throws IOException {
+                                        long connQueueUs, long readUs) throws IOException {
         String[] p = payload.trim().split(" ");
         if (p.length != 5) { writeLineUtf8(out, "ERR BIN_FORMAT use: SUBMITBIN_MATMUL8 m k n alen blen"); return; }
         int m = Integer.parseInt(p[0]), k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]);
@@ -561,11 +576,13 @@ public final class NpuService extends Service {
         int cbytes = res.length - 4;
         log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n
                 + " scaleC=" + scaleC + " cbytes=" + cbytes
-                + " service_queue_us=" + acceptedQueueUs + " npu_service_us=" + us);
+                + " conn_queue_us=" + connQueueUs + " read_us=" + readUs
+                + " npu_service_us=" + us);
         // One buffered flush for header + tensor. The old path flushed the header first,
         // forcing a second transport boundary before the result bytes.
         out.write(("OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
-                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + acceptedQueueUs + " binary=1\n")
+                + " cbytes=" + cbytes + " us=" + us + " conn_queue_us=" + connQueueUs
+                + " read_us=" + readUs + " binary=1\n")
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         out.write(res, 4, cbytes);
         out.flush();
@@ -689,7 +706,8 @@ public final class NpuService extends Service {
         t.start();
     }
 
-    private void handleBinAdd(java.io.PushbackInputStream in, OutputStream out, String args, long serviceQueueUs) throws IOException {
+    private void handleBinAdd(java.io.PushbackInputStream in, OutputStream out, String args,
+                              long connQueueUs, long readUs) throws IOException {
         long t0 = System.nanoTime();
         String[] pp = args.trim().split("[ ]+");
         if (pp.length != 2) { writeLineUtf8(out, "ERR BINADD_FORMAT use: BINADD n case_count"); return; }
@@ -762,7 +780,8 @@ public final class NpuService extends Service {
         writeLineUtf8(out, (ok == cases ? "OK BINADD" : "ERR BINADD_PARTIAL")
                 + " n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
                 + " cached=" + cached + " body_bytes=" + bodyBytes
-                + " npu_us=" + npuUs + " queue_us=" + serviceQueueUs + " total_us=" + totalUs
+                + " npu_us=" + npuUs + " conn_queue_us=" + connQueueUs
+                + " read_us=" + readUs + " total_us=" + totalUs
                 + " out_bytes=" + results.length + " case0=" + reason);
         // Results follow the header as raw little-endian float32. The header stays
         // text so a failure is still readable without knowing the binary layout.
