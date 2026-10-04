@@ -185,8 +185,8 @@ public final class MainActivity extends Activity {
                 JSONObject item = cases.getJSONObject(k);
                 JSONArray aa = item.getJSONArray("a");
                 JSONArray bb = item.getJSONArray("b");
-                if (!"add".equalsIgnoreCase(task) || aa.length() != bb.length() || aa.length() == 0 || aa.length() > 1024) {
-                    result.append("CASE ").append(k).append(": INVALID\n");
+                if (!"add".equalsIgnoreCase(task) || aa.length() != bb.length() || aa.length() == 0 || aa.length() > 16384) {
+                    result.append("CASE ").append(k).append(": INVALID len=").append(aa.length()).append("\n");
                     continue;
                 }
                 StringBuilder a = new StringBuilder(), b = new StringBuilder();
@@ -196,13 +196,17 @@ public final class MainActivity extends Activity {
                     if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");
                     a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
                 }
+                long caseT0 = System.nanoTime();
                 String reply = NpuServiceClient.request("ADD " + a + "|" + b);
+                long caseUs = (System.nanoTime() - caseT0) / 1000L;
                 boolean ok = reply.startsWith("OK HTP_GRAPH_EXECUTE");
                 if(ok) pass++;
-                result.append("CASE ").append(k).append(": ").append(reply).append("\n");
+                result.append("CASE ").append(k).append(": len=").append(aa.length())
+                      .append(" roundtrip_us=").append(caseUs).append(" ").append(reply).append("\n");
             }
             result.append("SUMMARY pass=").append(pass).append("/")
-                  .append(cases.length()).append(" NPU=HTP V73\n");
+                  .append(cases.length()).append(" NPU=HTP V73\n")
+                  .append("NOTE=每个 case 记录 JSON 实际长度和 IPC 往返时间；SIZE_UNSUPPORTED 会包含 native requested_n。\n");
             String output = result.toString();
             runOnUiThread(() -> appendLog(output));
         } catch (Throwable t) {
