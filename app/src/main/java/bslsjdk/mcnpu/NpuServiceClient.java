@@ -49,4 +49,56 @@ public final class NpuServiceClient {
     public static String smoke() {
         return request("SMOKE");
     }
+
+    /**
+     * Sends ADD cases as raw little-endian float32 instead of decimal text.
+     *
+     * The body is written with a blocking loop: TCP is a stream, so a single
+     * write is never assumed to carry the whole buffer, especially at 512 KB.
+     */
+    public static String binAdd(float[][] a, float[][] b, int n) {
+        if (a == null || b == null || a.length == 0 || a.length != b.length) return "ERR BINADD_ARGS";
+        int cases = a.length;
+        java.nio.ByteBuffer body = java.nio.ByteBuffer.allocate(4 * 2 * n * cases)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        for (int c = 0; c < cases; c++) {
+            for (int i = 0; i < n; i++) body.putFloat(a[c][i]);
+            for (int i = 0; i < n; i++) body.putFloat(b[c][i]);
+        }
+        byte[] payload = body.array();
+        long t0 = System.nanoTime();
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(InetAddress.getByName(IPC_HOST), IPC_PORT), CONNECT_TIMEOUT_MS);
+            socket.setSoTimeout(READ_TIMEOUT_MS);
+            OutputStream os = new BufferedOutputStream(socket.getOutputStream(), 64 * 1024);
+            InputStream is = new BufferedInputStream(socket.getInputStream(), 64 * 1024);
+            os.write(("BINADD " + n + " " + cases + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            int off = 0;
+            while (off < payload.length) {
+                int chunk = Math.min(64 * 1024, payload.length - off);
+                os.write(payload, off, chunk);
+                off += chunk;
+            }
+            os.flush();
+            String reply = readReplyLine(is);
+            return (reply == null ? "ERR EMPTY_REPLY" : reply)
+                    + " client_us=" + ((System.nanoTime() - t0) / 1000L)
+                    + " body_bytes=" + payload.length;
+        } catch (Throwable t) {
+            return "ERR SERVICE_UNAVAILABLE " + t.getClass().getName()
+                    + " msg=" + String.valueOf(t.getMessage())
+                    + " us=" + ((System.nanoTime() - t0) / 1000L);
+        }
+    }
+
+    private static String readReplyLine(InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream(256);
+        int ch;
+        while ((ch = in.read()) >= 0) {
+            if (ch == '\n') return new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            if (ch != '\r') buf.write(ch);
+            if (buf.size() > 65536) throw new IOException("reply line too long");
+        }
+        return buf.size() == 0 ? null : new String(buf.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+    }
 }
