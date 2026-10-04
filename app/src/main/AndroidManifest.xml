@@ -28,6 +28,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver android:name=".NpuWakeReceiver" android:exported="true" android:enabled="true">
+            <intent-filter>
+                <action android:name="bslsjdk.mcnpu.action.WAKE" />
+            </intent-filter>
+        </receiver>
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
@@ -35,7 +40,8 @@
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
-        <service android:name=".NpuService" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name=".NpuService" android:exported="false" android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="persistent NPU compute service for Minecraft acceleration" />
         </service>
