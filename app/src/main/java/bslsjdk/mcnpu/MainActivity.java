@@ -218,19 +218,13 @@ public final class MainActivity extends Activity {
                 float[][] a2 = pendingA.toArray(new float[0][]);
                 float[][] b2 = pendingB.toArray(new float[0][]);
                 long binT0 = System.nanoTime();
-                String binReply = NpuServiceClient.binAdd(a2, b2, n);
+                NpuServiceClient.BinAddResult binReply = NpuServiceClient.binAdd(a2, b2, n);
                 long binUs = (System.nanoTime() - binT0) / 1000L;
-                int okCount = 0;
-                int at = binReply.indexOf("ok=");
-                if (at >= 0) {
-                    int slash = binReply.indexOf('/', at);
-                    if (slash > at) try { okCount = Integer.parseInt(binReply.substring(at + 3, slash).trim()); } catch (NumberFormatException ignored) {}
-                }
-                pass += okCount;
+                int okCount = binReply.okCount;
                 result.append("BIN n=").append(n).append(" cases=").append(pendingA.size())
                       .append(" roundtrip_us=").append(binUs)
                       .append(" json_bytes~").append(jsonBytes)
-                      .append(" ").append(binReply).append("\n");
+                      .append(" ").append(binReply.status).append("\n");
             }
             result.append("SUMMARY pass=").append(pass).append("/")
                   .append(cases.length()).append(" NPU=HTP V73\n")
