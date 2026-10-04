@@ -78,13 +78,19 @@ public final class NpuBigAdd {
         }
         int cap = maxWay();
         int n = wayElements <= 0 ? cap : Math.min(wayElements, cap);
-        int p = Math.max(1, Math.min(parallelism <= 0 ? 4 : parallelism, 16));
+        // 2, not 4: four way sockets plus the availability poller and the
+        // diagnostic reached the service's accept ceiling, and each rejected
+        // socket was closed without a reply, so the client sat in read for a
+        // full 15 s timeout. Fewer sockets also queue less work behind a lock
+        // that serialises execute anyway.
+        int p = Math.max(1, Math.min(parallelism <= 0 ? 2 : parallelism, 16));
         int total = a.length;
         int ways = (total + n - 1) / n;
         float[] out = new float[total];
         AtomicInteger okWays = new AtomicInteger();
         AtomicInteger failures = new AtomicInteger();
         AtomicInteger callCount = new AtomicInteger();
+        AtomicInteger unwritten = new AtomicInteger();
         StringBuilder firstError = new StringBuilder();
 
         int groups = Math.min(p, ways);
@@ -118,18 +124,36 @@ public final class NpuBigAdd {
                         }
                         callCount.incrementAndGet();
                         NpuServiceClient.BinAddResult r = NpuServiceClient.binAdd(aa, bb, n);
-                        okWays.addAndGet(r.okCount);
-                        if (!r.status.startsWith("OK")) {
+                        // okCount has to equal count, not merely "status starts with
+                        // OK". A batch the device only partly served still returns a
+                        // full-length body, and copying it writes the unwritten ways
+                        // into the merged result as zeros - which is exactly how a
+                        // 486-way run reported max_abs=max|a+b| with 99.5% wrong and
+                        // no error anywhere.
+                        boolean served = r.status.startsWith("OK") && r.okCount == count;
+                        if (served) {
+                            okWays.addAndGet(count);
+                        } else {
                             failures.incrementAndGet();
                             synchronized (firstError) {
                                 if (firstError.length() == 0) firstError.append(r.status);
                             }
-                        } else if (r.out != null) {
+                        }
+                        if (served && r.out != null) {
                             for (int j = 0; j < count; j++) {
                                 int idx = start + w + j;
                                 int off = idx * n;
                                 int len = Math.min(n, total - off);
-                                if (len > 0) System.arraycopy(r.out[j], 0, out, off, len);
+                                if (len > 0) {
+                                    // The service fills unwritten output with the
+                                    // -999 sentinel, so counting it separates "the
+                                    // HTP returned zeros" from "the HTP never ran"
+                                    // without another round trip.
+                                    for (int i = 0; i < len; i++) {
+                                        if (r.out[j][i] == -999f) unwritten.incrementAndGet();
+                                    }
+                                    System.arraycopy(r.out[j], 0, out, off, len);
+                                }
                             }
                         }
                         w += count;
@@ -150,10 +174,13 @@ public final class NpuBigAdd {
             Thread.currentThread().interrupt();
         }
         long us = (System.nanoTime() - t0) / 1000L;
-        String status = failures.get() == 0
+        String status = (failures.get() == 0 && unwritten.get() == 0)
                 ? "OK BIGADD total=" + total + " ways=" + ways + " n=" + n + " sockets=" + groups
                   + " calls=" + callCount.get() + " ok=" + okWays.get() + "/" + ways + " us=" + us
-                : "ERR BIGADD failed_groups=" + failures.get() + " first=" + firstError;
+                : "ERR BIGADD failed_batches=" + failures.get()
+                  + " unwritten=" + unwritten.get()
+                  + " ok=" + okWays.get() + "/" + ways
+                  + " first=" + firstError;
         return new Result(out, ways, n, okWays.get(), us, callCount.get(), status);
     }
 
