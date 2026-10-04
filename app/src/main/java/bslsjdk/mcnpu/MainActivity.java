@@ -27,6 +27,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
+    /** Matches the native ceiling: runAdd pads up to at most 16384. */
+    private static final int MAX_CASE_LEN = 16384;
     private static final int REQ_LOCAL_NETWORK = 5101;
     private TextView npuState, npuDetail, shizukuState, log;
     /**
@@ -185,8 +187,16 @@ public final class MainActivity extends Activity {
                 JSONObject item = cases.getJSONObject(k);
                 JSONArray aa = item.getJSONArray("a");
                 JSONArray bb = item.getJSONArray("b");
-                if (!"add".equalsIgnoreCase(task) || aa.length() != bb.length() || aa.length() == 0 || aa.length() > 16384) {
-                    result.append("CASE ").append(k).append(": INVALID len=").append(aa.length()).append("\n");
+                // Say which rule rejected the case. A bare INVALID gave no way to tell
+                // "wrong shape" from "too long", and 4096/16384 looked like an HTP
+                // failure when they were rejected here without ever being sent.
+                String bad = null;
+                if (!"add".equalsIgnoreCase(task)) bad = "task not add";
+                else if (aa.length() != bb.length()) bad = "len mismatch a=" + aa.length() + " b=" + bb.length();
+                else if (aa.length() == 0) bad = "empty";
+                else if (aa.length() > MAX_CASE_LEN) bad = "len " + aa.length() + " exceeds cap " + MAX_CASE_LEN;
+                if (bad != null) {
+                    result.append("CASE ").append(k).append(": INVALID ").append(bad).append("\n");
                     continue;
                 }
                 StringBuilder a = new StringBuilder(), b = new StringBuilder();
