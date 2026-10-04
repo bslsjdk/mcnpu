@@ -170,10 +170,9 @@ public final class NpuRuntime {
     /**
      * Drop every cached graph and rebuild the QNN context.
      *
-     * Call this after a diagnostic sweep. The graph budget is small on purpose and
-     * a benchmark builds one graph per candidate shape, so a sweep can fill the
-     * cache before the game submits real work - and then the first production
-     * shape is the one that pays the teardown.
+     * The graph budget is small on purpose and a benchmark builds one graph per
+     * candidate shape, so a sweep can fill the cache before the game submits real
+     * work - and then the first production shape is the one that pays the teardown.
      */
     public static String flushGraphs() {
         if (!ready) return "ERR not ready";
@@ -185,6 +184,19 @@ public final class NpuRuntime {
         }
     }
     private static native String nativeFlushGraphs();
+
+    /**
+     * Ends an in-flight probe at its next candidate.
+     *
+     * The probe builds one graph per size and holds the device lock for each, so
+     * a real request that arrives mid-probe would otherwise wait for a diagnostic
+     * it has no interest in. The probe reports what it learned up to that point
+     * instead of nothing.
+     */
+    public static void abortProbe() {
+        try { nativeAbortProbe(); } catch (Throwable ignored) { }
+    }
+    private static native void nativeAbortProbe();
 
     /**
      * Self test that keeps the reason.
