@@ -1101,6 +1101,9 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
             return "ERR BUF_GRAPH_FINALIZE rc="+std::to_string((int)rc);
         }
         g.graphCount++;
+        // Count only a successfully finalized graph. The pre-create increment
+        // above reserves no durable resource and caused every cached graph to count twice,
+        // forcing premature context resets after only four real graphs.
         I("MATMUL8BUF GRAPH READY bucket=%ux%ux%u scaleC=%.5f",(unsigned)Mb,(unsigned)Kb,(unsigned)Nb,scaleC);
     }
 
