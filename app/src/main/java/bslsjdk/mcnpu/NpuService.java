@@ -11,14 +11,23 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class NpuService extends Service {
     private static final int IPC_PORT = 38761;
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
-    private final ExecutorService clients = Executors.newFixedThreadPool(8);
+    // Bound IPC work so connection floods cannot exhaust Android threads/file descriptors.
+    private final ThreadPoolExecutor clients = new ThreadPoolExecutor(
+            8, 8, 0L, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(8),
+            new ThreadPoolExecutor.AbortPolicy());
+    private final java.util.concurrent.atomic.AtomicInteger activeClients = new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean running;
     private ServerSocket server;
     private final java.util.concurrent.atomic.AtomicBoolean serverLoopStarted = new java.util.concurrent.atomic.AtomicBoolean();
@@ -174,9 +183,23 @@ public final class NpuService extends Service {
                         Socket socket = ss.accept();
                         long acceptedNs = System.nanoTime();
                         workerBeatMs = System.currentTimeMillis();
-                        log("IPC ACCEPT " + socket.getRemoteSocketAddress());
+                        log("IPC ACCEPT " + socket.getRemoteSocketAddress()
+                                + " active=" + activeClients.get()
+                                + " queued=" + clients.getQueue().size());
                         try {
-                            clients.execute(() -> handle(socket, acceptedNs));
+                            clients.execute(() -> {
+                                activeClients.incrementAndGet();
+                                try {
+                                    handle(socket, acceptedNs);
+                                } finally {
+                                    activeClients.decrementAndGet();
+                                }
+                            });
+                        } catch (RejectedExecutionException rejected) {
+                            try { socket.close(); } catch (Throwable ignored) {}
+                            log("IPC REJECT overload active=" + activeClients.get()
+                                    + " queued=" + clients.getQueue().size()
+                                    + " remote=" + socket.getRemoteSocketAddress());
                         } catch (Throwable t) {
                             try { socket.close(); } catch (Throwable ignored) {}
                             log("IPC client dispatch failed: " + t);
