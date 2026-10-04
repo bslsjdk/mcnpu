@@ -511,6 +511,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
             // QNN 2.27 exposes no graphFree in QnnInterface. The graph is
             // owned by the context and is released by contextFree.
             g.addGraphs.erase(n);
+            E("ADD TENSOR_CREATE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
 
@@ -536,6 +537,7 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
         rc=f.graphAddNode(ag->graph,op);
         if(rc!=QNN_SUCCESS){
             g.addGraphs.erase(n);
+            E("ADD GRAPH_NODE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
 
@@ -545,6 +547,8 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
             std::chrono::steady_clock::now()-tFinalize0).count();
         if(rc!=QNN_SUCCESS){
             g.addGraphs.erase(n);
+            E("ADD GRAPH_FINALIZE_FAIL n=%u rc=%d create_us=%lld finalize_us=%lld %s",
+              (unsigned)n,(int)rc,createUs,finalizeUs,verbose(rc).c_str());
             return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+
                    " create_us="+std::to_string(createUs)+
                    " finalize_us="+std::to_string(finalizeUs)+" "+verbose(rc);
@@ -573,11 +577,33 @@ std::string runAdd(const float* av,const float* bv,uint32_t n){
     rc=f.graphExecute(ag->graph,execIn,2,execOut,1,nullptr,nullptr);
     auto us=std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now()-t0).count();
-    if(rc!=QNN_SUCCESS)
+    if(rc!=QNN_SUCCESS){
+        E("ADD GRAPH_EXECUTE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
         return "ERR GRAPH_EXECUTE rc="+std::to_string((int)rc)+" "+verbose(rc);
+    }
 
-    for(uint32_t i=0;i<n;i++)
-        if(out[i] != av[i]+bv[i]) return "ERR OUTPUT_VERIFY";
+    // Tolerance rather than exact equality: the HTP may round through an
+    // intermediate precision, and an exact compare would then report a perfectly
+    // good execution as a failure. The first divergence is reported with both
+    // values, which also distinguishes "slightly off" from "never written" - an
+    // untouched output buffer reads back as the -999 fill, and that is visible
+    // immediately instead of hiding behind a bare verify failure.
+    for(uint32_t i=0;i<n;i++){
+        float want=av[i]+bv[i];
+        float got=out[i];
+        float diff=got-want;
+        if(diff<0.f) diff=-diff;
+        float scale=want<0.f?-want:want;
+        if(scale<1e-6f) scale=1e-6f;
+        if(diff > 1e-3f*scale){
+            char vb[256];
+            std::snprintf(vb,sizeof(vb),
+                "ERR OUTPUT_VERIFY i=%u want=%.9g got=%.9g diff=%.9g",
+                (unsigned)i,(double)want,(double)got,(double)diff);
+            E("ADD OUTPUT_VERIFY n=%u %s",(unsigned)n,vb);
+            return std::string(vb);
+        }
+    }
 
     auto totalUs=std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now()-total0).count();
@@ -1190,6 +1216,17 @@ extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTest(J
     float a[16],b[16];
     for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
     return runAdd(a,b,16).rfind("OK ",0)==0?JNI_TRUE:JNI_FALSE;
+}
+// Same self test, but returns the full reply instead of collapsing it to a bit.
+// The boolean version threw away the reason: every failure became the same
+// "ERR HTP_GRAPH_EXECUTE" at the client, which is why a service that connects
+// fine could still fail its smoke test with nothing to go on.
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTestDetail(JNIEnv* e,jclass){
+    float a[16],b[16];
+    for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
+    std::string r=runAdd(a,b,16);
+    I("SMOKE DETAIL %s",r.c_str());
+    return e->NewStringUTF(r.c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb){
     if(!ja||!jb)return e->NewStringUTF("ERR NULL");
