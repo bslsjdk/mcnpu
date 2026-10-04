@@ -124,7 +124,12 @@ public final class NpuBinFile {
 
             int cap = NpuBigAdd.maxWay();
             int way = wayElements <= 0 ? cap : Math.min(wayElements, cap);
-            int par = parallelism <= 0 ? 4 : Math.min(parallelism, 16);
+            // Ceiling 4, default 2. Four way sockets plus the poller and the
+            // diagnostic hit the service's accept ceiling and each rejected socket
+            // cost a 15 s read timeout, so a file that asks for 4 now gets 4 only
+            // because the service was widened, and a file that asks for nothing
+            // gets the conservative 2.
+            int par = parallelism <= 0 ? 2 : Math.min(parallelism, 4);
             int waysPerCase = (n + way - 1) / way;
             int totalWays = waysPerCase * caseCount;
 
