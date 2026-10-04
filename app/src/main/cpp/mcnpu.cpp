@@ -449,10 +449,19 @@ static bool ensureGraphBudget(){
     return resetContextLocked();
 }
 
-static bool addSizeAllowed(uint32_t n){
+// Smallest supported size that can hold n, or 0 when n is too large.
+//
+// runAdd builds one QNN graph per size and the graph cache is bounded, which is
+// why a fixed set of sizes existed at all. Rejecting everything outside that set
+// was the wrong way to enforce it: the caller learned only that it was wrong,
+// never what would work, and a perfectly ordinary request simply died. Padding
+// up to the next bucket keeps the graph count bounded while accepting any
+// length. This is exactly what turned the 5x5 chunk-load simulation into
+// pass=0/100 - every one of its cases carried 8 values.
+static uint32_t addPadSize(uint32_t n){
     static const uint32_t allow[]={16,64,256,1024,4096,16384};
-    for(uint32_t v:allow) if(v==n) return true;
-    return false;
+    for(uint32_t v:allow) if(n<=v) return v;
+    return 0;
 }
 
 Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt,uint32_t* dims){
@@ -1237,11 +1246,18 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNI
     if(!ja||!jb)return e->NewStringUTF("ERR NULL");
     jsize n=e->GetArrayLength(ja);
     if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
-    if(!addSizeAllowed((uint32_t)n))return e->NewStringUTF("ERR SIZE_UNSUPPORTED allowed=16,64,256,1024,4096,16384");
-    std::vector<float>a(n),b(n);
+    const uint32_t padded=addPadSize((uint32_t)n);
+    if(padded==0) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=16384");
+    std::vector<float>a(padded,0.f),b(padded,0.f);
     e->GetFloatArrayRegion(ja,0,n,a.data());
     e->GetFloatArrayRegion(jb,0,n,b.data());
-    std::string r=runAdd(a.data(),b.data(),(uint32_t)n);
+    std::string r=runAdd(a.data(),b.data(),padded);
+    // Report the padding rather than hiding it: otherwise a caller benchmarking
+    // 8 values would read n=16 and believe 16 were required.
+    if(padded!=(uint32_t)n && r.rfind("OK",0)==0){
+        r += " req_n=" + std::to_string((unsigned)n);
+        r += " padded_to=" + std::to_string(padded);
+    }
     return e->NewStringUTF(r.c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
