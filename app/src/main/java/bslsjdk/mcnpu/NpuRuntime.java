@@ -139,6 +139,20 @@ public final class NpuRuntime {
         String r = nativeTestDetail();
         return r == null ? "ERR NATIVE_NULL" : r;
     }
+    /**
+     * Adds a and b on the HTP and writes the result into out.
+     *
+     * verify=true also compares every element against a CPU reference, which is
+     * a full CPU pass over the data - correct for a test, wrong for a data path,
+     * because it makes the call look no faster than the CPU it replaces.
+     */
+    public static synchronized String addInto(float[] a, float[] b, float[] out, boolean verify) {
+        if (!ready) return "ERR " + lastError;
+        if (a == null || b == null || out == null) return "ERR NULL";
+        if (a.length != b.length || out.length < a.length) return "ERR SIZE";
+        return nativeAddInto(a, b, out, verify);
+    }
+
     public static synchronized String add(float[] a, float[] b) {
         if (!ready) return "ERR " + lastError;
         return nativeAdd(a, b);
@@ -205,6 +219,7 @@ public final class NpuRuntime {
     private static native boolean nativeTest();
     private static native String nativeTestDetail();
     private static native String nativeAdd(float[] a, float[] b);
+    private static native String nativeAddInto(float[] a, float[] b, float[] out, boolean verify);
     /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
     private static native String nativeMatMul(int m, int k, int n);
     private static native String nativeMatMulFp16(int m, int k, int n);
