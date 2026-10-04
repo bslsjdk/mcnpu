@@ -86,7 +86,8 @@ public final class NpuBinFile {
             int parallelism = h.getInt();
             h.getInt();
             long checksum = h.getInt() & 0xFFFFFFFFL;
-            int way = wayElements <= 0 ? NpuBigAdd.MAX_WAY : Math.min(wayElements, NpuBigAdd.MAX_WAY);
+            int cap = NpuBigAdd.maxWay();
+            int way = wayElements <= 0 ? cap : Math.min(wayElements, cap);
             int ways = ((n + way - 1) / way) * Math.max(1, caseCount);
             return "magic=0x" + Integer.toHexString(magic)
                     + " version=" + version + " op=" + op
@@ -121,7 +122,8 @@ public final class NpuBinFile {
             if (op != OP_ADD) throw new IOException("暂不支持 op=" + op + "（当前仅 ADD）");
             if (n <= 0 || caseCount <= 0) throw new IOException("非法 n=" + n + " cases=" + caseCount);
 
-            int way = wayElements <= 0 ? NpuBigAdd.MAX_WAY : Math.min(wayElements, NpuBigAdd.MAX_WAY);
+            int cap = NpuBigAdd.maxWay();
+            int way = wayElements <= 0 ? cap : Math.min(wayElements, cap);
             int par = parallelism <= 0 ? 4 : Math.min(parallelism, 16);
             int waysPerCase = (n + way - 1) / way;
             int totalWays = waysPerCase * caseCount;
