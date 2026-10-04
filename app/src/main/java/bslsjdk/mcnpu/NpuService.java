@@ -306,8 +306,11 @@ public final class NpuService extends Service {
         try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
-            InputStream in = s.getInputStream();
-            OutputStream out = s.getOutputStream();
+            // BufferedInputStream is safe here: unlike BufferedReader it does not decode or
+            // pre-consume the binary tensor payload. It also removes thousands of tiny read()
+            // calls from the control header path. The client already uses the same buffer size.
+            InputStream in = new BufferedInputStream(s.getInputStream(), 256 * 1024);
+            OutputStream out = new BufferedOutputStream(s.getOutputStream(), 256 * 1024);
             final long serviceQueueUs = Math.max(0L, (System.nanoTime() - acceptedNs) / 1000L);
             String line;
             while ((line = readLineUtf8(in, 262144)) != null) {
@@ -445,8 +448,11 @@ public final class NpuService extends Service {
         log("SUBMITBIN_MATMUL8 m=" + m + " k=" + k + " n=" + n
                 + " scaleC=" + scaleC + " cbytes=" + cbytes
                 + " service_queue_us=" + acceptedQueueUs + " npu_service_us=" + us);
-        writeLineUtf8(out, "OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
-                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + acceptedQueueUs + " binary=1");
+        // One buffered flush for header + tensor. The old path flushed the header first,
+        // forcing a second transport boundary before the result bytes.
+        out.write(("OK BIN_SUBMIT m=" + m + " k=" + k + " n=" + n + " scaleC=" + scaleC
+                + " cbytes=" + cbytes + " us=" + us + " service_queue_us=" + acceptedQueueUs + " binary=1\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         out.write(res, 4, cbytes);
         out.flush();
     }
