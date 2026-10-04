@@ -24,6 +24,8 @@ public final class NpuService extends Service {
      * rejected it before it ever reached the HTP.
      */
     private static final int MAX_LINE_BYTES = 8 * 1024 * 1024;
+    /** Cap on the raw BINADD body: 16384 elements x 2 arrays x 4 bytes x 4096 cases would be 512 MB. */
+    private static final long MAX_BIN_BODY = 64L * 1024 * 1024;
     /** Read granularity for control lines; also the pushback buffer size. */
     private static final int LINE_BLOCK = 8192;
     private static final int IPC_PORT = 38761;
@@ -363,6 +365,15 @@ public final class NpuService extends Service {
                     // continue directly because their protocol predates HELLO.
                     helloDone = true;
                 }
+                if (cmd.startsWith("BINADD ")) {
+                    try {
+                        handleBinAdd(in, out, cmd.substring(7), serviceQueueUs);
+                    } catch (Throwable t) {
+                        log("BIN ADD exception=" + t);
+                        writeLineUtf8(out, "ERR BINADD_EXCEPTION " + t.getClass().getSimpleName());
+                    }
+                    continue;
+                }
                 if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
                     try {
                         handleSubmitBinMatMul8(in, out, cmd.substring(18), serviceQueueUs);
@@ -598,6 +609,63 @@ public final class NpuService extends Service {
             log("SUBMIT_MATMUL8 exception=" + t);
             return "ERR SUBMIT_EXCEPTION " + t.getClass().getSimpleName();
         }
+    }
+
+    /**
+     * BINADD n case_count\n<case_count * 2 * n little-endian float32>
+     *
+     * The text ADD path sends each value as decimal text: n=16384 costs about
+     * 360 KB of ASCII plus two Float.toString passes and two String.split calls
+     * per case. This path sends the same values as 128 KB of raw float32 that
+     * goes straight into the JNI call, which is what the multi-chunk batches
+     * actually need.
+     *
+     * The reply is still a text header because nativeAdd returns a string; making
+     * the result binary too needs a new native entry that fills a float[].
+     */
+    private void handleBinAdd(java.io.PushbackInputStream in, OutputStream out, String args, long serviceQueueUs) throws IOException {
+        long t0 = System.nanoTime();
+        String[] pp = args.trim().split("[ ]+");
+        if (pp.length != 2) { writeLineUtf8(out, "ERR BINADD_FORMAT use: BINADD n case_count"); return; }
+        int n, cases;
+        try {
+            n = Integer.parseInt(pp[0]);
+            cases = Integer.parseInt(pp[1]);
+        } catch (NumberFormatException e) {
+            writeLineUtf8(out, "ERR BINADD_FORMAT non-numeric"); return;
+        }
+        if (n <= 0 || n > 16384 || cases <= 0 || cases > 4096) {
+            writeLineUtf8(out, "ERR BINADD_RANGE n=" + n + " cases=" + cases); return;
+        }
+        long bodyBytes = 4L * 2L * n * cases;
+        if (bodyBytes > MAX_BIN_BODY) {
+            writeLineUtf8(out, "ERR BINADD_TOO_LARGE body=" + bodyBytes + " cap=" + MAX_BIN_BODY); return;
+        }
+        byte[] body = new byte[(int) bodyBytes];
+        readFully(in, body, body.length);
+        java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(body).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        float[] a = new float[n], b = new float[n];
+        int ok = 0, cached = 0;
+        long npuUs = 0;
+        StringBuilder first = new StringBuilder();
+        for (int c = 0; c < cases; c++) {
+            for (int i = 0; i < n; i++) a[i] = bb.getFloat();
+            for (int i = 0; i < n; i++) b[i] = bb.getFloat();
+            long c0 = System.nanoTime();
+            String r = NpuRuntime.add(a, b);
+            long us = (System.nanoTime() - c0) / 1000L;
+            npuUs += us;
+            if (r != null && r.startsWith("OK")) ok++;
+            if (r != null && r.contains("graph_cached=true")) cached++;
+            if (c == 0) first = new StringBuilder(r == null ? "null" : r);
+        }
+        long totalUs = (System.nanoTime() - t0) / 1000L;
+        writeLineUtf8(out, "OK BINADD n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
+                + " cached=" + cached + " body_bytes=" + bodyBytes
+                + " npu_us=" + npuUs + " queue_us=" + serviceQueueUs + " total_us=" + totalUs
+                + " case0=" + first);
+        log("BINADD n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
+                + " body_bytes=" + bodyBytes + " npu_us=" + npuUs + " total_us=" + totalUs);
     }
 
     private String handleAdd(String payload) {
