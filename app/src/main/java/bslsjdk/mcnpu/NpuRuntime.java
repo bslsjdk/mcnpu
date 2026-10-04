@@ -116,6 +116,11 @@ public final class NpuRuntime {
 
     public static boolean isReady() { return ready; }
     public static String getLastError() { return lastError; }
+
+    /** Exact native failure for the last binary INT8 submission. */
+    public static String getLastNativeError() {
+        try { return nativeGetLastError(); } catch (Throwable t) { return "ERR NATIVE_ERROR_QUERY " + t.getClass().getSimpleName(); }
+    }
     public static synchronized String status() {
         return ready ? nativeGetDeviceInfo() : "NPU_OFFLINE " + lastError;
     }
@@ -194,6 +199,7 @@ public final class NpuRuntime {
         ready = false;
     }
 
+    private static native String nativeGetLastError();
     private static native boolean nativeInit(String qnnDir, String workDir);
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
