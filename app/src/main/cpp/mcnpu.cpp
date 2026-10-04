@@ -477,7 +477,6 @@ static uint32_t g_addLadderMax = 16384;
 // Same measurement for fp16 tensors. 0 until probed. The data path stays fp32
 // for now, so this is reported but not adopted: switching the wire format is a
 // separate decision and should be made with the numbers in hand, not before.
-static uint32_t g_addLadderMaxFp16 = 0;
 
 static uint32_t addPadSize(uint32_t n){
     for(uint32_t v:ADD_LADDER_BASE) if(n<=v) return v;
@@ -622,22 +621,22 @@ static std::string probeAddLadder(){
     g_probeAbort.store(false);
     long long budgetUs = PROBE_TOTAL_BUDGET_US;
     uint32_t best32 = probeAddPass(false, lines, budgetUs);
-    // fp16 is measured for comparison only. HTP treats fp16 as native, so it may
-    // accept sizes fp32 cannot, and it halves the bytes per element - which is
-    // the same bandwidth pressure that keeps showing up as way counts.
-    uint32_t best16 = probeAddPass(true, lines, budgetUs);
+    // fp16 used to be probed here as a comparison. It is gone deliberately: the
+    // datatype is the HTP native one and it did accept larger sizes, but its
+    // elapsed time exploded - 473 ms at n=16384 and 25 s at n=32768 against an
+    // execute of about 2 ms, so the cost is entirely in the conversion path and
+    // grows faster than linearly. Probing it cost 26 s of the startup window on
+    // every boot to produce a number that is already known and already rejected.
 
     {
         std::lock_guard<std::mutex> lock(gRuntimeMutex);
         if(best32>g_addLadderMax) g_addLadderMax=best32;
-        if(best16>g_addLadderMaxFp16) g_addLadderMaxFp16=best16;
         // The probe just built one graph per candidate, which is exactly the
         // cache pressure the ladder exists to avoid. Flush before real work.
         resetContextLocked();
         snprintf(buf,sizeof buf,
-                 "OK ADD_PROBE max_fp32=%u max_fp16=%u ladder=%s\n",
-                 (unsigned)g_addLadderMax,(unsigned)g_addLadderMaxFp16,
-                 addLadderText().c_str());
+                 "OK ADD_PROBE max_fp32=%u ladder=%s\n",
+                 (unsigned)g_addLadderMax, addLadderText().c_str());
     }
     return std::string(buf)+lines;
 }
