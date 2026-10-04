@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -100,10 +101,35 @@ jobs:
           test -f build/native/libmcnpu.so
           file build/native/libmcnpu.so
 
+      # Keep the compiler output in a file as well as the console: the Actions
+      # log archive is not reachable from every tool, so a failure has to be
+      # readable through the API too.
       - name: Build unsigned release APK
         env:
           QNN_INC: ${{ github.workspace }}/qnn_probe/app/src/main/cpp/qnn_inc
-        run: gradle :app:assembleRelease --no-daemon --parallel --build-cache
+        run: |
+          set -o pipefail
+          mkdir -p build
+          gradle :app:assembleRelease --no-daemon --parallel --build-cache 2>&1 | tee build/gradle.log
+
+      - name: Report build errors
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let text = '(no build/gradle.log)';
+            try { text = fs.readFileSync('build/gradle.log', 'utf8'); } catch (e) { }
+            const lines = text.split('\n').filter(l => /error:|error \[|FAILED|Exception|Caused by|symbol:|location:/.test(l));
+            const picked = lines.slice(-60).join('\n').slice(0, 30000);
+            const body = ['CI failure on `' + context.sha + '`', '', '```', picked || text.slice(-10000), '```'].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'CI FAIL ' + context.sha.slice(0, 11),
+              body: body
+            });
 
       - name: Verify APK contents
         run: |
