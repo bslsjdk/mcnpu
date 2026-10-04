@@ -38,14 +38,22 @@ public final class NpuKeepAlive {
     private static final String PKG = "bslsjdk.mcnpu";
     /** ROMs reset the standby bucket and appops on their own schedule; re-apply. */
     private static final long REAPPLY_MS = 10 * 60 * 1000L;
+    /** Poll interval while waiting for the Shizuku permission to be granted. */
+    private static final long WAIT_SHIZUKU_MS = 10 * 1000L;
 
     private static volatile String lastReport = "未执行";
     private static volatile boolean applied = false;
+    private static volatile boolean running = false;
 
     private NpuKeepAlive() {}
 
     /** Fire-and-forget; safe to call from the service startup path. */
-    public static void apply(final Context ctx) {
+    public static synchronized void apply(final Context ctx) {
+        if (running) {
+            android.util.Log.i(TAG, "KEEPALIVE already running, skip");
+            return;
+        }
+        running = true;
         Thread t = new Thread(new Runnable() {
             @Override public void run() {
                 try {
@@ -53,6 +61,8 @@ public final class NpuKeepAlive {
                 } catch (Throwable e) {
                     android.util.Log.e(TAG, "KEEPALIVE crashed", e);
                     lastReport = "崩溃: " + e;
+                } finally {
+                    running = false;
                 }
             }
         }, "mcnpu-keepalive");
@@ -60,16 +70,21 @@ public final class NpuKeepAlive {
         t.start();
     }
 
+    /** Re-check now instead of waiting for the next poll. */
+    public static void kick(final Context ctx) { apply(ctx); }
+
     private static void runLoop() {
-        if (!ShizukuHelper.available()) {
-            lastReport = "Shizuku 未运行（无法加入省电白名单）";
-            android.util.Log.i(TAG, "KEEPALIVE skip: shizuku not running");
-            return;
-        }
-        if (!ShizukuHelper.granted()) {
-            lastReport = "Shizuku 未授权（无法加入省电白名单）";
-            android.util.Log.i(TAG, "KEEPALIVE skip: shizuku not granted");
-            return;
+        // Wait for Shizuku rather than giving up. This thread starts when the
+        // service starts, which is normally BEFORE the user has accepted the
+        // Shizuku prompt - and returning here was permanent, so the whitelist
+        // was never applied even though the same diagnostic later reported
+        // "已授权". Observed as: KEEPALIVE "未授权" next to AUTH_RESULT "已授权".
+        while (!ShizukuHelper.available() || !ShizukuHelper.granted()) {
+            lastReport = ShizukuHelper.available()
+                    ? "等待 Shizuku 授权（暂时无法加入省电白名单）"
+                    : "等待 Shizuku 启动（暂时无法加入省电白名单）";
+            android.util.Log.i(TAG, "KEEPALIVE wait: " + lastReport);
+            if (!sleepQuietly(WAIT_SHIZUKU_MS)) return;
         }
         while (true) {
             ArrayList<String> results = new ArrayList<String>();
@@ -95,11 +110,14 @@ public final class NpuKeepAlive {
             lastReport = "已保活 · " + join(results);
             android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
 
-            try { Thread.sleep(REAPPLY_MS); } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
+            if (!sleepQuietly(REAPPLY_MS)) return;
         }
+    }
+
+    /** @return false if interrupted. */
+    private static boolean sleepQuietly(long ms) {
+        try { Thread.sleep(ms); return true; }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); return false; }
     }
 
     private static String join(ArrayList<String> parts) {
