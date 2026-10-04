@@ -650,20 +650,23 @@ public final class NpuService extends Service {
         StringBuilder first = new StringBuilder();
         byte[] results = new byte[4 * n * cases];
         java.nio.ByteBuffer rb = java.nio.ByteBuffer.wrap(results).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-        float[] out = new float[n];
+        // Named outBuf, not out: this method's reply stream is already called out,
+        // and shadowing it turns every write below into a type error that reads as
+        // if the result buffer were the problem.
+        float[] outBuf = new float[n];
         for (int c = 0; c < cases; c++) {
             for (int i = 0; i < n; i++) a[i] = bb.getFloat();
             for (int i = 0; i < n; i++) b[i] = bb.getFloat();
             long c0 = System.nanoTime();
             // verify=false: the per-element CPU compare would cost more than the
             // graph execute it is meant to be measuring.
-            String r = NpuRuntime.addInto(a, b, out, false);
+            String r = NpuRuntime.addInto(a, b, outBuf, false);
             long us = (System.nanoTime() - c0) / 1000L;
             npuUs += us;
             if (r != null && r.startsWith("OK")) ok++;
             if (r != null && r.contains("graph_cached=true")) cached++;
             if (c == 0) first = new StringBuilder(r == null ? "null" : r);
-            for (int i = 0; i < n; i++) rb.putFloat(out[i]);
+            for (int i = 0; i < n; i++) rb.putFloat(outBuf[i]);
         }
         long totalUs = (System.nanoTime() - t0) / 1000L;
         writeLineUtf8(out, "OK BINADD n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
