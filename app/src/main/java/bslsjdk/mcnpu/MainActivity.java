@@ -301,7 +301,8 @@ public final class MainActivity extends Activity {
                 + "PING: " + NpuServiceClient.request("PING") + "\n"
                 + "STATUS: " + NpuServiceClient.request("STATUS") + "\n"
                 + "SHIZUKU: " + ShizukuHelper.status() + "\n"
-                + "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
+                + "KEEPALIVE: " + NpuKeepAlive.lastReport() + "\n"
++ "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
                 + "--- PERSISTENT SERVICE LOG ---\n"
                 + readLocalLog();
     }
