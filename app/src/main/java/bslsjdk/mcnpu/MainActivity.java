@@ -16,6 +16,7 @@ import android.widget.*;
 import android.text.method.ScrollingMovementMethod;
 import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
