@@ -24,6 +24,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   body, which the service would have to buffer in one allocation. Ways are
  *   therefore submitted in sub-batches bounded by TARGET_BODY_BYTES, so the body
  *   size is decided here rather than discovered as an OOM on the device.
+ *
+ * <p><b>Cost, measured on a Snapdragon 8s Gen 3 at way=65536:</b> about
+ * 0.3 microseconds per element end to end. A 9x9 block of 7,962,624 elements ran
+ * in 2.4 s twice, reproducibly, with zero mismatches. Memory is 12 bytes per
+ * element live at once - both inputs plus the output - so a 9x9 block is ~95 MB
+ * in one allocation.
+ *
+ * <p><b>Failure is a return value, never an exception.</b> Every path returns a
+ * {@link Result}; when it fails, {@code out} is null and the status names the
+ * stage that refused. Returning a partially written array as if it were complete
+ * is the one thing this class must not do, which is why a batch is accepted only
+ * when the service reports every case served.
+ *
+ * <p><b>Call it from a worker thread.</b> It blocks for the whole run, which is
+ * seconds for a large batch.
  */
 public final class NpuBigAdd {
 
@@ -68,8 +83,28 @@ public final class NpuBigAdd {
     }
 
     /**
+     * Adds a and b using the largest shape the device reported and two sockets.
+     *
+     * @return the merged sum, or a result whose {@code out} is null and whose
+     *         status names the stage that refused.
+     */
+    public static Result add(float[] a, float[] b) {
+        return add(a, b, 0, 2);
+    }
+
+    /**
+     * @param a left operand; must be the same length as b
+     * @param b right operand
+     * @param wayElements elements per way. 0 or negative means "as large as the
+     *                    device allows" ({@link #maxWay()}); larger values are
+     *                    clamped to it. A trailing way shorter than this is
+     *                    zero-padded, and since fresh arrays are already zero
+     *                    and x + 0 == x the merged output is correct with no
+     *                    special case at the read-back end.
      * @param parallelism socket count. More sockets overlap transfer with execute;
      *                    they do not add execution throughput.
+     * @return the merged sum, or a result whose {@code out} is null and whose
+     *         status names the stage that refused.
      */
     public static Result add(float[] a, float[] b, int wayElements, int parallelism) {
         long t0 = System.nanoTime();
