@@ -436,7 +436,7 @@ public final class NpuService extends Service {
         byte[] res = NpuRuntime.matMulInt8Buf(A, B, m, k, n);
         long us = (System.nanoTime() - t0) / 1000;
         if (res == null || res.length < 5) {
-            writeLineUtf8(out, "ERR BIN_SUBMIT_FAILED (native layer, see logcat)");
+            writeLineUtf8(out, "ERR BIN_SUBMIT_FAILED " + NpuRuntime.getLastNativeError());
             return;
         }
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(res, 0, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
