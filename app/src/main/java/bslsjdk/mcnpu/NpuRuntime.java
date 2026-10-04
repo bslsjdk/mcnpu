@@ -120,6 +120,20 @@ public final class NpuRuntime {
         return ready ? nativeGetDeviceInfo() : "NPU_OFFLINE " + lastError;
     }
     public static synchronized boolean smoke() { return ready && nativeTest(); }
+
+    /**
+     * Self test that keeps the reason.
+     *
+     * smoke() returns a bit, so a failing self test reaches the client as one fixed
+     * string no matter what actually went wrong. This returns the underlying reply
+     * instead, so the client can show whether it was graph creation, execution, or
+     * output verification - and with what values.
+     */
+    public static synchronized String smokeDetail() {
+        if (!ready) return "ERR NPU_NOT_READY";
+        String r = nativeTestDetail();
+        return r == null ? "ERR NATIVE_NULL" : r;
+    }
     public static synchronized String add(float[] a, float[] b) {
         if (!ready) return "ERR " + lastError;
         return nativeAdd(a, b);
@@ -183,6 +197,7 @@ public final class NpuRuntime {
     private static native boolean nativeInit(String qnnDir, String workDir);
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
+    private static native String nativeTestDetail();
     private static native String nativeAdd(float[] a, float[] b);
     /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
     private static native String nativeMatMul(int m, int k, int n);
