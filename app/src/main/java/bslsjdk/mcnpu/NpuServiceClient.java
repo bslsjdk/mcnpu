@@ -56,8 +56,30 @@ public final class NpuServiceClient {
      * The body is written with a blocking loop: TCP is a stream, so a single
      * write is never assumed to carry the whole buffer, especially at 512 KB.
      */
-    public static String binAdd(float[][] a, float[][] b, int n) {
-        if (a == null || b == null || a.length == 0 || a.length != b.length) return "ERR BINADD_ARGS";
+    /** One BINADD call plus the float32 results it returned. */
+    public static final class BinAddResult {
+        public String status = "ERR NO_REPLY";
+        public float[][] out;
+        public long clientUs;
+        public int okCount;
+        public String raw = "";
+    }
+
+    /**
+     * Sends ADD cases as raw little-endian float32 and reads the results back the
+     * same way.
+     *
+     * The body is written and read with blocking loops: TCP is a stream, so no
+     * single operation is assumed to carry the whole buffer, and the reply is a
+     * text header followed by a binary body rather than one or the other, so a
+     * failure is still readable in a log.
+     */
+    public static BinAddResult binAdd(float[][] a, float[][] b, int n) {
+        BinAddResult res = new BinAddResult();
+        if (a == null || b == null || a.length == 0 || a.length != b.length) {
+            res.status = "ERR BINADD_ARGS";
+            return res;
+        }
         int cases = a.length;
         java.nio.ByteBuffer body = java.nio.ByteBuffer.allocate(4 * 2 * n * cases)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN);
@@ -80,14 +102,45 @@ public final class NpuServiceClient {
                 off += chunk;
             }
             os.flush();
-            String reply = readReplyLine(is);
-            return (reply == null ? "ERR EMPTY_REPLY" : reply)
-                    + " client_us=" + ((System.nanoTime() - t0) / 1000L)
-                    + " body_bytes=" + payload.length;
+            String header = readReplyLine(is);
+            res.raw = header == null ? "" : header;
+            if (header == null) {
+                res.status = "ERR EMPTY_REPLY";
+                return res;
+            }
+            res.status = header;
+            int at = header.indexOf("ok=");
+            if (at >= 0) {
+                int slash = header.indexOf('/', at);
+                if (slash > at) {
+                    try { res.okCount = Integer.parseInt(header.substring(at + 3, slash).trim()); }
+                    catch (NumberFormatException ignored) {}
+                }
+            }
+            if (header.startsWith("OK")) {
+                byte[] results = new byte[4 * n * cases];
+                readFully(is, results, results.length);
+                java.nio.ByteBuffer rb = java.nio.ByteBuffer.wrap(results)
+                        .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                res.out = new float[cases][n];
+                for (int c = 0; c < cases; c++) for (int i = 0; i < n; i++) res.out[c][i] = rb.getFloat();
+            }
+            return res;
         } catch (Throwable t) {
-            return "ERR SERVICE_UNAVAILABLE " + t.getClass().getName()
-                    + " msg=" + String.valueOf(t.getMessage())
-                    + " us=" + ((System.nanoTime() - t0) / 1000L);
+            res.status = "ERR SERVICE_UNAVAILABLE " + t.getClass().getName()
+                    + " msg=" + String.valueOf(t.getMessage());
+            return res;
+        } finally {
+            res.clientUs = (System.nanoTime() - t0) / 1000L;
+        }
+    }
+
+    private static void readFully(InputStream in, byte[] buf, int len) throws IOException {
+        int off = 0;
+        while (off < len) {
+            int r = in.read(buf, off, len - off);
+            if (r < 0) throw new java.io.EOFException("expected " + len + " bytes, got " + off);
+            off += r;
         }
     }
 
