@@ -168,6 +168,7 @@ public final class MainActivity extends Activity {
     private void runImportedTest(Uri uri) {
         try {
             String json;
+            long jsonBytes = 0;
             try (java.io.InputStream in = getContentResolver().openInputStream(uri);
                  java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
                 if (in == null) throw new java.io.IOException("无法打开文件");
@@ -182,6 +183,8 @@ public final class MainActivity extends Activity {
             result.append("=== IMPORTED NPU TEST ===\n")
                   .append("task=").append(task).append("\n")
                   .append("cases=").append(cases.length()).append("\n");
+            java.util.ArrayList<float[]> pendingA = new java.util.ArrayList<>();
+            java.util.ArrayList<float[]> pendingB = new java.util.ArrayList<>();
             int pass = 0;
             for (int k = 0; k < cases.length(); k++) {
                 JSONObject item = cases.getJSONObject(k);
@@ -199,20 +202,35 @@ public final class MainActivity extends Activity {
                     result.append("CASE ").append(k).append(": INVALID ").append(bad).append("\n");
                     continue;
                 }
-                StringBuilder a = new StringBuilder(), b = new StringBuilder();
+                float[] fa = new float[aa.length()], fb = new float[aa.length()];
                 for (int i=0;i<aa.length();i++) {
-                    if(i>0){a.append(',');b.append(',');}
                     double av = aa.getDouble(i), bv = bb.getDouble(i);
                     if (!Double.isFinite(av) || !Double.isFinite(bv) || av > Float.MAX_VALUE || av < -Float.MAX_VALUE || bv > Float.MAX_VALUE || bv < -Float.MAX_VALUE) throw new IllegalArgumentException("非有限或超出 float 范围");
-                    a.append(Float.toString((float) av)); b.append(Float.toString((float) bv));
+                    fa[i] = (float) av; fb[i] = (float) bv;
                 }
-                long caseT0 = System.nanoTime();
-                String reply = NpuServiceClient.request("ADD " + a + "|" + b);
-                long caseUs = (System.nanoTime() - caseT0) / 1000L;
-                boolean ok = reply.startsWith("OK HTP_GRAPH_EXECUTE");
-                if(ok) pass++;
-                result.append("CASE ").append(k).append(": len=").append(aa.length())
-                      .append(" roundtrip_us=").append(caseUs).append(" ").append(reply).append("\n");
+                pendingA.add(fa); pendingB.add(fb);
+            }
+            // One binary call for every accepted case. Beyond removing the decimal
+            // text, this is what the multi-chunk path needs: one fixed-shape call
+            // per batch instead of one call per chunk.
+            if (!pendingA.isEmpty()) {
+                int n = pendingA.get(0).length;
+                float[][] a2 = pendingA.toArray(new float[0][]);
+                float[][] b2 = pendingB.toArray(new float[0][]);
+                long binT0 = System.nanoTime();
+                String binReply = NpuServiceClient.binAdd(a2, b2, n);
+                long binUs = (System.nanoTime() - binT0) / 1000L;
+                int okCount = 0;
+                int at = binReply.indexOf("ok=");
+                if (at >= 0) {
+                    int slash = binReply.indexOf('/', at);
+                    if (slash > at) try { okCount = Integer.parseInt(binReply.substring(at + 3, slash).trim()); } catch (NumberFormatException ignored) {}
+                }
+                pass += okCount;
+                result.append("BIN n=").append(n).append(" cases=").append(pendingA.size())
+                      .append(" roundtrip_us=").append(binUs)
+                      .append(" json_bytes~").append(jsonBytes)
+                      .append(" ").append(binReply).append("\n");
             }
             result.append("SUMMARY pass=").append(pass).append("/")
                   .append(cases.length()).append(" NPU=HTP V73\n")
