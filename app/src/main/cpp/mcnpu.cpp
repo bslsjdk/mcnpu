@@ -43,6 +43,7 @@ struct Runtime {
         Qnn_Tensor_t a=QNN_TENSOR_INIT;
         Qnn_Tensor_t b=QNN_TENSOR_INIT;
         Qnn_Tensor_t c=QNN_TENSOR_INIT;
+        bool fp16=false;
     };
     struct MatMulGraph {
         Qnn_GraphHandle_t graph=nullptr;
@@ -57,7 +58,9 @@ struct Runtime {
         float scaleEff=0.02f;
         bool calibrated=false;
     };
-    std::unordered_map<uint32_t, AddGraph> addGraphs;
+    // Keyed on (n, fp16). Keying on n alone would hand an fp32 graph to an
+    // fp16 call and the buffer would be read at half the element size.
+    std::unordered_map<uint64_t, AddGraph> addGraphs;
     std::unordered_map<uint64_t, MatMulGraph> matMulGraphs;
     std::unordered_map<uint64_t, MatMulGraph> matMulGraphs8;
     void* qnn=nullptr;
@@ -470,6 +473,10 @@ static const uint32_t ADD_LADDER_BASE[]={16,64,256,1024,4096,16384};
 //
 // Guarded by gRuntimeMutex.
 static uint32_t g_addLadderMax = 16384;
+// Same measurement for fp16 tensors. 0 until probed. The data path stays fp32
+// for now, so this is reported but not adopted: switching the wire format is a
+// separate decision and should be made with the numbers in hand, not before.
+static uint32_t g_addLadderMaxFp16 = 0;
 
 static uint32_t addPadSize(uint32_t n){
     for(uint32_t v:ADD_LADDER_BASE) if(n<=v) return v;
@@ -489,9 +496,46 @@ static std::string addLadderText(){
     return s;
 }
 
+
+// IEEE-754 binary16 <-> binary32, no libm and no compiler-specific _Float16,
+// because this .so is built for a different ABI than the QNN sample apps.
+static uint16_t f32ToF16(float v){
+    uint32_t x; memcpy(&x,&v,4);
+    const uint32_t sign = (x >> 16) & 0x8000u;
+    const int32_t  exp  = (int32_t)((x >> 23) & 0xFF) - 127 + 15;
+    uint32_t mant = x & 0x7FFFFFu;
+    if (exp >= 31) return (uint16_t)(sign | 0x7C00u);          // inf / overflow
+    if (exp <= 0) {                                            // zero / subnormal
+        if (exp < -10) return (uint16_t)sign;                  // rounds to zero
+        mant |= 0x800000u;                                     // implicit leading 1
+        return (uint16_t)(sign | (mant >> (14 - exp)));
+    }
+    return (uint16_t)(sign | ((uint32_t)exp << 10) | (mant >> 13));
+}
+static float f16ToF32(uint16_t h){
+    const uint32_t sign = (uint32_t)(h & 0x8000u) << 16;
+    uint32_t exp = (uint32_t)((h >> 10) & 0x1F);
+    uint32_t mant = (uint32_t)(h & 0x3FF);
+    uint32_t x;
+    if (exp == 0) {
+        if (mant == 0) x = sign;                               // +-0
+        else {                                                 // subnormal -> normalise
+            exp = 127 - 15 + 1;
+            while (!(mant & 0x400)) { mant <<= 1; exp--; }
+            mant &= 0x3FF;
+            x = sign | (exp << 23) | (mant << 13);
+        }
+    } else if (exp == 31) {
+        x = sign | 0x7F800000u | (mant << 13);                 // inf / NaN
+    } else {
+        x = sign | ((exp + 112) << 23) | (mant << 13);
+    }
+    float f; memcpy(&f,&x,4); return f;
+}
+
 // Defined below; the probe calls it once per candidate size. Declared without
 // static to match the definition's linkage.
-std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify);
+std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify,bool fp16=false);
 
 // Walk candidate sizes on the real device and report which ones the HTP accepts.
 //
@@ -507,20 +551,22 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
 // std::mutex is not recursive, so a probe that held the lock across those calls
 // would deadlock on its own first candidate. The lock is taken only for the two
 // short updates at the end.
-static std::string probeAddLadder(){
+// One ascending pass over the candidate sizes for one tensor datatype.
+// Returns the largest size that built, and appends one line per candidate.
+static uint32_t probeAddPass(bool fp16, std::string& lines){
     static const uint32_t cand[]={16,64,256,1024,4096,16384,32768,65536,131072,262144,524288,1048576};
-    std::string lines;
     uint32_t best=0;
     char buf[256];
     for(uint32_t c:cand){
         std::vector<float> a(c,1.f), b(c,2.f), o(c,-999.f);
         long long t0=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
-        std::string r=runAddEx(a.data(),b.data(),c,o.data(),false);
+        std::string r=runAddEx(a.data(),b.data(),c,o.data(),false,fp16);
         long long us=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count()-t0;
         bool ok = r.rfind("OK",0)==0;
-        snprintf(buf,sizeof buf," %u %s elapsed_us=%lld",(unsigned)c, ok?"ok":"FAIL", us);
+        snprintf(buf,sizeof buf," %s %u %s elapsed_us=%lld",
+                 fp16?"fp16":"fp32",(unsigned)c, ok?"ok":"FAIL", us);
         lines += buf;
         if(ok){
             // Surface the timings that matter: create is paid once per size,
@@ -536,14 +582,32 @@ static std::string probeAddLadder(){
         }
         lines += "\n";
     }
+    return best;
+}
+
+static std::string probeAddLadder(){
+    std::string lines;
+    char buf[256];
+
+    // fp32 first: it is the datatype the data path actually uses, so its result
+    // is the one that may be adopted.
+    uint32_t best32 = probeAddPass(false, lines);
+    // fp16 is measured for comparison only. HTP treats fp16 as native, so it may
+    // accept sizes fp32 cannot, and it halves the bytes per element - which is
+    // the same bandwidth pressure that keeps showing up as way counts.
+    uint32_t best16 = probeAddPass(true, lines);
+
     {
         std::lock_guard<std::mutex> lock(gRuntimeMutex);
-        if(best>g_addLadderMax) g_addLadderMax=best;
+        if(best32>g_addLadderMax) g_addLadderMax=best32;
+        if(best16>g_addLadderMaxFp16) g_addLadderMaxFp16=best16;
         // The probe just built one graph per candidate, which is exactly the
         // cache pressure the ladder exists to avoid. Flush before real work.
         resetContextLocked();
-        snprintf(buf,sizeof buf,"OK ADD_PROBE max=%u ladder=%s\n",
-                 (unsigned)g_addLadderMax,addLadderText().c_str());
+        snprintf(buf,sizeof buf,
+                 "OK ADD_PROBE max_fp32=%u max_fp16=%u ladder=%s\n",
+                 (unsigned)g_addLadderMax,(unsigned)g_addLadderMaxFp16,
+                 addLadderText().c_str());
     }
     return std::string(buf)+lines;
 }
@@ -560,15 +624,26 @@ Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt
 // against a CPU reference, which costs a full CPU pass over n floats - the same
 // work the graph was supposed to replace. It belongs in tests, never in the data
 // path, so it is opt-in here.
-std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify){
+std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool verify,bool fp16){
+    // fp16 halves the bytes the HTP has to move, and HTP is the one backend
+    // where fp16 is native rather than emulated. The conversion is a host-side
+    // pass over n floats, so it is opt-in: correct to measure, wrong to impose
+    // on a caller whose data is already fp32.
+    std::vector<uint16_t> a16,b16;
+    std::vector<float> o32;
+    if(fp16){
+        a16.resize(n); b16.resize(n); o32.resize(n);
+        for(uint32_t i=0;i<n;i++){ a16[i]=f32ToF16(av[i]); b16[i]=f32ToF16(bv[i]); }
+    }
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
     if(!g.ready || !g.api || !g.context) { g_lastNativeError="ERR NPU_NOT_READY"; return g_lastNativeError; }
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
 
+    const uint64_t key=(uint64_t)n|(fp16?(1ULL<<40):0ULL);
     Runtime::AddGraph* ag=nullptr;
     bool cached=false;
-    auto found=g.addGraphs.find(n);
+    auto found=g.addGraphs.find(key);
     if(found!=g.addGraphs.end()){
         ag=&found->second;
         cached=true;
@@ -582,9 +657,10 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
         // descriptor points at dimensions owned by the final cached object.
         if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
         g.graphCount++;
-        auto inserted=g.addGraphs.emplace(n, Runtime::AddGraph{});
+        auto inserted=g.addGraphs.emplace(key, Runtime::AddGraph{});
         ag=&inserted.first->second;
         ag->dims[0]=n;
+        ag->fp16=fp16;
 
         const std::string graphName = "mcnpu_add_" + std::to_string(++g.graphSeq);
 
@@ -598,9 +674,10 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
                    " create_us="+std::to_string(createUs)+" "+verbose(rc);
         }
 
-        ag->a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,ag->dims);
-        ag->b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,QNN_DATATYPE_FLOAT_32,ag->dims);
-        ag->c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ,QNN_DATATYPE_FLOAT_32,ag->dims);
+        const Qnn_DataType_t adt = fp16 ? QNN_DATATYPE_FLOAT_16 : QNN_DATATYPE_FLOAT_32;
+        ag->a=makeTensor("a",QNN_TENSOR_TYPE_APP_WRITE,adt,ag->dims);
+        ag->b=makeTensor("b",QNN_TENSOR_TYPE_APP_WRITE,adt,ag->dims);
+        ag->c=makeTensor("c",QNN_TENSOR_TYPE_APP_READ, adt,ag->dims);
 
         rc=f.tensorCreateGraphTensor(ag->graph,&ag->a);
         if(rc==QNN_SUCCESS) rc=f.tensorCreateGraphTensor(ag->graph,&ag->b);
@@ -608,7 +685,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
         if(rc!=QNN_SUCCESS){
             // QNN 2.27 exposes no graphFree in QnnInterface. The graph is
             // owned by the context and is released by contextFree.
-            g.addGraphs.erase(n);
+            g.addGraphs.erase(key);
             E("ADD TENSOR_CREATE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
             return "ERR TENSOR_CREATE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
@@ -634,7 +711,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
 
         rc=f.graphAddNode(ag->graph,op);
         if(rc!=QNN_SUCCESS){
-            g.addGraphs.erase(n);
+            g.addGraphs.erase(key);
             E("ADD GRAPH_NODE_FAIL n=%u rc=%d %s",(unsigned)n,(int)rc,verbose(rc).c_str());
             return "ERR GRAPH_NODE rc="+std::to_string((int)rc)+" "+verbose(rc);
         }
@@ -644,7 +721,7 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
         finalizeUs=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now()-tFinalize0).count();
         if(rc!=QNN_SUCCESS){
-            g.addGraphs.erase(n);
+            g.addGraphs.erase(key);
             E("ADD GRAPH_FINALIZE_FAIL n=%u rc=%d create_us=%lld finalize_us=%lld %s",
               (unsigned)n,(int)rc,createUs,finalizeUs,verbose(rc).c_str());
             return "ERR GRAPH_FINALIZE rc="+std::to_string((int)rc)+
@@ -661,12 +738,19 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
     // tensorCreateGraphTensor(). Reuse the registered descriptors and only
     // replace their client buffers for each execution.
     Qnn_Tensor_t ea=ag->a, eb=ag->b, ec=ag->c;
-    ea.v1.clientBuf.data=(void*)av;
-    ea.v1.clientBuf.dataSize=n*sizeof(float);
-    eb.v1.clientBuf.data=(void*)bv;
-    eb.v1.clientBuf.dataSize=n*sizeof(float);
-    ec.v1.clientBuf.data=out;
-    ec.v1.clientBuf.dataSize=n*sizeof(float);
+    const size_t elemBytes = fp16 ? sizeof(uint16_t) : sizeof(float);
+    if(fp16){
+        ea.v1.clientBuf.data=a16.data();
+        eb.v1.clientBuf.data=b16.data();
+        ec.v1.clientBuf.data=o32.data();
+    }else{
+        ea.v1.clientBuf.data=(void*)av;
+        eb.v1.clientBuf.data=(void*)bv;
+        ec.v1.clientBuf.data=out;
+    }
+    ea.v1.clientBuf.dataSize=n*elemBytes;
+    eb.v1.clientBuf.dataSize=n*elemBytes;
+    ec.v1.clientBuf.dataSize=n*elemBytes;
     Qnn_Tensor_t execIn[2]={ea,eb};
     Qnn_Tensor_t execOut[1]={ec};
 
@@ -685,6 +769,8 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
     // values, which also distinguishes "slightly off" from "never written" - an
     // untouched output buffer reads back as the -999 fill, and that is visible
     // immediately instead of hiding behind a bare verify failure.
+    if(fp16) for(uint32_t i=0;i<n;i++) out[i]=f16ToF32(o32[i]);
+
     if(verify) for(uint32_t i=0;i<n;i++){
         float want=av[i]+bv[i];
         float got=out[i];
@@ -692,7 +778,8 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
         if(diff<0.f) diff=-diff;
         float scale=want<0.f?-want:want;
         if(scale<1e-6f) scale=1e-6f;
-        if(diff > 1e-3f*scale){
+        const float tol = fp16 ? 5e-3f : 1e-3f;
+        if(diff > tol*scale){
             char vb[256];
             std::snprintf(vb,sizeof(vb),
                 "ERR OUTPUT_VERIFY i=%u want=%.9g got=%.9g diff=%.9g",
@@ -706,8 +793,8 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
         std::chrono::steady_clock::now()-total0).count();
     char buf[512];
     std::snprintf(buf,sizeof(buf),
-        "OK HTP_GRAPH_EXECUTE graph_cached=%s n=%u create_us=%lld finalize_us=%lld execute_us=%lld total_us=%lld out0=%g out_last=%g",
-        cached?"true":"false",(unsigned)n,createUs,finalizeUs,(long long)us,
+        "OK HTP_GRAPH_EXECUTE graph_cached=%s n=%u dtype=%s create_us=%lld finalize_us=%lld execute_us=%lld total_us=%lld out0=%g out_last=%g",
+        cached?"true":"false",(unsigned)n,fp16?"fp16":"fp32",createUs,finalizeUs,(long long)us,
         (long long)totalUs,(double)out[0],(double)out[n-1]);
     return buf;
 }
