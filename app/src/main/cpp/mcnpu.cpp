@@ -78,6 +78,7 @@ struct Runtime {
     std::string backendVerbose;
     std::string deviceVerbose;
 } g;
+static thread_local std::string g_lastNativeError;
 static std::mutex gRuntimeMutex;
 
 using GetProviders = Qnn_ErrorHandle_t (*)(const QnnInterface_t ***,uint32_t *);
@@ -465,7 +466,7 @@ Qnn_Tensor_t makeTensor(const char* name,Qnn_TensorType_t type,Qnn_DataType_t dt
 std::string runAdd(const float* av,const float* bv,uint32_t n){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     const auto total0=std::chrono::steady_clock::now();
-    if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
+    if(!g.ready || !g.api || !g.context) { g_lastNativeError="ERR NPU_NOT_READY"; return g_lastNativeError; }
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
 
     Runtime::AddGraph* ag=nullptr;
@@ -847,7 +848,6 @@ std::string runMatMulInt8(uint32_t m,uint32_t k,uint32_t n){
     Qnn_ErrorHandle_t rc=QNN_SUCCESS;
     if(!cached){
         if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
-        g.graphCount++;
         auto inserted=g.matMulGraphs8.emplace(key, Runtime::MatMulGraph{});
         mg=&inserted.first->second;
         mg->m=m; mg->k=k; mg->n=n;
@@ -1012,13 +1012,15 @@ std::string runMatMulInt8Buf(const int8_t* Ain,const int8_t* Bin,int8_t* Cout,ui
     if(!g.ready || !g.api || !g.context) return "ERR NPU_NOT_READY";
     const auto& f=g.api->QNN_INTERFACE_VER_NAME;
     const uint32_t Mb=bucketize(m), Kb=bucketize(k), Nb=bucketize(n);
-    if(Mb==0||Kb==0||Nb==0) return "ERR BUF_TOO_LARGE (max "+std::to_string((unsigned)MM_BUCKET_MAX)+")";
+    if(Mb==0||Kb==0||Nb==0) { g_lastNativeError="ERR BUF_TOO_LARGE (max "+std::to_string((unsigned)MM_BUCKET_MAX)+")"; return g_lastNativeError; }
     // Dimension caps passed, but the resulting tensors can still be gigabytes.
-    if(!mmShapeSafe(Mb, Kb, Nb, sizeof(int8_t)))
-        return "ERR BUF_BYTES_EXCEEDED m="+std::to_string((unsigned)Mb)
+    if(!mmShapeSafe(Mb, Kb, Nb, sizeof(int8_t))) {
+        g_lastNativeError="ERR BUF_BYTES_EXCEEDED m="+std::to_string((unsigned)Mb)
               +" k="+std::to_string((unsigned)Kb)
               +" n="+std::to_string((unsigned)Nb)
               +" (per-tensor cap "+std::to_string((unsigned long long)(MM_MAX_TENSOR_BYTES>>20))+" MiB)";
+        return g_lastNativeError;
+    }
     // Caller contract (matches the probes that already work): A and B are
     // quantised against +-0.127, i.e. one int8 step is 0.001. HTP only executes
     // a FULLY quantised matmul -- int8 in, int8 out with all three scales loaded
@@ -1263,6 +1265,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulI
                 + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetLastError(JNIEnv* e,jclass){
+    return e->NewStringUTF(g_lastNativeError.c_str());
+}
+
 extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
     if(!ja||!jb||m<=0||k<=0||n<=0) return nullptr;
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n)) return nullptr;
@@ -1273,7 +1279,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatM
     e->GetByteArrayRegion(jb,0,blen,(jbyte*)B.data());
     float scaleC=0.f;
     std::string r=runMatMulInt8Buf(A.data(),B.data(),C.data(),(uint32_t)m,(uint32_t)k,(uint32_t)n,scaleC);
-    if(r.rfind("OK",0)!=0){ E("MATMUL8BUF FAIL %s",r.c_str()); return nullptr; }
+    if(r.rfind("OK",0)!=0){ g_lastNativeError=r; E("MATMUL8BUF FAIL %s",r.c_str()); return nullptr; }
     const jsize total=(jsize)(4+C.size());
     std::vector<jbyte> tmp((size_t)total);
     std::memcpy(tmp.data(),&scaleC,4);
