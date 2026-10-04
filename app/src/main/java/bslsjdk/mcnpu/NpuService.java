@@ -32,9 +32,14 @@ public final class NpuService extends Service {
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL = "mcnpu";
     // Bound IPC work so connection floods cannot exhaust Android threads/file descriptors.
+    // 8 active + 8 queued was the whole ceiling, and the 9x9 import opens one
+    // socket per way plus the poller and the diagnostic, so it hit REJECT and the
+    // closed socket then cost the client a full 15 s read timeout. The device
+    // serialises execute behind one lock, so extra connections add memory and
+    // transfer overlap, never device throughput - 2 MB bodies x 16 is 32 MB.
     private final ThreadPoolExecutor clients = new ThreadPoolExecutor(
-            8, 8, 0L, TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(8),
+            12, 16, 0L, TimeUnit.MILLISECONDS,
+            new java.util.concurrent.LinkedBlockingQueue<>(64),
             new ThreadPoolExecutor.AbortPolicy());
     private final java.util.concurrent.atomic.AtomicInteger activeClients = new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean running;
@@ -217,6 +222,17 @@ public final class NpuService extends Service {
                                 }
                             });
                         } catch (RejectedExecutionException rejected) {
+                            // Say so before closing. A bare close leaves the client
+                            // blocked in read until its timeout, which is how two
+                            // segments of the 9x9 import each burned 15 s and looked
+                            // like an NPU that had stopped working.
+                            try {
+                                java.io.OutputStream os = socket.getOutputStream();
+                                os.write(("ERR OVERLOAD active=" + activeClients.get()
+                                        + " queued=" + clients.getQueue().size() + "\n")
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                                os.flush();
+                            } catch (Throwable ignored) {}
                             try { socket.close(); } catch (Throwable ignored) {}
                             log("IPC REJECT overload active=" + activeClients.get()
                                     + " queued=" + clients.getQueue().size()
@@ -694,8 +710,13 @@ public final class NpuService extends Service {
         // Named outBuf, not out: this method's reply stream is already called out,
         // and shadowing it turns every write below into a type error that reads as
         // if the result buffer were the problem.
+        // Filled with the same -999 sentinel the native side uses, so a way the
+        // HTP never wrote reads back as -999 instead of as a plausible 0. That is
+        // the whole difference between "the device returned zeros" and "the device
+        // never ran", and a zero-filled buffer cannot tell them apart.
         float[] outBuf = new float[n];
         for (int c = 0; c < cases; c++) {
+            java.util.Arrays.fill(outBuf, -999f);
             for (int i = 0; i < n; i++) a[i] = bb.getFloat();
             for (int i = 0; i < n; i++) b[i] = bb.getFloat();
             long c0 = System.nanoTime();
@@ -710,16 +731,26 @@ public final class NpuService extends Service {
             for (int i = 0; i < n; i++) rb.putFloat(outBuf[i]);
         }
         long totalUs = (System.nanoTime() - t0) / 1000L;
-        writeLineUtf8(out, "OK BINADD n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
+        // The prefix has to follow ok, not the fact that the call was understood.
+        // A header reading "OK BINADD ... ok=0/16" made the client copy a buffer
+        // the device had never written, and the imported test then reported a
+        // perfect-looking max_abs of max|a+b| with every element wrong. This is
+        // the same black hole as smoke()'s boolean: the reason is dropped at the
+        // boundary and the failure arrives dressed as success.
+        String reason = first.length() == 0 ? "none" : first.toString();
+        if (reason.length() > 300) reason = reason.substring(0, 300) + "...";
+        writeLineUtf8(out, (ok == cases ? "OK BINADD" : "ERR BINADD_PARTIAL")
+                + " n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
                 + " cached=" + cached + " body_bytes=" + bodyBytes
                 + " npu_us=" + npuUs + " queue_us=" + serviceQueueUs + " total_us=" + totalUs
-                + " out_bytes=" + results.length + " case0=" + first);
+                + " out_bytes=" + results.length + " case0=" + reason);
         // Results follow the header as raw little-endian float32. The header stays
         // text so a failure is still readable without knowing the binary layout.
         out.write(results);
         out.flush();
         log("BINADD n=" + n + " cases=" + cases + " ok=" + ok + "/" + cases
-                + " body_bytes=" + bodyBytes + " npu_us=" + npuUs + " total_us=" + totalUs);
+                + " body_bytes=" + bodyBytes + " npu_us=" + npuUs + " total_us=" + totalUs
+                + (ok == cases ? "" : " case0=" + reason));
     }
 
     private String handleAdd(String payload) {
