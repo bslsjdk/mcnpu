@@ -50,6 +50,39 @@ public final class NpuServiceClient {
         return request("SMOKE");
     }
 
+    // Largest ADD length the service measured on the device. Starts at the
+    // pre-probe default and is replaced by refreshMaxAddElements().
+    private static volatile int cachedMaxAdd = 16384;
+
+    /** Last known ceiling. Cheap: used per case during import validation. */
+    public static int maxAddElements() { return cachedMaxAdd; }
+
+    /**
+     * Asks the service what its ADD probe measured, and caches the answer.
+     *
+     * Cached because it is read once per imported case: a round trip per case
+     * would cost more than the validation it gates. Safe to call with the
+     * service down - the cached value simply stays as it was.
+     */
+    public static synchronized int refreshMaxAddElements() {
+        String r = request("CAPABILITIES");
+        if (r != null) {
+            int i = r.indexOf("max_elements=");
+            if (i >= 0) {
+                String tail = r.substring(i + 13).trim();
+                int e = 0;
+                while (e < tail.length() && Character.isDigit(tail.charAt(e))) e++;
+                if (e > 0) {
+                    try {
+                        int v = Integer.parseInt(tail.substring(0, e));
+                        if (v > 0) cachedMaxAdd = v;
+                    } catch (NumberFormatException ignored) { /* keep the cached value */ }
+                }
+            }
+        }
+        return cachedMaxAdd;
+    }
+
     /**
      * Sends ADD cases as raw little-endian float32 instead of decimal text.
      *
