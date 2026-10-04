@@ -366,6 +366,10 @@ public final class NpuService extends Service {
         try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
+            // Real work outranks a diagnostic. Without this a request that lands
+            // mid-probe waits for graph builds it did not ask for, and the client
+            // reads that as a stalled device.
+            if (addProbeRunning) NpuRuntime.abortProbe();
             // BufferedInputStream is safe here: unlike BufferedReader it does not decode or
             // pre-consume the binary tensor payload. It also removes thousands of tiny read()
             // calls from the control header path. The client already uses the same buffer size.
@@ -660,6 +664,9 @@ public final class NpuService extends Service {
      * that number. Until it is measured on the device, a phone that accepts more
      * will silently never use it. The result lands in the log as ADD_PROBE.
      */
+    /** True while the startup probe still owns candidate graph builds. */
+    private volatile boolean addProbeRunning = false;
+
     private void startAddProbe() {
         Thread t = new Thread(() -> {
             try {
@@ -667,11 +674,14 @@ public final class NpuService extends Service {
                 // candidate size and must not compete with real work at startup.
                 Thread.sleep(3000);
                 long t0 = System.nanoTime();
+                addProbeRunning = true;
                 String r = NpuRuntime.addProbe();
                 log("ADD_PROBE elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + "\n" + r);
                 log("ADD max_elements=" + NpuRuntime.maxAddElements());
             } catch (Throwable e) {
                 log("ADD_PROBE exception=" + e);
+            } finally {
+                addProbeRunning = false;
             }
         }, "mcnpu-add-probe");
         t.setPriority(Thread.MIN_PRIORITY);
@@ -698,8 +708,10 @@ public final class NpuService extends Service {
         if (bodyBytes > MAX_BIN_BODY) {
             writeLineUtf8(out, "ERR BINADD_TOO_LARGE body=" + bodyBytes + " cap=" + MAX_BIN_BODY); return;
         }
+        log("BINADD recv n=" + n + " cases=" + cases + " body_bytes=" + bodyBytes);
         byte[] body = new byte[(int) bodyBytes];
         readFully(in, body, body.length);
+        log("BINADD body read ok n=" + n + " cases=" + cases);
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(body).order(java.nio.ByteOrder.LITTLE_ENDIAN);
         float[] a = new float[n], b = new float[n];
         int ok = 0, cached = 0;
@@ -727,7 +739,15 @@ public final class NpuService extends Service {
             npuUs += us;
             if (r != null && r.startsWith("OK")) ok++;
             if (r != null && r.contains("graph_cached=true")) cached++;
-            if (c == 0) first = new StringBuilder(r == null ? "null" : r);
+            if (c == 0) {
+                first = new StringBuilder(r == null ? "null" : r);
+                // The first case carries the graph build. Saying so separates
+                // "the device is slow to build" from "the device never answered",
+                // which is the only question that matters on a stalled run.
+                log("BINADD case0 n=" + n + " us=" + us + " r=" + first);
+            } else if (c % 8 == 0) {
+                log("BINADD progress n=" + n + " case=" + c + "/" + cases + " us=" + us);
+            }
             for (int i = 0; i < n; i++) rb.putFloat(outBuf[i]);
         }
         long totalUs = (System.nanoTime() - t0) / 1000L;

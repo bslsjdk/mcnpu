@@ -168,6 +168,19 @@ public final class NpuRuntime {
     private static native String nativeAddMax();
 
     /**
+     * Ends an in-flight probe at its next candidate.
+     *
+     * The probe builds one graph per size and holds the device lock for each, so
+     * a real request that arrives mid-probe would otherwise wait for a diagnostic
+     * it has no interest in. The probe reports what it learned up to that point
+     * instead of nothing.
+     */
+    public static void abortProbe() {
+        try { nativeAbortProbe(); } catch (Throwable ignored) { }
+    }
+    private static native void nativeAbortProbe();
+
+    /**
      * Self test that keeps the reason.
      *
      * smoke() returns a bit, so a failing self test reaches the client as one fixed

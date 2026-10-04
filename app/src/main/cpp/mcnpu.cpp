@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cmath>
 #include <mutex>
+#include <atomic>
 #include <algorithm>
 #include <unordered_map>
 #include <cstdint>
@@ -553,17 +554,44 @@ std::string runAddEx(const float* av,const float* bv,uint32_t n,float* out,bool 
 // short updates at the end.
 // One ascending pass over the candidate sizes for one tensor datatype.
 // Returns the largest size that built, and appends one line per candidate.
-static uint32_t probeAddPass(bool fp16, std::string& lines){
-    static const uint32_t cand[]={16,64,256,1024,4096,16384,32768,65536,131072,262144,524288,1048576};
+// Bounded on purpose.
+//
+// Every candidate costs one graph build and runAddEx holds gRuntimeMutex for the
+// whole of it, so an unbounded walk is not merely slow: it parks every IPC
+// handler on that mutex. A size the HTP stalls on then turns the service into a
+// queue of handlers that never reply, which is the exact shape of the 9x9
+// failure - each segment burned three 15 s client read timeouts, no reply ever
+// arrived, and ADD_PROBE was never logged because the probe had not finished, so
+// it had nothing to log yet.
+//
+// Three guards, any of which ends the walk: the candidate list stops at 65536,
+// one step past the largest size actually verified; a wall-clock budget; and
+// g_probeAbort, which the service sets the moment real work arrives.
+static std::atomic<bool> g_probeAbort{false};
+static const long long PROBE_TOTAL_BUDGET_US = 20LL * 1000 * 1000;
+
+static uint32_t probeAddPass(bool fp16, std::string& lines, long long& budgetUs){
+    static const uint32_t cand[]={16,64,256,1024,4096,16384,32768,65536};
     uint32_t best=0;
     char buf[256];
     for(uint32_t c:cand){
+        if(g_probeAbort.load()){
+            snprintf(buf,sizeof buf," %s ABORTED before %u\n", fp16?"fp16":"fp32",(unsigned)c);
+            lines += buf;
+            break;
+        }
+        if(budgetUs<=0){
+            snprintf(buf,sizeof buf," %s BUDGET_EXHAUSTED before %u\n", fp16?"fp16":"fp32",(unsigned)c);
+            lines += buf;
+            break;
+        }
         std::vector<float> a(c,1.f), b(c,2.f), o(c,-999.f);
         long long t0=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
         std::string r=runAddEx(a.data(),b.data(),c,o.data(),false,fp16);
         long long us=std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count()-t0;
+        budgetUs -= us;
         bool ok = r.rfind("OK",0)==0;
         snprintf(buf,sizeof buf," %s %u %s elapsed_us=%lld",
                  fp16?"fp16":"fp32",(unsigned)c, ok?"ok":"FAIL", us);
@@ -591,11 +619,13 @@ static std::string probeAddLadder(){
 
     // fp32 first: it is the datatype the data path actually uses, so its result
     // is the one that may be adopted.
-    uint32_t best32 = probeAddPass(false, lines);
+    g_probeAbort.store(false);
+    long long budgetUs = PROBE_TOTAL_BUDGET_US;
+    uint32_t best32 = probeAddPass(false, lines, budgetUs);
     // fp16 is measured for comparison only. HTP treats fp16 as native, so it may
     // accept sizes fp32 cannot, and it halves the bytes per element - which is
     // the same bandwidth pressure that keeps showing up as way counts.
-    uint32_t best16 = probeAddPass(true, lines);
+    uint32_t best16 = probeAddPass(true, lines, budgetUs);
 
     {
         std::lock_guard<std::mutex> lock(gRuntimeMutex);
@@ -1462,6 +1492,13 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddInto
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddProbe(JNIEnv* e,jclass){
     if(!g.ready || !g.api || !g.context) return e->NewStringUTF("ERR NPU_NOT_READY");
     return e->NewStringUTF(probeAddLadder().c_str());
+}
+
+// Set by the service as soon as a real request arrives. The probe yields the
+// device between candidates, so an in-flight probe stops at the next one instead
+// of making the request wait for a diagnostic.
+extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAbortProbe(JNIEnv*,jclass){
+    g_probeAbort.store(true);
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);

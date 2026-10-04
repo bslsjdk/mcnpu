@@ -386,12 +386,36 @@ public final class MainActivity extends Activity {
                 + "PING: " + NpuServiceClient.request("PING") + "\n"
                 + "STATUS: " + NpuServiceClient.request("STATUS") + "\n"
                 + "SHIZUKU: " + ShizukuHelper.status() + "\n"
+                + "ADD_MAX: " + NpuServiceClient.request("CAPABILITIES") + "\n"
+                + "PROBE: " + lastProbeLine() + "\n"
                 + "KEEPALIVE: " + NpuKeepAlive.lastReport() + "\n"
 + "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
                 + "--- PERSISTENT SERVICE LOG ---\n"
                 + readLocalLog()
                 + "\n--- UI SESSION LOG ---\n"
                 + sessionLogSnapshot();
+    }
+
+    /**
+     * The last ADD_PROBE line in the service log, or why there isn't one.
+     *
+     * The probe is the only thing that knows the real ADD ceiling, and it is the
+     * number the whole way-splitting depends on. It used to be reachable only by
+     * reading thousands of log lines, so it was effectively never read.
+     */
+    private String lastProbeLine() {
+        try {
+            String log = readLocalLog();
+            String found = "";
+            for (String line : log.split("\n")) {
+                if (line.contains("ADD_PROBE") || line.startsWith(" fp32 ") || line.startsWith(" fp16 ")) {
+                    found = line;
+                }
+            }
+            return found.isEmpty() ? "none - probe has not completed" : found;
+        } catch (Throwable t) {
+            return "unavailable: " + t.getClass().getSimpleName();
+        }
     }
 
     private void copyLog() {

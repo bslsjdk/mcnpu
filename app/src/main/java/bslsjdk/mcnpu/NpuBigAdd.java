@@ -93,6 +93,27 @@ public final class NpuBigAdd {
         AtomicInteger unwritten = new AtomicInteger();
         StringBuilder firstError = new StringBuilder();
 
+        // One way before all of them.
+        //
+        // A 486-way run that fails for a single reason reports 486 identical
+        // failures and needs minutes to say so, and every one of them arrives as
+        // a timeout with the reason lost. One way succeeds or fails in a single
+        // round trip and comes back with the service's actual reply, which is the
+        // only thing that separates an unsupported shape from a stalled service.
+        {
+            float[] pa = new float[n], pb = new float[n];
+            int plen = Math.min(n, total);
+            System.arraycopy(a, 0, pa, 0, plen);
+            System.arraycopy(b, 0, pb, 0, plen);
+            NpuServiceClient.BinAddResult pr =
+                    NpuServiceClient.binAdd(new float[][]{pa}, new float[][]{pb}, n);
+            boolean preOk = pr.status.startsWith("OK") && pr.okCount == 1;
+            if (!preOk) {
+                return new Result(null, ways, n, 0, (System.nanoTime() - t0) / 1000L, 1,
+                        "ERR BIGADD_PREFLIGHT ways=" + ways + " n=" + n + " reply=" + pr.status);
+            }
+        }
+
         int groups = Math.min(p, ways);
         CountDownLatch latch = new CountDownLatch(groups);
         int base = ways / groups;
