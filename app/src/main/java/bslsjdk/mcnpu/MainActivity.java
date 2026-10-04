@@ -254,6 +254,9 @@ public final class MainActivity extends Activity {
 
     private void refreshStatus() {
         if (!statusInFlight.compareAndSet(false, true)) return;
+        // The keepalive loop may still be waiting for the grant; wake it now that
+        // the result is known instead of leaving it to the 10s poll.
+        NpuKeepAlive.kick(this);
         new Thread(() -> {
             try {
                 String ping = NpuServiceClient.request("PING");
