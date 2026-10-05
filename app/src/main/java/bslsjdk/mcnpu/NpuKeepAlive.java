@@ -157,8 +157,7 @@ public final class NpuKeepAlive {
     private static String shell(String... cmd) {
         try {
             Class<?> shizuku = Class.forName("rikka.shizuku.Shizuku");
-            Method m = shizuku.getMethod("newProcess", String[].class, String[].class, String.class);
-            Object proc = m.invoke(null, cmd, null, null);
+            Object proc = newProcess(shizuku, cmd);
             String out = drain((InputStream) proc.getClass().getMethod("getInputStream").invoke(proc))
                     + drain((InputStream) proc.getClass().getMethod("getErrorStream").invoke(proc));
             int rc = ((Integer) proc.getClass().getMethod("waitFor").invoke(proc)).intValue();
@@ -170,6 +169,52 @@ public final class NpuKeepAlive {
             if (lastError == null) lastError = why;
             android.util.Log.w(TAG, "KEEPALIVE cmd failed: " + t);
             return null;
+        }
+    }
+
+    /**
+     * Shizuku ships newProcess with a different signature across versions and the one this
+     * was written against does not exist on every build - on this device it throws
+     * NoSuchMethodException for (String[],String[],String). Rather than keep guessing,
+     * enumerate the overloads that are actually present and adapt to whichever fits.
+     *
+     * When none fit, the error names the signatures that DO exist. A failure that reports the
+     * real shape is fixable on the next pass; a bare NoSuchMethodException is just a dead end.
+     */
+    private static Object newProcess(Class<?> shizuku, String[] cmd) throws Exception {
+        StringBuilder seen = new StringBuilder();
+        for (Method m : shizuku.getMethods()) {
+            if (!"newProcess".equals(m.getName())) continue;
+            Class<?>[] p = m.getParameterTypes();
+            seen.append("(");
+            for (Class<?> x : p) seen.append(x.getSimpleName()).append(" ");
+            seen.append(") ");
+            Object[] args = argsFor(p, cmd);
+            if (args == null) continue;
+            m.setAccessible(true);
+            return m.invoke(null, args);
+        }
+        throw new NoSuchMethodException(
+                "newProcess(String[],String[],String) - overloads present: " + seen);
+    }
+
+    /** Arguments for one overload, or null when its shape cannot take a plain command. */
+    private static Object[] argsFor(Class<?>[] p, String[] cmd) {
+        if (p.length < 2 || p[0] != String[].class) return null;
+        switch (p.length) {
+            case 2:
+                return new Object[]{cmd, null};
+            case 3:
+                if (p[1] != String[].class || p[2] != String.class) return null;
+                return new Object[]{cmd, null, null};
+            case 4:
+                if (p[1] != String[].class || p[2] != String.class) return null;
+                Object tail = p[3] == boolean.class ? (Object) Boolean.FALSE
+                        : p[3] == int.class ? (Object) Integer.valueOf(0) : null;
+                if (tail == null) return null;
+                return new Object[]{cmd, null, null, tail};
+            default:
+                return null;
         }
     }
 
