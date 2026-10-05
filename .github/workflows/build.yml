@@ -193,10 +193,13 @@ jobs:
           } > build/release-notes.md
           # Recreate instead of upload --clobber: GitHub keeps the ORIGINAL created_at on
           # upload, so the page would keep saying "7 hours ago" while the APK inside is
-          # minutes old. Deleting and recreating makes the timestamp match the asset, so the
-          # page never lies about how fresh the build is. The APK uploaded here is the one
-          # just built in this run, so nothing is lost by deleting the previous release.
-          gh release delete "$TAG" --yes 2>/dev/null || true
+          # minutes old. Delete + create makes the timestamp match the asset.
+          # --cleanup-tag is required: without it the tag survives, the delete is a no-op,
+          # and created_at stays pinned to whenever the tag was first created (proven by
+          # run 360, where the title and asset updated but created_at did not move).
+          # The APK uploaded here is the one just built in this run, so deleting the
+          # previous release loses nothing.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" "$APK" --prerelease \
             --title "$TITLE" --notes-file build/release-notes.md
           gh release view "$TAG" --json tagName,isPrerelease,assets
