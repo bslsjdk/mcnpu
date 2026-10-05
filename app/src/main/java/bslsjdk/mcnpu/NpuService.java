@@ -366,10 +366,6 @@ public final class NpuService extends Service {
         try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
-            // Real work outranks a diagnostic. Without this a request that lands
-            // mid-probe waits for graph builds it did not ask for, and the client
-            // reads that as a stalled device.
-            if (addProbeRunning) NpuRuntime.abortProbe();
             // BufferedInputStream is safe here: unlike BufferedReader it does not decode or
             // pre-consume the binary tensor payload. It also removes thousands of tiny read()
             // calls from the control header path. The client already uses the same buffer size.
@@ -396,6 +392,14 @@ public final class NpuService extends Service {
                 long readUs = (System.nanoTime() - readStartNs) / 1000L;
                 if (line == null) break;
                 String cmd = line.trim();
+                // Real work outranks a diagnostic, but only real work. This used to
+                // abort on every accepted connection, and the UI polls PING/STATUS once
+                // a second just to draw the notification - so the probe was killed at its
+                // first candidate on every boot. ADD_PROBE never logged, nothing was ever
+                // measured, and max_elements stayed at the hard-coded 16384 while the
+                // device accepts 65536. Commands that never touch gRuntimeMutex must not
+                // interrupt the probe; commands that build or run a graph still may.
+                if (addProbeRunning && !probeSafe(cmd)) NpuRuntime.abortProbe();
                 if (!helloDone) {
                     if (cmd.equals("HELLO MCJAVA_NPU/1")) {
                         writeLineUtf8(out, "OK HELLO MCNPU/1");
@@ -693,6 +697,17 @@ public final class NpuService extends Service {
      */
     /** True while the startup probe still owns candidate graph builds. */
     private volatile boolean addProbeRunning = false;
+
+    /**
+     * Commands that never build or execute a graph, so they never queue behind the
+     * probe's lock. Interrupting on these is what made the probe unrunnable - see the
+     * comment at the call site.
+     */
+    private static boolean probeSafe(String cmd) {
+        String c = cmd.trim();
+        return c.isEmpty() || c.equals("PING") || c.equals("STATUS")
+                || c.equals("CAPABILITIES") || c.equals("HELLO MCJAVA_NPU/1");
+    }
 
     private void startAddProbe() {
         Thread t = new Thread(() -> {
