@@ -191,11 +191,12 @@ jobs:
             echo "Pre-release: engineering build for on-device testing, not a stable release."
             echo "Signed with the same key, so it installs over the previous build."
           } > build/release-notes.md
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK" --clobber
-            gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file build/release-notes.md
-          else
-            gh release create "$TAG" "$APK" --prerelease \
-              --title "$TITLE" --notes-file build/release-notes.md
-          fi
+          # Recreate instead of upload --clobber: GitHub keeps the ORIGINAL created_at on
+          # upload, so the page would keep saying "7 hours ago" while the APK inside is
+          # minutes old. Deleting and recreating makes the timestamp match the asset, so the
+          # page never lies about how fresh the build is. The APK uploaded here is the one
+          # just built in this run, so nothing is lost by deleting the previous release.
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" "$APK" --prerelease \
+            --title "$TITLE" --notes-file build/release-notes.md
           gh release view "$TAG" --json tagName,isPrerelease,assets
