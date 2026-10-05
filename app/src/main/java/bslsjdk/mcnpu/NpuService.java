@@ -24,6 +24,13 @@ public final class NpuService extends Service {
      * rejected it before it ever reached the HTP.
      */
     private static final int MAX_LINE_BYTES = 8 * 1024 * 1024;
+    /**
+     * How long a connected client may stay silent before its handler thread is
+     * given back. Pooled connections that are opened but never written to used to
+     * hold a slot until the client's own timeout fired - 15s in the field - and a
+     * handful of those is a large share of a small pool.
+     */
+    private static final int IDLE_TIMEOUT_MS = 30_000;
     /** Cap on the raw BINADD body: 16384 elements x 2 arrays x 4 bytes x 4096 cases would be 512 MB. */
     private static final long MAX_BIN_BODY = 64L * 1024 * 1024;
     /** Read granularity for control lines; also the pushback buffer size. */
@@ -362,10 +369,31 @@ public final class NpuService extends Service {
         }
     }
 
+    /**
+     * True for commands that actually reach the device.
+     *
+     * PING, STATUS and CAPABILITIES are answered from memory. They are also the
+     * commands clients poll with, and polling opens a connection roughly once a
+     * second - so treating them as "real work" killed the startup probe before it
+     * could measure its first candidate size. ADDPROBE is deliberately excluded
+     * too: it is the probe, and aborting it from inside itself makes no sense.
+     */
+    private static boolean holdsDeviceLock(String cmd) {
+        if (cmd.startsWith("BINADD ")) return true;
+        if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) return true;
+        if (cmd.startsWith("PREWARM8 ")) return true;
+        if (cmd.equals("SMOKE")) return true;
+        if (cmd.startsWith("EXEC_")) return true;
+        if (cmd.startsWith("ADD ")) return true;
+        if (cmd.startsWith("MATMUL")) return true;
+        return false;
+    }
+
     private void handle(Socket socket, long acceptedNs) {
         try (Socket s = socket) {
             // 小包请求不要撞上 Nagle + delayed-ACK（实测 p99 往返 ~50ms，p50 仅 ~1.4ms）
             try { s.setTcpNoDelay(true); } catch (Throwable ignored) {}
+            try { s.setSoTimeout(IDLE_TIMEOUT_MS); } catch (Throwable ignored) {}
             // BufferedInputStream is safe here: unlike BufferedReader it does not decode or
             // pre-consume the binary tensor payload. It also removes thousands of tiny read()
             // calls from the control header path. The client already uses the same buffer size.
@@ -388,18 +416,22 @@ public final class NpuService extends Service {
                 // bytes. It is the only part of the request's life that varies per
                 // command, and when it is large the client is the one being slow.
                 long readStartNs = System.nanoTime();
-                String line = readLineUtf8(in, MAX_LINE_BYTES);
+                String line;
+                try {
+                    line = readLineUtf8(in, MAX_LINE_BYTES);
+                } catch (java.net.SocketTimeoutException idle) {
+                    log("IPC idle close remote=" + s.getRemoteSocketAddress()
+                            + " idle_ms=" + IDLE_TIMEOUT_MS);
+                    break;
+                }
                 long readUs = (System.nanoTime() - readStartNs) / 1000L;
                 if (line == null) break;
                 String cmd = line.trim();
-                // Real work outranks a diagnostic, but only real work. This used to
-                // abort on every accepted connection, and the UI polls PING/STATUS once
-                // a second just to draw the notification - so the probe was killed at its
-                // first candidate on every boot. ADD_PROBE never logged, nothing was ever
-                // measured, and max_elements stayed at the hard-coded 16384 while the
-                // device accepts 65536. Commands that never touch gRuntimeMutex must not
-                // interrupt the probe; commands that build or run a graph still may.
-                if (addProbeRunning && !probeSafe(cmd)) NpuRuntime.abortProbe();
+                // Real work outranks a diagnostic, but only real work does. This used
+                // to run once per connection, and status polling opens a connection
+                // about once a second - so the startup probe was killed by the first
+                // PING and never measured a single candidate size.
+                if (addProbeRunning && holdsDeviceLock(cmd)) NpuRuntime.abortProbe();
                 if (!helloDone) {
                     if (cmd.equals("HELLO MCJAVA_NPU/1")) {
                         writeLineUtf8(out, "OK HELLO MCNPU/1");
@@ -452,7 +484,7 @@ public final class NpuService extends Service {
                     reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE,FLUSHGRAPHS max_elements=" + NpuRuntime.maxAddElements();
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE max_elements=" + NpuRuntime.maxAddElements();
                 } else if (cmd.equals("ADDPROBE")) {
                     long t = System.nanoTime();
                     reply = NpuRuntime.addProbe();
@@ -483,16 +515,6 @@ public final class NpuService extends Service {
                     log("EXEC XFORM result=" + reply);
                 } else if (cmd.startsWith("SUBMIT_MATMUL8 ")) {
                     reply = handleSubmitMatMul8(cmd.substring(15));
-                } else if (cmd.equals("FLUSHGRAPHS")) {
-                    // The graph budget is small on purpose and a benchmark builds one
-                    // graph per candidate shape, so a sweep can fill the cache before
-                    // the game submits real work - and then the first production shape
-                    // is the one that pays the teardown. Callers flush when their
-                    // diagnostic ends instead of leaving that for production to hit.
-                    long tf = System.nanoTime();
-                    reply = NpuRuntime.flushGraphs();
-                    log("EXEC FLUSHGRAPHS elapsed_ms=" + ((System.nanoTime() - tf) / 1_000_000.0)
-                            + " " + reply);
                 } else if (cmd.equals("QUIT")) {
                     writeLineUtf8(out, "BYE");
                     break;
@@ -697,17 +719,6 @@ public final class NpuService extends Service {
      */
     /** True while the startup probe still owns candidate graph builds. */
     private volatile boolean addProbeRunning = false;
-
-    /**
-     * Commands that never build or execute a graph, so they never queue behind the
-     * probe's lock. Interrupting on these is what made the probe unrunnable - see the
-     * comment at the call site.
-     */
-    private static boolean probeSafe(String cmd) {
-        String c = cmd.trim();
-        return c.isEmpty() || c.equals("PING") || c.equals("STATUS")
-                || c.equals("CAPABILITIES") || c.equals("HELLO MCJAVA_NPU/1");
-    }
 
     private void startAddProbe() {
         Thread t = new Thread(() -> {
