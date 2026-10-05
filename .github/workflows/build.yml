@@ -164,34 +164,38 @@ jobs:
           MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
           MCNPU_KEYSTORE_PASSWORD: ${{ secrets.MCNPU_KEYSTORE_PASSWORD }}
 
-      # The account's Actions storage quota is exhausted for this billing cycle and it does
-      # not go back down when artifacts are deleted, so this upload fails until the cycle
-      # resets. Keep it (it is the normal route once quota returns) but never let it turn a
-      # green build red.
-      - uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: MCNPU-arm64-signed
-          path: app/build/outputs/apk/release/MCNPU-arm64-signed.apk
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 3
-
-      # Release assets do NOT draw on Actions storage, so this is the delivery route that
-      # keeps working while the quota is exhausted. One rolling tag, asset replaced each
-      # build, so there is no pile of old APKs.
-      - name: Publish APK to a release (no Actions storage)
+      # Delivery route: a prerelease asset. Release assets do NOT draw on the account's
+      # Actions storage quota, which is exhausted until the billing cycle resets, so this
+      # is the route that keeps working. The upload-artifact step was removed: while the
+      # quota is out it can only fail, and a permanently red annotation is worse than none.
+      # One rolling tag with the asset replaced each build, so no pile of old APKs.
+      - name: Publish APK as a prerelease (no Actions storage)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eux
           APK=app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           test -f "$APK"
-          sha256sum "$APK"
-          if gh release view latest-apk >/dev/null 2>&1; then
-            gh release upload latest-apk "$APK" --clobber
+          SUM=$(sha256sum "$APK" | cut -d' ' -f1)
+          SIZE=$(stat -c %s "$APK")
+          TAG=latest-apk
+          TITLE="MCNPU arm64 signed (${GITHUB_SHA::11})"
+          {
+            echo "Automatic prerelease build of ${GITHUB_SHA}."
+            echo ""
+            echo "- built: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "- run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- size: ${SIZE} bytes"
+            echo "- sha256: ${SUM}"
+            echo ""
+            echo "Pre-release: engineering build for on-device testing, not a stable release."
+            echo "Signed with the same key, so it installs over the previous build."
+          } > build/release-notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file build/release-notes.md
           else
-            gh release create latest-apk "$APK" \
-              --title "MCNPU arm64 signed (${GITHUB_SHA::11})" \
-              --notes "Automatic build of ${GITHUB_SHA}. Replaced on every push to main."
+            gh release create "$TAG" "$APK" --prerelease \
+              --title "$TITLE" --notes-file build/release-notes.md
           fi
+          gh release view "$TAG" --json tagName,isPrerelease,assets
