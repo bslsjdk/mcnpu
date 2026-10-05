@@ -20,8 +20,13 @@ android {
         applicationId "bslsjdk.mcnpu.dev"
         minSdk 30
         targetSdk 35
-        versionCode 2
-        versionName "0.2.0"
+        // Bumped every CI build so the APK always installs as an upgrade instead of
+        // reporting "same version" and forcing an uninstall. GitHub's run number is
+        // monotonic per repo, so it is strictly increasing already: no need to keep a
+        // counter anywhere in the tree. Local builds (no env) fall back to the same
+        // values as before so nothing else has to know about this.
+        versionCode ((System.getenv("GITHUB_RUN_NUMBER") ?: "3") as Integer)
+        versionName "0.2.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
         externalNativeBuild {
             cmake {
                 arguments "-DQNN_INC=${System.getenv("QNN_INC") ?: "${rootDir}/qnn_inc"}", "-DANDROID_PLATFORM=android-35"
