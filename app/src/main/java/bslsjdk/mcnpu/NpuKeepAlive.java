@@ -46,6 +46,11 @@ public final class NpuKeepAlive {
     private static volatile boolean running = false;
     /** First failure reason from the most recent pass, surfaced in the report. */
     private static volatile String lastError = null;
+    /**
+     * Set once the shell factory is found to be missing. That is a property of the Shizuku
+     * build on the device, not a transient failure, so no later pass can fix it.
+     */
+    private static volatile boolean unsupported = false;
 
     private NpuKeepAlive() {}
 
@@ -130,6 +135,16 @@ public final class NpuKeepAlive {
                     + (lastError == null ? "" : " err=" + lastError);
             android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
 
+            // Retrying exists to fight ROMs that quietly undo these settings. It cannot fight a
+            // Shizuku build that has no way to run a command, so a permanent failure reports
+            // itself once and the thread exits rather than spinning every ten minutes forever.
+            if (unsupported) {
+                lastReport = "Shizuku 不提供 shell 接口，无法加入省电白名单"
+                        + (lastError == null ? "" : " err=" + lastError);
+                android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
+                return;
+            }
+
             if (!sleepQuietly(REAPPLY_MS)) return;
         }
     }
@@ -194,6 +209,27 @@ public final class NpuKeepAlive {
             m.setAccessible(true);
             return m.invoke(null, args);
         }
+        // Nothing on Shizuku itself. On API 13+ the factory was dropped and the process class
+        // is constructed directly, so try that before giving up - it is the same shell identity
+        // and the same command, just reached by a different door.
+        try {
+            Class<?> rp = Class.forName("rikka.shizuku.ShizukuRemoteProcess");
+            for (java.lang.reflect.Constructor<?> c : rp.getConstructors()) {
+                Class<?>[] p = c.getParameterTypes();
+                seen.append("[ctor(");
+                for (Class<?> x : p) seen.append(x.getSimpleName()).append(" ");
+                seen.append(")] ");
+                Object[] args = argsFor(p, cmd);
+                if (args == null) continue;
+                c.setAccessible(true);
+                return c.newInstance(args);
+            }
+        } catch (ClassNotFoundException e) {
+            seen.append("[no ShizukuRemoteProcess] ");
+        }
+        // A missing factory is not something a later pass can fix, so say so once and stop
+        // instead of retrying every ten minutes for the life of the process.
+        unsupported = true;
         throw new NoSuchMethodException(
                 "newProcess(String[],String[],String) - overloads present: " + seen);
     }
