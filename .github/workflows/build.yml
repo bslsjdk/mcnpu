@@ -152,14 +152,27 @@ jobs:
           if [ -n "${MCNPU_KEYSTORE_B64:-}" ]; then
             echo "$MCNPU_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-release.jks
             KEY_PASS="$MCNPU_KEYSTORE_PASSWORD"
+            echo "keystore: fixed key from repository secrets (signature stable across builds)"
           else
-            keytool -genkeypair -v               -keystore build/signing/mcnpu-release.jks               -storepass changeit -keypass changeit               -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000               -dname "CN=MCNPU,O=bslsjdk"
+            # Not a silent fallback any more. A freshly generated key signs differently
+            # from every earlier build, Android then refuses to install over the previous
+            # APK, and the only way through is uninstalling - which also wipes app data.
+            # Say so loudly rather than ship an APK that looks fine and cannot upgrade.
+            echo "::warning::MCNPU_KEYSTORE_B64 is not set - generating a throwaway key; this build will NOT install over the previous one."
+            keytool -genkeypair -v -keystore build/signing/mcnpu-release.jks -storepass changeit -keypass changeit -alias mcnpu -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=MCNPU,O=bslsjdk"
             KEY_PASS=changeit
+            echo "keystore: THROWAWAY key - signature differs from every earlier build"
           fi
           "$ZIPALIGN" -f 4             app/build/outputs/apk/release/app-release-unsigned.apk             build/signing/mcnpu-aligned.apk
           "$APKSIGNER" sign             --ks build/signing/mcnpu-release.jks             --ks-key-alias mcnpu             --ks-pass pass:"$KEY_PASS"             --key-pass pass:"$KEY_PASS"             --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk             build/signing/mcnpu-aligned.apk
           "$APKSIGNER" verify --verbose app/build/outputs/apk/release/MCNPU-arm64-signed.apk
           sha256sum app/build/outputs/apk/release/MCNPU-arm64-signed.apk
+          # Print the signer digest so two builds can be compared directly. Same digest
+          # across builds means this APK installs over the previous one; a change means
+          # Android will demand an uninstall first.
+          CERT_SHA256=$(unzip -p app/build/outputs/apk/release/MCNPU-arm64-signed.apk META-INF/CERT.RSA | keytool -printcert | grep -i -m1 'SHA256:' | sed 's/.*SHA256: *//' | tr -d ' ')
+          echo "signer_sha256=${CERT_SHA256:-unavailable}"
+          echo "signer_sha256=${CERT_SHA256:-unavailable}" >> "$GITHUB_STEP_SUMMARY"
         env:
           MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
           MCNPU_KEYSTORE_PASSWORD: ${{ secrets.MCNPU_KEYSTORE_PASSWORD }}
@@ -185,8 +198,10 @@ jobs:
             echo ""
             echo "- built: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             echo "- run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- version: 0.2.${GITHUB_RUN_NUMBER} (versionCode ${GITHUB_RUN_NUMBER})"
             echo "- size: ${SIZE} bytes"
             echo "- sha256: ${SUM}"
+            echo "- signer: ${CERT_SHA256:-unavailable} (unchanged across builds = installs over the previous one)"
             echo ""
             echo "Pre-release: engineering build for on-device testing, not a stable release."
             echo "Signed with the same key, so it installs over the previous build."
