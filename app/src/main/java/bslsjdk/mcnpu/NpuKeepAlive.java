@@ -44,6 +44,8 @@ public final class NpuKeepAlive {
     private static volatile String lastReport = "未执行";
     private static volatile boolean applied = false;
     private static volatile boolean running = false;
+    /** First failure reason from the most recent pass, surfaced in the report. */
+    private static volatile String lastError = null;
 
     private NpuKeepAlive() {}
 
@@ -88,6 +90,7 @@ public final class NpuKeepAlive {
         }
         while (true) {
             ArrayList<String> results = new ArrayList<String>();
+            lastError = null;
             String uid = shell("id", "-u");
             results.add("uid=" + (uid == null ? "?" : uid.trim()));
 
@@ -106,8 +109,25 @@ public final class NpuKeepAlive {
             // 3. Standby bucket: ACTIVE keeps it out of standby quota throttling.
             shell("am", "set-standby-bucket", PKG, "active");
 
+            // Every command is read back rather than assumed. If the shell identity is
+            // broken they all return null, and reporting "已保活" over a list of "?" would
+            // claim success for a pass that applied nothing at all. The header must
+            // follow the one result that matters, not the fact that we tried.
             applied = whitelisted;
-            lastReport = "已保活 · " + join(results);
+            int unknown = 0;
+            for (int i = 0; i < results.size(); i++) {
+                if (results.get(i).endsWith("=?")) unknown++;
+            }
+            String head;
+            if (unknown == results.size()) {
+                head = "保活失败(所有命令未执行)";
+            } else if (!whitelisted) {
+                head = "部分生效(省电白名单未加入)";
+            } else {
+                head = "已保活";
+            }
+            lastReport = head + " · " + join(results)
+                    + (lastError == null ? "" : " err=" + lastError);
             android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
 
             if (!sleepQuietly(REAPPLY_MS)) return;
@@ -145,6 +165,9 @@ public final class NpuKeepAlive {
             android.util.Log.i(TAG, "KEEPALIVE rc=" + rc + " out=" + out.trim());
             return out;
         } catch (Throwable t) {
+            String why = t.getClass().getSimpleName()
+                    + (t.getMessage() == null ? "" : ": " + t.getMessage());
+            if (lastError == null) lastError = why;
             android.util.Log.w(TAG, "KEEPALIVE cmd failed: " + t);
             return null;
         }
