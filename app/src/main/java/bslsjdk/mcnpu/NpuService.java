@@ -777,6 +777,20 @@ public final class NpuService extends Service {
                 String r = NpuRuntime.addProbe();
                 log("ADD_PROBE elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + "\n" + r);
                 log("ADD max_elements=" + NpuRuntime.maxAddElements());
+
+                // Capability alone never proved the kernel works - it only said
+                // the ops exist. This actually builds the noise graph, runs it and
+                // diffs every point against a CPU reference written the textbook
+                // way, so the answer shows up in the log without anyone having to
+                // know a command exists. Runs here, not before the listener: it
+                // builds graphs, and MC's first connect must not wait on that.
+                try {
+                    long tp = System.nanoTime();
+                    String p = NpuRuntime.perlinBench(4096);
+                    log("PERLIN_AUTO elapsed_ms=" + ((System.nanoTime() - tp) / 1_000_000.0) + " " + p);
+                } catch (Throwable pe) {
+                    log("PERLIN_AUTO FAILED " + pe);
+                }
             } catch (Throwable e) {
                 log("ADD_PROBE exception=" + e);
             } finally {
