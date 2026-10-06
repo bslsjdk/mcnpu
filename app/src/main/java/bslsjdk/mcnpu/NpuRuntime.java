@@ -165,6 +165,27 @@ public final class NpuRuntime {
         }
     }
     private static native String nativeAddProbe();
+
+    /**
+     * Every op the HTP backend actually registered, including its built-in package.
+     *
+     * This answers "can Perlin live on the NPU?" with a fact instead of a guess.
+     * The noise kernel needs a table lookup per corner; if the backend has no
+     * gather, the only substitutes cost hundreds of MB per chunk section and the
+     * whole noise route is not worth writing. We used to infer op support from
+     * addNode failures, but those cannot distinguish "op does not exist" from
+     * "we passed the wrong params", which is how a working op gets written off.
+     */
+    public static String opProbe() {
+        if (!ready) return "ERR OPPROBE NPU_NOT_READY";
+        try {
+            String r = nativeOpProbe();
+            return r == null ? "ERR OPPROBE_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR OPPROBE_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativeOpProbe();
     private static native String nativeAddMax();
 
     /**

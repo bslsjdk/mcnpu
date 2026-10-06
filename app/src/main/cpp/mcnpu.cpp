@@ -1623,6 +1623,104 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeFlushGr
     I("%s",r.c_str());
     return e->NewStringUTF(r.c_str());
 }
+
+// ---------------------------------------------------------------------------
+// Op availability probe (noise kernel feasibility)
+//
+// Perlin is a table lookup per corner: perm[] plus a 16x3 gradient matrix. That
+// means ~14 gathers per noise evaluation, 73,728 evaluations per chunk section.
+// Whether the HTP has a gather decides if noise offload is worth writing at all:
+//
+//   with a gather   -> roughly 14 lookups per eval, feasible
+//   without one     -> the only substitute is one-hot x matmul, which needs
+//                      about 528 MB of intermediate per section. Not viable.
+//
+// So ask the backend instead of guessing. QnnBackend_getSupportedOperations()
+// enumerates every op the backend registered, including the built-in package,
+// which is authoritative in a way that "we tried to build a graph and it
+// failed" never is - an addNode failure cannot distinguish "op missing" from
+// "we passed wrong params".
+static const char* kOpProbeWanted[] = {
+    // table lookup - the whole question
+    "Gather", "GatherElements", "GatherNd", "ScatterNd", "ScatterElements", "OneHot",
+    // index arithmetic for the perm chain
+    "Cast", "Reshape", "Transpose", "Concat", "Split", "StridedSlice", "Tile",
+    "Squeeze", "Unsqueeze", "Shape", "Range", "Pad",
+    // elementwise: floor, fade curve, lerp, compare
+    "ElementWiseUnary", "ElementWiseBinary", "ElementWiseSelect", "Where",
+    "Floor", "Ceil", "Round", "Abs", "Neg", "Sub", "Add", "Mul", "Div", "Min", "Max",
+    "Pow", "Exp", "Log", "Sqrt", "Rsqrt", "Sin", "Cos", "Clip", "Relu",
+    "Equal", "NotEqual", "Less", "LessEqual", "Greater", "GreaterEqual",
+    "And", "Or", "Not",
+    // reduction / layout for the corner reduction
+    "MatMul", "MatMulTranspose", "ReduceMax", "ReduceSum", "ReduceMin", "ReduceMean",
+    "TopK", "Quantize", "Dequantize"
+};
+
+std::string runOpProbe(){
+    if(!g.ready || !g.api || !g.backend)
+        return "ERR OPPROBE NOT_READY ready=" + std::to_string((int)g.ready)
+             + " api=" + std::to_string((int)(g.api!=nullptr))
+             + " backend=" + std::to_string((int)(g.backend!=nullptr));
+    const auto& f=g.api->QNN_INTERFACE_VER_NAME;
+    if(!f.backendGetSupportedOperations)
+        return "ERR OPPROBE NO_API backendGetSupportedOperations=null (SDK too old?)";
+
+    uint32_t num=0;
+    const QnnBackend_OperationName_t* ops=nullptr;
+    Qnn_ErrorHandle_t rc=f.backendGetSupportedOperations(g.backend,&num,&ops);
+    if(rc!=QNN_SUCCESS||!ops||num==0)
+        return "ERR OPPROBE QUERY rc="+std::to_string((int)rc)
+             +" num="+std::to_string((unsigned)num)+" "+verbose(rc);
+
+    std::vector<std::string> have;
+    have.reserve(num);
+    for(uint32_t i=0;i<num;i++){
+        std::string nm = ops[i].name ? ops[i].name : "";
+        if(nm.empty()) continue;
+        std::string pk = ops[i].packageName ? ops[i].packageName : "";
+        have.push_back(pk.empty() ? nm : (nm+"@"+pk));
+    }
+    std::sort(have.begin(),have.end());
+    have.erase(std::unique(have.begin(),have.end()),have.end());
+
+    // Match on the exact op name, allowing an "@package" suffix. Prefix-only
+    // matching would make "Gather" also match "GatherNd", which is a different
+    // op with different semantics and would give a false green light.
+    std::string present, missing;
+    const size_t W=sizeof(kOpProbeWanted)/sizeof(kOpProbeWanted[0]);
+    for(size_t i=0;i<W;i++){
+        const std::string w(kOpProbeWanted[i]);
+        bool hit=false;
+        for(size_t j=0;j<have.size();j++){
+            const std::string& h=have[j];
+            if(h.size()>=w.size() && h.compare(0,w.size(),w)==0
+               && (h.size()==w.size() || h[w.size()]=='@')){ hit=true; break; }
+        }
+        if(hit) present += (present.empty()?"":",")+w;
+        else    missing += (missing.empty()?"":",")+w;
+    }
+
+    // Both the summary and the full list go out. The summary is for reading at a
+    // glance; the full list is the ground truth, so a name we never asked about
+    // can never be mistaken for one the device lacks.
+    std::string all;
+    for(size_t i=0;i<have.size();i++) all += (i?",":"")+have[i];
+    if(all.size()>6000) all = all.substr(0,6000)+"...(truncated)";
+
+    return "OK OPPROBE n="+std::to_string((unsigned)num)
+         +" present="+present
+         +" missing="+missing
+         +"\nOPPROBE_ALL "+all;
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeOpProbe(JNIEnv* e,jclass){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    std::string r=runOpProbe();
+    I("OPPROBE %s",r.c_str());
+    return e->NewStringUTF(r.c_str());
+}
+
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     return e->NewStringUTF(std::to_string(g_addLadderMax).c_str());

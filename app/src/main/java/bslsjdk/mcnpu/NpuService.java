@@ -485,6 +485,12 @@ public final class NpuService extends Service {
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
                     reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE max_elements=" + NpuRuntime.maxAddElements();
+                } else if (cmd.equals("OPPROBE")) {
+                    // Asks the backend what it supports. No graph is built and no
+                    // device work is queued, so this must not abort an in-flight
+                    // probe - it is a query, not work.
+                    reply = NpuRuntime.opProbe();
+                    log("EXEC OPPROBE " + reply.replace('\n', ' '));
                 } else if (cmd.equals("ADDPROBE")) {
                     long t = System.nanoTime();
                     reply = NpuRuntime.addProbe();
