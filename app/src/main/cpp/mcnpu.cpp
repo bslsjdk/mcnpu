@@ -2322,6 +2322,142 @@ static std::string buildPerlinHybrid(PerlinGraph& G, uint32_t n){
     return "";
 }
 
+// ---------------------------------------------------------------------------
+// One-shot graph capability diagnostic.
+//
+// This exists because four rounds of inferring the cause of a graph failure
+// from the registered-op list produced four different wrong answers, each one
+// shipped as a fix and each one wrong. Every probe below is a separate minimal
+// graph isolating exactly one question and reporting the raw rc. It measures
+// instead of inferring.
+//
+//   OK   - graphCreate, tensorCreate, addNode and graphFinalize all succeeded
+//   rcN  - the QNN error handle from the stage named in the tag
+// ---------------------------------------------------------------------------
+static std::string runPerlinDiag(uint32_t n){
+    if(!g.ready || !g.api || !g.context) return "ERR DIAG NOT_READY";
+    const auto& f = g.api->QNN_INTERFACE_VER_NAME;
+    if(n == 0 || n > 1024) n = 64;
+    const Qnn_DataType_t F = QNN_DATATYPE_FLOAT_32;
+    const Qnn_DataType_t I = QNN_DATATYPE_INT_32;
+    std::string out;
+    Qnn_GraphHandle_t gh = nullptr;
+    int seq = 0;
+    std::deque<std::vector<uint8_t>> keep;
+
+    // One throwaway graph per probe. The budget is 8 and there is no per-graph
+    // destroy in use here, so the budget check may reset the context between
+    // probes. Diagnostic graphs are never executed, so that is acceptable.
+    auto fresh = [&](const char* tag)->Qnn_ErrorHandle_t{
+        ensureGraphBudget();
+        g.graphCount++;
+        const std::string nm = std::string("mcnpu_diag_") + tag + std::to_string(++seq);
+        return f.graphCreate(g.context, nm.c_str(), nullptr, &gh);
+    };
+    auto reg = [&](TensorArena& A, const char* nm, Qnn_TensorType_t ty,
+                   Qnn_DataType_t dt, uint32_t dim)->Qnn_Tensor_t{
+        Qnn_Tensor_t t = mkT(A, nm, ty, dt, dim);
+        f.tensorCreateGraphTensor(gh, &t);
+        return t;
+    };
+    auto statT = [&](TensorArena& A, const char* nm, Qnn_DataType_t dt, uint32_t dim,
+                     const void* bytes, size_t nbytes)->Qnn_Tensor_t{
+        Qnn_Tensor_t t = mkT(A, nm, QNN_TENSOR_TYPE_STATIC, dt, dim);
+        keep.emplace_back((const uint8_t*)bytes, (const uint8_t*)bytes + nbytes);
+        t.v1.clientBuf.data = keep.back().data();
+        t.v1.clientBuf.dataSize = nbytes;
+        f.tensorCreateGraphTensor(gh, &t);
+        return t;
+    };
+    auto rec = [&](const char* tag, Qnn_ErrorHandle_t r){
+        out += std::string(" ") + tag + "="
+             + (r == QNN_SUCCESS ? "OK" : ("rc" + std::to_string((int)r)));
+    };
+    auto fin = [&](const char* tag, Qnn_ErrorHandle_t r){
+        if(r != QNN_SUCCESS){ rec(tag, r); return; }
+        rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    auto lerp = [&](TensorArena& A, Qnn_Tensor_t& a, Qnn_Tensor_t& b,
+                    Qnn_Tensor_t& t, Qnn_Tensor_t& o)->Qnn_ErrorHandle_t{
+        Qnn_Tensor_t df = mkT(A, "df", QNN_TENSOR_TYPE_NATIVE, F, n);
+        Qnn_ErrorHandle_t r = f.tensorCreateGraphTensor(gh, &df);
+        if(r != QNN_SUCCESS) return r;
+        r = addBinary(f, gh, A, "s", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, b, a, df);
+        if(r != QNN_SUCCESS) return r;
+        Qnn_Tensor_t pr = mkT(A, "pr", QNN_TENSOR_TYPE_NATIVE, F, n);
+        r = f.tensorCreateGraphTensor(gh, &pr);
+        if(r != QNN_SUCCESS) return r;
+        r = addBinary(f, gh, A, "m", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
+        if(r != QNN_SUCCESS) return r;
+        return addBinary(f, gh, A, "a", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, pr, o);
+    };
+
+    // p_lerp: one 3-node fp32 chain ending in APP_READ. This is exactly how
+    // path C ends and how the working ADD graph ends, so a failure here means
+    // the arithmetic chain itself is the problem, not Perlin.
+    {
+        Qnn_ErrorHandle_t r = fresh("lerp");
+        if(r != QNN_SUCCESS){ rec("lerp_crt", r); return out; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t t = reg(A, "t", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        fin("lerp", lerp(A, a, b, t, o));
+    }
+    // p_cast_i32: fp32 -> int32, straight into an int32 output. Everything in
+    // path A's index chain depends on this producing an int32 tensor at all.
+    {
+        Qnn_ErrorHandle_t r = fresh("cast");
+        if(r != QNN_SUCCESS){ rec("cast_crt", r); return out; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  I, n);
+        fin("cast_i32", addNode(f, gh, A.name("cast"), QNN_OP_CAST,
+                                nullptr, 0, &a, 1, &o, 1));
+    }
+    // p_gather_fwd: {table, indices} - the operand order buildPerlinFull uses.
+    {
+        Qnn_ErrorHandle_t r = fresh("gf");
+        if(r != QNN_SUCCESS){ rec("gf_crt", r); return out; }
+        TensorArena A;
+        std::vector<int32_t> tbl(512);
+        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
+        Qnn_Tensor_t T  = statT(A, "T",  I, 512, tbl.data(), tbl.size()*sizeof(int32_t));
+        Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
+        Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  I, n);
+        fin("gather_fwd", addGather(f, gh, A, "g", T, ix, o));
+    }
+    // p_gather_rev: {indices, table}. If fwd fails and rev passes, addGather
+    // simply has its operands backwards and nothing else is wrong.
+    {
+        Qnn_ErrorHandle_t r = fresh("gr");
+        if(r != QNN_SUCCESS){ rec("gr_crt", r); return out; }
+        TensorArena A;
+        std::vector<int32_t> tbl(512);
+        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
+        Qnn_Tensor_t T  = statT(A, "T",  I, 512, tbl.data(), tbl.size()*sizeof(int32_t));
+        Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
+        Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  I, n);
+        Qnn_Tensor_t ins[2] = {ix, T};
+        Qnn_Param_t p = scalarParam(QNN_OP_GATHER_PARAM_AXIS, QNN_DATATYPE_UINT_32, 0);
+        fin("gather_rev", addNode(f, gh, A.name("g"), QNN_OP_GATHER, &p, 1, ins, 2, &o, 1));
+    }
+    // p_gather_f32: float table with int32 indices - what the gradient lookups
+    // need, in case int32 tables specifically are the thing refused.
+    {
+        Qnn_ErrorHandle_t r = fresh("g32");
+        if(r != QNN_SUCCESS){ rec("g32_crt", r); return out; }
+        TensorArena A;
+        std::vector<float> tbl(256, 1.0f);
+        Qnn_Tensor_t T  = statT(A, "T",  F, 256, tbl.data(), tbl.size()*sizeof(float));
+        Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
+        Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  F, n);
+        fin("gather_f32", addGather(f, gh, A, "g", T, ix, o));
+    }
+    return out;
+}
+
 // CPU reference used for the correctness check. Deliberately written the way a
 // textbook Perlin is, not the way the graph is, so that a shared bug between the
 // two cannot produce a green result.
@@ -2392,8 +2528,15 @@ std::string runPerlinBench(uint32_t n){
             // arithmetic itself is any good.
             PerlinGraph cg;
             std::string cErr = buildPerlinHybrid(cg, n);
-            if(!cErr.empty())
-                return "ERR PERLIN BUILD A=[" + aFail + "] C=[" + cErr + "]";
+            if(!cErr.empty()){
+                // Both paths refused. Run the diagnostic rather than report
+                // only the failure, so the next attempt starts from a measured
+                // answer instead of another hypothesis about which op is at
+                // fault.
+                const std::string d = runPerlinDiag(n);
+                return "ERR PERLIN BUILD A=[" + aFail + "] C=[" + cErr
+                     + "] DIAG=[" + d + "]";
+            }
             auto ins = g_perlinGraphs.emplace(n, std::move(cg));
             G = &ins.first->second;
             G->aFail = aFail;
