@@ -2735,6 +2735,41 @@ static std::string runPerlinDiag(uint32_t n){
         if(r != QNN_SUCCESS){ rec("stat_stale_cast", r); return out; }
         rec("stat_stale", f.graphFinalize(gh, nullptr, nullptr));
     }
+    // ---- v6: is ~194 nodes in one graph itself too many here? ----
+    //
+    // Path A now adds every node and dies at graphFinalize with rc=1002, which is
+    // also what p_lerp reports on three nodes. So node count alone cannot be the
+    // whole story; the other reading is that lerp happened to be the eighth graph
+    // on a context ADD_PROBE had already filled, and that path A is simply too
+    // large for a context carrying seven. These two get a context each, so what
+    // they report is node count and nothing else:
+    //   nl64=OK  nl194=OK   -> ~194 nodes is fine, the failures were context load
+    //   nl64=OK  nl194=rc.. -> path A has to be split across several graphs
+    auto nodeLadder = [&](const char* tag, int nodes){
+        if(!resetContextLocked()){ rec(std::string(tag)+"_reset", 1); return; }
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        Qnn_Tensor_t cur = a;
+        bool bad = false;
+        for(int i = 0; i < nodes && !bad; i++){
+            const bool last = (i == nodes - 1);
+            Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
+            if(!last){
+                r = f.tensorCreateGraphTensor(gh, &t);
+                if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr"+std::to_string(i), r); bad = true; break; }
+            }
+            r = addBinary(f, gh, A, "ad", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, cur, b, t);
+            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod"+std::to_string(i), r); bad = true; break; }
+            cur = t;
+        }
+        if(!bad) rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    nodeLadder("nl64",  64);
+    nodeLadder("nl194", 194);
     return out;
 }
 
@@ -2782,6 +2817,16 @@ std::string runPerlinBench(uint32_t n){
         G = &found->second;
     } else {
         std::string aFail;
+        // Path A is ~194 nodes and ~180 NATIVE tensors, by far the largest graph
+        // this service ever builds. ADD_PROBE leaves one graph per ladder rung on
+        // the context, the last of them holding 65536 elements, and
+        // ensureGraphBudget only resets once the eighth is requested - so a graph
+        // this size can be refused at graphFinalize with rc=1002 on a context that
+        // still carries those, while every addNode is accepted. That same
+        // mechanism is why p_lerp was the only failing probe in every run: three
+        // nodes is not the problem, being the eighth graph on a full context is.
+        // The build gets a context of its own instead of another inference.
+        if(!resetContextLocked()) return "ERR PERLIN CONTEXT_RESET";
         if(useFull){
             // STATIC constants first, then constants-as-graph-inputs. Both are
             // cheap to build and the second mode exists only because HTP
@@ -2790,6 +2835,14 @@ std::string runPerlinBench(uint32_t n){
             // gets mistaken for "Perlin cannot be built here".
             const int modes[2] = {0, 1};
             for(int m = 0; m < 2 && !G; m++){
+                // Each attempt starts from a pristine context as well. A rejected
+                // finalize can leave the graph and its NATIVE allocations resident
+                // and there is no per-graph destroy here to reclaim them, so the
+                // second mode would otherwise be built on top of the first failure.
+                if(m > 0 && !resetContextLocked()){
+                    aFail += " | cm" + std::to_string(modes[m]) + "=ERR CONTEXT_RESET";
+                    break;
+                }
                 PerlinGraph cg;
                 std::string e = buildPerlinFull(cg, n, modes[m]);
                 if(e.empty()){
@@ -2806,6 +2859,8 @@ std::string runPerlinBench(uint32_t n){
             // measured number instead of only an error, and carry the reason
             // out in the report - otherwise one rejected op hides whether the
             // arithmetic itself is any good.
+            if(!resetContextLocked())
+                return "ERR PERLIN CONTEXT_RESET_C A=[" + aFail + "]";
             PerlinGraph cg;
             std::string cErr = buildPerlinHybrid(cg, n);
             if(!cErr.empty()){
