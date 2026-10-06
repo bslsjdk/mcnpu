@@ -182,9 +182,7 @@ public final class NpuService extends Service {
             try {
                 long t0 = System.nanoTime();
                 String ops = NpuRuntime.opProbe();
-                log("OPPROBE_AUTO elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0)
-                        + "
-" + ops);
+                log("OPPROBE_AUTO elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + " " + ops);
             } catch (Throwable t) {
                 log("OPPROBE_AUTO FAILED " + t);
             }
