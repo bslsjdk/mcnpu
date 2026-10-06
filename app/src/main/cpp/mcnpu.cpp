@@ -1766,7 +1766,7 @@ static void cacheOps(){
     if(f.backendGetSupportedOperations(g.backend, &num, &ops) != QNN_SUCCESS || !ops) return;
     g_opsCache.clear();
     for(uint32_t i = 0; i < num; i++){
-        const char* nm = ops[i].opName;
+        const char* nm = ops[i].name;
         if(nm && *nm) g_opsCache.emplace_back(nm);
     }
     std::sort(g_opsCache.begin(), g_opsCache.end());
@@ -2432,7 +2432,6 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinB
     I("PERLIN %s", r.c_str());
     return e->NewStringUTF(r.c_str());
 }
-
 
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
