@@ -1811,6 +1811,18 @@ struct PerlinGraph {
     // Path C extra inputs: eight corner dot products plus three fade weights
     Qnn_Tensor_t inD[8]{}, inU{}, inV{}, inW{};
     std::vector<Qnn_Tensor_t> statics;
+    // Constants. On this device HTP rejects a STATIC tensor as an
+    // ElementWiseBinary operand: addNode returns 6005/6007 the moment one is
+    // fed in, while the same op on two NATIVE tensors is accepted. Rather than
+    // guess at the reason, path A is built twice - once with STATIC constants
+    // and once with every constant as an APP_WRITE graph input - and whichever
+    // one finalizes is the one that runs. constMode records which, because the
+    // executor has to supply exactly the tensors the graph declares.
+    int constMode = 0;                   // 0 = STATIC operand, 1 = APP_WRITE input
+    std::vector<Qnn_Tensor_t>      cT;   // constMode 1: the constant input tensors
+    std::vector<Qnn_DataType_t>    cDt;
+    std::vector<float>             cFlt;
+    std::vector<int32_t>           cInt;
     bool ready = false;
 };
 
@@ -1944,13 +1956,14 @@ std::string runPerlinCap(){
 // "& 255" that the CPU reference needs on the outer index is unnecessary here;
 // the table was already built doubled. That removes a mask op per corner.
 // ---------------------------------------------------------------------------
-static std::string buildPerlinFull(PerlinGraph& G, uint32_t n){
+static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     const auto& f = g.api->QNN_INTERFACE_VER_NAME;
     TensorArena& A = G.arena;
     // Static payloads are copied into here so they outlive this frame.
     static std::deque<std::vector<uint8_t>> g_staticKeep;
 
     G.n = n;
+    G.constMode = constMode;
     const std::string gname = "mcnpu_perlin_" + std::to_string(++g_perlinSeq);
     Qnn_ErrorHandle_t rc = f.graphCreate(g.context, gname.c_str(), nullptr, &G.graph);
     if(rc != QNN_SUCCESS || !G.graph)
@@ -1967,11 +1980,32 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n){
     // Every constant is a length-n tensor, never a 1-element one. A backend is
     // not obliged to broadcast, and a 1-element operand is exactly the shape
     // that gets rejected on HTP.
+    //
+    // constMode 1 exists because HTP refused even the length-n STATIC form when
+    // it was handed to ElementWiseBinary. Those constants become ordinary graph
+    // inputs instead and the executor fills them, which trades IPC bytes for a
+    // graph that builds at all.
     auto mkCI = [&](const char* tag, int32_t v)->Qnn_Tensor_t{
+        if(constMode == 1){
+            Qnn_Tensor_t t = mkT(A, tag, QNN_TENSOR_TYPE_APP_WRITE, I, n);
+            Qnn_ErrorHandle_t r = f.tensorCreateGraphTensor(G.graph, &t);
+            if(r != QNN_SUCCESS)
+                return mkT(A, tag, QNN_TENSOR_TYPE_APP_WRITE, I, n);
+            G.cT.push_back(t); G.cDt.push_back(I); G.cFlt.push_back(0.0f); G.cInt.push_back(v);
+            return t;
+        }
         std::vector<int32_t> vv((size_t)n, v);
         return mkStatic(A, G, tag, I, n, vv.data(), vv.size()*sizeof(int32_t), g_staticKeep);
     };
     auto mkCF = [&](const char* tag, float v)->Qnn_Tensor_t{
+        if(constMode == 1){
+            Qnn_Tensor_t t = mkT(A, tag, QNN_TENSOR_TYPE_APP_WRITE, F, n);
+            Qnn_ErrorHandle_t r = f.tensorCreateGraphTensor(G.graph, &t);
+            if(r != QNN_SUCCESS)
+                return mkT(A, tag, QNN_TENSOR_TYPE_APP_WRITE, F, n);
+            G.cT.push_back(t); G.cDt.push_back(F); G.cFlt.push_back(v); G.cInt.push_back(0);
+            return t;
+        }
         std::vector<float> vv((size_t)n, v);
         return mkStatic(A, G, tag, F, n, vv.data(), vv.size()*sizeof(float), g_staticKeep);
     };
@@ -2232,34 +2266,54 @@ static std::string buildPerlinHybrid(PerlinGraph& G, uint32_t n){
         if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE uvwo rc=" + std::to_string((int)rc);
     }
 
-    auto lerp = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
-                    const char* tag) -> Qnn_Tensor_t {
-        Qnn_Tensor_t df = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
-        f.tensorCreateGraphTensor(G.graph, &df);
-        addBinary(f, G.graph, A, "s", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, b, a, df);
-        Qnn_Tensor_t pr = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
-        f.tensorCreateGraphTensor(G.graph, &pr);
-        addBinary(f, G.graph, A, "m", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
-        Qnn_Tensor_t rs = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
-        f.tensorCreateGraphTensor(G.graph, &rs);
-        addBinary(f, G.graph, A, "a", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, pr, rs);
-        return rs;
+    // Every addNode return is checked. The previous version ignored them, so a
+    // rejected node surfaced later as an anonymous GRAPH_FINALIZE failure that
+    // pointed at nothing.
+    //
+    // The final lerp writes straight into G.out. The old graph ended with
+    // "out = r * 1.0" purely to move a NATIVE tensor into the APP_READ output,
+    // and that multiply by a STATIC constant was the one node HTP rejected -
+    // which is why path C died at finalize while path A died at addNode.
+    std::string herr;
+    auto mkN = [&](const char* tag)->Qnn_Tensor_t{
+        Qnn_Tensor_t t = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        rc = f.tensorCreateGraphTensor(G.graph, &t);
+        if(rc != QNN_SUCCESS)
+            herr = "ERR TENSOR_CREATE " + std::string(tag)
+                 + " rc=" + std::to_string((int)rc);
+        return t;
     };
-    Qnn_Tensor_t x00 = lerp(G.inD[0], G.inD[1], G.inU, "x00");
-    Qnn_Tensor_t x10 = lerp(G.inD[2], G.inD[3], G.inU, "x10");
-    Qnn_Tensor_t x01 = lerp(G.inD[4], G.inD[5], G.inU, "x01");
-    Qnn_Tensor_t x11 = lerp(G.inD[6], G.inD[7], G.inU, "x11");
-    Qnn_Tensor_t y0  = lerp(x00, x10, G.inV, "y0");
-    Qnn_Tensor_t y1  = lerp(x01, x11, G.inV, "y1");
-    Qnn_Tensor_t r   = lerp(y0,  y1,  G.inW, "r");
+    auto lerp = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
+                    const char* tag, Qnn_Tensor_t& o) -> bool {
+        Qnn_Tensor_t df = mkN(tag); if(!herr.empty()) return false;
+        Qnn_ErrorHandle_t r = addBinary(f, G.graph, A, "s",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, b, a, df);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE s(" + std::string(tag) + ") rc="
+            + std::to_string((int)r) + " " + verbose(r); return false; }
+        Qnn_Tensor_t pr = mkN(tag); if(!herr.empty()) return false;
+        r = addBinary(f, G.graph, A, "m",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE m(" + std::string(tag) + ") rc="
+            + std::to_string((int)r) + " " + verbose(r); return false; }
+        r = addBinary(f, G.graph, A, "a",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, pr, o);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE a(" + std::string(tag) + ") rc="
+            + std::to_string((int)r) + " " + verbose(r); return false; }
+        return true;
+    };
 
-    const float f1 = 1.0f;
-    static std::deque<std::vector<uint8_t>> keepC;
-    Qnn_Tensor_t tF1 = mkStatic(A, G, "f1", F, 1, &f1, sizeof(f1), keepC);
-    rc = f.tensorCreateGraphTensor(G.graph, &tF1);
-    if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE f1 rc=" + std::to_string((int)rc);
-    addBinary(f, G.graph, A, "out", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, r, tF1, G.out);
+    Qnn_Tensor_t x00 = mkN("x00"), x10 = mkN("x10"), x01 = mkN("x01"), x11 = mkN("x11");
+    Qnn_Tensor_t y0  = mkN("y0"),  y1  = mkN("y1");
+    if(!herr.empty()) return herr;
+    if(!lerp(G.inD[0], G.inD[1], G.inU, "x00", x00)) return herr;
+    if(!lerp(G.inD[2], G.inD[3], G.inU, "x10", x10)) return herr;
+    if(!lerp(G.inD[4], G.inD[5], G.inU, "x01", x01)) return herr;
+    if(!lerp(G.inD[6], G.inD[7], G.inU, "x11", x11)) return herr;
+    if(!lerp(x00, x10, G.inV, "y0", y0)) return herr;
+    if(!lerp(x01, x11, G.inV, "y1", y1)) return herr;
+    if(!lerp(y0,  y1,  G.inW, "r",  G.out)) return herr;
 
+    G.constMode = 0;
     rc = f.graphFinalize(G.graph, nullptr, nullptr);
     if(rc != QNN_SUCCESS)
         return "ERR GRAPH_FINALIZE rc=" + std::to_string((int)rc) + " " + verbose(rc);
@@ -2311,13 +2365,24 @@ std::string runPerlinBench(uint32_t n){
     if(found != g_perlinGraphs.end()){
         G = &found->second;
     } else {
-        PerlinGraph ng;
         std::string aFail;
         if(useFull){
-            aFail = buildPerlinFull(ng, n);
-            if(aFail.empty()){
-                auto ins = g_perlinGraphs.emplace(n, std::move(ng));
-                G = &ins.first->second;
+            // STATIC constants first, then constants-as-graph-inputs. Both are
+            // cheap to build and the second mode exists only because HTP
+            // rejected the first; whichever one finalizes is the one that runs,
+            // and both failure strings are carried out so a rejected op never
+            // gets mistaken for "Perlin cannot be built here".
+            const int modes[2] = {0, 1};
+            for(int m = 0; m < 2 && !G; m++){
+                PerlinGraph cg;
+                std::string e = buildPerlinFull(cg, n, modes[m]);
+                if(e.empty()){
+                    auto ins = g_perlinGraphs.emplace(n, std::move(cg));
+                    G = &ins.first->second;
+                } else {
+                    if(!aFail.empty()) aFail += " | ";
+                    aFail += "cm" + std::to_string(modes[m]) + "=" + e;
+                }
             }
         }
         if(!G){
@@ -2357,8 +2422,27 @@ std::string runPerlinBench(uint32_t n){
         ey.v1.clientBuf.data = ys.data(); ey.v1.clientBuf.dataSize = n*sizeof(float);
         ez.v1.clientBuf.data = zs.data(); ez.v1.clientBuf.dataSize = n*sizeof(float);
         eo.v1.clientBuf.data = out.data(); eo.v1.clientBuf.dataSize = n*sizeof(float);
-        Qnn_Tensor_t in[3] = {ex, ey, ez};
-        rc = f.graphExecute(G->graph, in, 3, &eo, 1, nullptr, nullptr);
+        std::vector<Qnn_Tensor_t> inList;
+        inList.push_back(ex); inList.push_back(ey); inList.push_back(ez);
+        // constMode 1: the constants are ordinary graph inputs, so one buffer
+        // per constant has to be filled before every execute.
+        std::vector<std::vector<float>>   fbuf;
+        std::vector<std::vector<int32_t>> ibuf;
+        for(size_t k = 0; k < G->cT.size(); k++){
+            Qnn_Tensor_t t = G->cT[k];
+            if(G->cDt[k] == QNN_DATATYPE_FLOAT_32){
+                fbuf.emplace_back((size_t)n, G->cFlt[k]);
+                t.v1.clientBuf.data = fbuf.back().data();
+                t.v1.clientBuf.dataSize = n*sizeof(float);
+            } else {
+                ibuf.emplace_back((size_t)n, G->cInt[k]);
+                t.v1.clientBuf.data = ibuf.back().data();
+                t.v1.clientBuf.dataSize = n*sizeof(int32_t);
+            }
+            inList.push_back(t);
+        }
+        rc = f.graphExecute(G->graph, inList.data(), (uint32_t)inList.size(),
+                            &eo, 1, nullptr, nullptr);
     } else {
         // host side: perm chain, gradient table and dot products
         std::vector<float> d[8];
@@ -2418,6 +2502,7 @@ std::string runPerlinBench(uint32_t n){
         std::chrono::steady_clock::now() - cpu0).count();
 
     return "OK PERLIN path=" + std::string(G->fullPath ? "A_FULL" : "C_HYBRID")
+         + " cm=" + std::to_string(G->constMode)
          + (G->aFail.empty() ? std::string("") : (" a_fail=[" + G->aFail + "]"))
          + " n=" + std::to_string((unsigned)n)
          + " bad=" + std::to_string((unsigned)bad) + "/" + std::to_string((unsigned)n)
