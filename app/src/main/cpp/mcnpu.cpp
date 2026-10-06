@@ -1846,13 +1846,20 @@ static Qnn_Tensor_t mkT(TensorArena& A, const char* prefix, Qnn_TensorType_t typ
 // A static tensor: its bytes are baked into the graph at finalize time, so the
 // data buffer also has to stay alive. It lives in PerlinGraph::statics and the
 // payload is appended to `keep`, which is owned by the caller's arena lifetime.
-static Qnn_Tensor_t mkStatic(TensorArena& A, PerlinGraph& G, const char* prefix,
+template<typename QnnApi>
+static Qnn_Tensor_t mkStatic(const QnnApi& f, TensorArena& A, PerlinGraph& G, const char* prefix,
                              Qnn_DataType_t dt, uint32_t dim,
                              const void* bytes, size_t nbytes, std::deque<std::vector<uint8_t>>& keep){
     Qnn_Tensor_t t = mkT(A, prefix, QNN_TENSOR_TYPE_STATIC, dt, dim);
     keep.emplace_back((const uint8_t*)bytes, (const uint8_t*)bytes + nbytes);
     t.v1.clientBuf.data = keep.back().data();
     t.v1.clientBuf.dataSize = nbytes;
+    // Register HERE rather than in a later bulk loop. tensorCreateGraphTensor
+    // stamps the descriptor it is handed, so a copy taken before the call keeps
+    // the pre-registration state and every node naming it is rejected with
+    // 6005. That is why g0..ggz all failed while every probe passed: the probes
+    // build statics with statT(), which registers before returning.
+    f.tensorCreateGraphTensor(G.graph, &t);
     G.statics.push_back(t);
     return t;
 }
@@ -1995,7 +2002,7 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
             return t;
         }
         std::vector<int32_t> vv((size_t)n, v);
-        return mkStatic(A, G, tag, I, n, vv.data(), vv.size()*sizeof(int32_t), g_staticKeep);
+        return mkStatic(f, A, G, tag, I, n, vv.data(), vv.size()*sizeof(int32_t), g_staticKeep);
     };
     auto mkCF = [&](const char* tag, float v)->Qnn_Tensor_t{
         if(constMode == 1){
@@ -2007,7 +2014,7 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
             return t;
         }
         std::vector<float> vv((size_t)n, v);
-        return mkStatic(A, G, tag, F, n, vv.data(), vv.size()*sizeof(float), g_staticKeep);
+        return mkStatic(f, A, G, tag, F, n, vv.data(), vv.size()*sizeof(float), g_staticKeep);
     };
 
     int32_t perm[512];
@@ -2016,17 +2023,21 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     // Gradient tables indexed by p2 directly: gxT[t] = grad[t & 15]. That folds
     // the "& 15" into the table and deletes one int32 bit op per corner - the
     // least portable op in the whole graph.
-    std::vector<float> tgx(256), tgy(256), tgz(256);
+    // int32, not float: HTP rejects a Gather whose data tensor is fp32
+    // (gather_f32=rc1002 on this device). The gradient components are only ever
+    // -1/0/1, so keeping them integer costs nothing and the Cast back to fp32
+    // happens once per corner after the lookup.
+    std::vector<int32_t> tgx(256), tgy(256), tgz(256);
     for(int h = 0; h < 16; h++){
         const int s0 = (h & 1) ? -1 : 1;      // sign applied to u
         const int s1 = (h & 2) ? -1 : 1;      // sign applied to v
-        float cx, cy, cz;
+        int32_t cx, cy, cz;
         if(h < 8){
-            cx = (float)s0;  cy = (h < 4) ? (float)s1 : 0.0f;  cz = (h < 4) ? 0.0f : (float)s1;
+            cx = s0;  cy = (h < 4) ? s1 : 0;  cz = (h < 4) ? 0 : s1;
         } else {
-            cy = (float)s0;
-            if(h == 12 || h == 14){ cx = (float)s1; cz = 0.0f; }
-            else                  { cx = 0.0f;      cz = (float)s1; }
+            cy = s0;
+            if(h == 12 || h == 14){ cx = s1; cz = 0; }
+            else                  { cx = 0;  cz = s1; }
         }
         for(int t = h; t < 256; t += 16){ tgx[t] = cx; tgy[t] = cy; tgz[t] = cz; }
     }
@@ -2041,20 +2052,20 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     }
 
     Qnn_Tensor_t tPK[2] = {
-        mkStatic(A, G, "pk", I, 512, pk0.data(), pk0.size()*sizeof(int32_t), g_staticKeep),
-        mkStatic(A, G, "pk", I, 512, pk1.data(), pk1.size()*sizeof(int32_t), g_staticKeep)
+        mkStatic(f, A, G, "pk", I, 512, pk0.data(), pk0.size()*sizeof(int32_t), g_staticKeep),
+        mkStatic(f, A, G, "pk", I, 512, pk1.data(), pk1.size()*sizeof(int32_t), g_staticKeep)
     };
     Qnn_Tensor_t tPJ[2] = {
-        mkStatic(A, G, "pj", I, 512, pj0.data(), pj0.size()*sizeof(int32_t), g_staticKeep),
-        mkStatic(A, G, "pj", I, 512, pj1.data(), pj1.size()*sizeof(int32_t), g_staticKeep)
+        mkStatic(f, A, G, "pj", I, 512, pj0.data(), pj0.size()*sizeof(int32_t), g_staticKeep),
+        mkStatic(f, A, G, "pj", I, 512, pj1.data(), pj1.size()*sizeof(int32_t), g_staticKeep)
     };
     Qnn_Tensor_t tPI[2] = {
-        mkStatic(A, G, "pi", I, 512, pi0.data(), pi0.size()*sizeof(int32_t), g_staticKeep),
-        mkStatic(A, G, "pi", I, 512, pi1.data(), pi1.size()*sizeof(int32_t), g_staticKeep)
+        mkStatic(f, A, G, "pi", I, 512, pi0.data(), pi0.size()*sizeof(int32_t), g_staticKeep),
+        mkStatic(f, A, G, "pi", I, 512, pi1.data(), pi1.size()*sizeof(int32_t), g_staticKeep)
     };
-    Qnn_Tensor_t tGX = mkStatic(A, G, "gx", F, 256, tgx.data(), tgx.size()*sizeof(float), g_staticKeep);
-    Qnn_Tensor_t tGY = mkStatic(A, G, "gy", F, 256, tgy.data(), tgy.size()*sizeof(float), g_staticKeep);
-    Qnn_Tensor_t tGZ = mkStatic(A, G, "gz", F, 256, tgz.data(), tgz.size()*sizeof(float), g_staticKeep);
+    Qnn_Tensor_t tGX = mkStatic(f, A, G, "gx", I, 256, tgx.data(), tgx.size()*sizeof(int32_t), g_staticKeep);
+    Qnn_Tensor_t tGY = mkStatic(f, A, G, "gy", I, 256, tgy.data(), tgy.size()*sizeof(int32_t), g_staticKeep);
+    Qnn_Tensor_t tGZ = mkStatic(f, A, G, "gz", I, 256, tgz.data(), tgz.size()*sizeof(int32_t), g_staticKeep);
 
     // 256 and 1/256 float, not int32. The lattice index used to be
     // "cast(fl) MOD 256", and MOD is the single op HTP refuses as a Gather
@@ -2073,7 +2084,8 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     // Register everything before any node references it.
     std::vector<Qnn_Tensor_t*> reg;
     reg.push_back(&G.inX); reg.push_back(&G.inY); reg.push_back(&G.inZ); reg.push_back(&G.out);
-    for(auto& t : G.statics) reg.push_back(&t);
+    // Statics are registered by mkStatic itself; re-registering them here would
+    // stamp fresh ids onto descriptors nobody reads.
     for(auto p : reg){
         rc = f.tensorCreateGraphTensor(G.graph, p);
         if(rc != QNN_SUCCESS)
@@ -2197,13 +2209,23 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         r = addGather(f, G.graph, A, "g2", tPI[ci], q2, p2);
         if(r != QNN_SUCCESS) errAcc += " g2=rc" + std::to_string((int)r);
 
-        Qnn_Tensor_t g0 = mkNF("ggx"), g1 = mkNF("ggy"), g2 = mkNF("ggz");
-        r = addGather(f, G.graph, A, "ggx", tGX, p2, g0);
+        // int32 gradient components out of the tables, then one Cast each to
+        // fp32 for the dot product below.
+        Qnn_Tensor_t gi0 = mkNI("gix"), gi1 = mkNI("giy"), gi2 = mkNI("giz");
+        r = addGather(f, G.graph, A, "ggx", tGX, p2, gi0);
         if(r != QNN_SUCCESS) errAcc += " ggx=rc" + std::to_string((int)r);
-        r = addGather(f, G.graph, A, "ggy", tGY, p2, g1);
+        r = addGather(f, G.graph, A, "ggy", tGY, p2, gi1);
         if(r != QNN_SUCCESS) errAcc += " ggy=rc" + std::to_string((int)r);
-        r = addGather(f, G.graph, A, "ggz", tGZ, p2, g2);
+        r = addGather(f, G.graph, A, "ggz", tGZ, p2, gi2);
         if(r != QNN_SUCCESS) errAcc += " ggz=rc" + std::to_string((int)r);
+
+        Qnn_Tensor_t g0 = mkNF("ggx"), g1 = mkNF("ggy"), g2 = mkNF("ggz");
+        r = addNode(f, G.graph, A.name("cgx"), QNN_OP_CAST, nullptr, 0, &gi0, 1, &g0, 1);
+        if(r != QNN_SUCCESS) errAcc += " cgx=rc" + std::to_string((int)r);
+        r = addNode(f, G.graph, A.name("cgy"), QNN_OP_CAST, nullptr, 0, &gi1, 1, &g1, 1);
+        if(r != QNN_SUCCESS) errAcc += " cgy=rc" + std::to_string((int)r);
+        r = addNode(f, G.graph, A.name("cgz"), QNN_OP_CAST, nullptr, 0, &gi2, 1, &g2, 1);
+        if(r != QNN_SUCCESS) errAcc += " cgz=rc" + std::to_string((int)r);
 
         // offset = frac - (ci,cj,ck): the 0/1 corner offset is the frac-minus-one
         // tensor when the bit is set, so no subtract node is needed here.
@@ -2679,6 +2701,39 @@ static std::string runPerlinDiag(uint32_t n){
         r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
         if(r != QNN_SUCCESS){ rec("gather_fms_c2", r); return out; }
         rec("gather_fms", f.graphFinalize(gh, nullptr, nullptr));
+    }
+    // ---- control for the stale-static fix ----
+    // Replays the ordering path A used to have: build the static descriptor,
+    // hand a copy of it to a Gather, and only afterwards register the copy that
+    // lives in the vector. If that reproduces 6005, the g0..ggz failures were
+    // stale descriptors rather than anything about the Gather op itself.
+    {
+        Qnn_ErrorHandle_t r = fresh("ss");
+        if(r != QNN_SUCCESS){ rec("stat_stale_crt", r); return out; }
+        TensorArena A;
+        std::vector<int32_t> tbl(512);
+        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
+        std::deque<std::vector<uint8_t>> kstale;
+        kstale.emplace_back((const uint8_t*)tbl.data(),
+                            (const uint8_t*)tbl.data() + tbl.size()*sizeof(int32_t));
+        Qnn_Tensor_t stale = mkT(A, "Ts", QNN_TENSOR_TYPE_STATIC, I, 512);
+        stale.v1.clientBuf.data = kstale.back().data();
+        stale.v1.clientBuf.dataSize = kstale.back().size();
+        std::vector<Qnn_Tensor_t> store;
+        store.push_back(stale);                       // pre-registration copy
+        r = f.tensorCreateGraphTensor(gh, &store[0]); // stamps store[0] only
+        if(r != QNN_SUCCESS){ rec("stat_stale_tcr", r); return out; }
+        Qnn_Tensor_t ix = mkT(A, "ix", QNN_TENSOR_TYPE_NATIVE, I, n);
+        Qnn_Tensor_t go = mkT(A, "go", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &ix);
+        if(r == QNN_SUCCESS) r = f.tensorCreateGraphTensor(gh, &go);
+        if(r != QNN_SUCCESS){ rec("stat_stale_tcr2", r); return out; }
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, n);
+        r = addGather(f, gh, A, "g", stale, ix, go);
+        if(r != QNN_SUCCESS){ rec("stat_stale_nod", r); rec("stat_stale", r); return out; }
+        r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
+        if(r != QNN_SUCCESS){ rec("stat_stale_cast", r); return out; }
+        rec("stat_stale", f.graphFinalize(gh, nullptr, nullptr));
     }
     return out;
 }
