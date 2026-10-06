@@ -73,7 +73,7 @@ struct Runtime {
     Qnn_ContextHandle_t context=nullptr;
     bool ready=false;
     std::string info;
-    std::string err, errAcc;
+    std::string err;
     Qnn_LogHandle_t logger=nullptr;
     std::string libDir;
     std::string loadError;
@@ -2119,7 +2119,7 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         if(rc != QNN_SUCCESS) return "ERR NODE mod rc=" + std::to_string((int)rc) + " " + verbose(rc);
     }
 
-    std::string err;
+    std::string err, errAcc;
 
     // ---- fade(t) = t^3 * (t*(t*6 - 15) + 10) ----
     auto buildFade = [&](Qnn_Tensor_t& t, const char* tag)->Qnn_Tensor_t{
