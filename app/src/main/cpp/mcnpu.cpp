@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <cstdint>
 #include <sched.h>
+#include <deque>
+#include <map>
 #include "QnnInterface.h"
 #include "QnnLog.h"
 #include "QnnBackend.h"
@@ -1720,6 +1722,717 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeOpProbe
     I("OPPROBE %s",r.c_str());
     return e->NewStringUTF(r.c_str());
 }
+
+
+// ===========================================================================
+// Noise kernel
+//
+// Why noise and nothing else: of everything in worldgen, noise is the only part
+// that is both large and free of branches. A chunk section asks for 73,728
+// evaluations. On the CPU each one costs ~80ns, and most of that is eight corner
+// lookups plus a 16-way branch inside the gradient function - a branch that
+// mispredicts almost every time because h is effectively random. The HTP has no
+// branch predictor to miss, so that cost simply disappears there.
+//
+// The design hangs on one op: Gather. perm[] and the 16x3 gradient matrix are
+// both tables. With a gather, an evaluation is ~14 lookups plus fused
+// multiply-add. Without one the only substitute is one-hot x matmul, which needs
+// roughly 528MB of intermediate per section - dead on arrival.
+//
+// Two paths, selected at run time from what the backend actually registered:
+//
+//   A  full graph   coordinates in, noise out.
+//                   Needs Gather, ElementWiseUnary(Floor), ElementWiseBinary.
+//   C  hybrid       the host resolves the perm chain and the gradient table -
+//                   both pure lookups that the CPU does well - and the graph
+//                   does only the arithmetic: dot products, the fade polynomial
+//                   and the trilinear blend. Needs ElementWiseBinary alone,
+//                   which is far more basic than Gather.
+//
+// Path C recovers less, because the host still pays for the lookups, and it is
+// not obviously a win once the ~2ms round trip is paid. It exists so that a
+// backend without Gather still has a measured answer instead of a guess.
+// ===========================================================================
+
+static std::vector<std::string> g_opsCache;
+static bool g_opsCached = false;
+
+static void cacheOps(){
+    if(g_opsCached || !g.ready || !g.api || !g.backend) return;
+    const auto& f = g.api->QNN_INTERFACE_VER_NAME;
+    if(!f.backendGetSupportedOperations) return;
+    uint32_t num = 0;
+    const QnnBackend_OperationName_t* ops = nullptr;
+    if(f.backendGetSupportedOperations(g.backend, &num, &ops) != QNN_SUCCESS || !ops) return;
+    g_opsCache.clear();
+    for(uint32_t i = 0; i < num; i++){
+        const char* nm = ops[i].opName;
+        if(nm && *nm) g_opsCache.emplace_back(nm);
+    }
+    std::sort(g_opsCache.begin(), g_opsCache.end());
+    g_opsCached = true;
+}
+
+// Exact-name match allowing an "@package" suffix. Prefix-only matching would let
+// "Gather" match "GatherNd", which is a different op with different semantics
+// and would hand out a false green light.
+static bool hasOp(const char* want){
+    cacheOps();
+    const std::string w(want);
+    for(size_t j = 0; j < g_opsCache.size(); j++){
+        const std::string& h = g_opsCache[j];
+        if(h.size() >= w.size() && h.compare(0, w.size(), w) == 0
+           && (h.size() == w.size() || h[w.size()] == '@')) return true;
+    }
+    return false;
+}
+
+// QNN keeps the name pointer and the dimensions pointer of every tensor, so both
+// have to outlive the graph. std::deque never moves an existing element on
+// push_back, which is exactly the guarantee needed here - a std::vector would
+// hand out dangling pointers the moment it reallocated.
+struct TensorArena {
+    std::deque<std::string> names;
+    std::deque<uint32_t>    dims;
+    const char* name(const char* prefix){
+        names.push_back(std::string(prefix) + "$" + std::to_string(names.size()));
+        return names.back().c_str();
+    }
+    uint32_t* dim(uint32_t d){ dims.push_back(d); return &dims.back(); }
+};
+
+struct PerlinGraph {
+    Qnn_GraphHandle_t graph = nullptr;
+    uint32_t n = 0;
+    bool     fullPath = false;      // true = A, false = C
+    TensorArena arena;
+    Qnn_Tensor_t inX{}, inY{}, inZ{}, out{};
+    // Path C extra inputs: eight corner dot products plus three fade weights
+    Qnn_Tensor_t inD[8]{}, inU{}, inV{}, inW{};
+    std::vector<Qnn_Tensor_t> statics;
+    bool ready = false;
+};
+
+static std::map<uint32_t, PerlinGraph> g_perlinGraphs;
+static uint32_t g_perlinSeq = 0;
+
+static Qnn_Tensor_t mkT(TensorArena& A, const char* prefix, Qnn_TensorType_t type,
+                        Qnn_DataType_t dt, uint32_t dim){
+    Qnn_Tensor_t t = QNN_TENSOR_INIT;
+    t.version = QNN_TENSOR_VERSION_1;
+    t.v1.name = A.name(prefix);
+    t.v1.type = type;
+    t.v1.dataFormat = QNN_TENSOR_DATA_FORMAT_FLAT_BUFFER;
+    t.v1.dataType = dt;
+    t.v1.rank = 1;
+    t.v1.dimensions = A.dim(dim);
+    t.v1.memType = QNN_TENSORMEMTYPE_RAW;
+    return t;
+}
+
+// A static tensor: its bytes are baked into the graph at finalize time, so the
+// data buffer also has to stay alive. It lives in PerlinGraph::statics and the
+// payload is appended to `keep`, which is owned by the caller's arena lifetime.
+static Qnn_Tensor_t mkStatic(TensorArena& A, PerlinGraph& G, const char* prefix,
+                             Qnn_DataType_t dt, uint32_t dim,
+                             const void* bytes, size_t nbytes, std::deque<std::vector<uint8_t>>& keep){
+    Qnn_Tensor_t t = mkT(A, prefix, QNN_TENSOR_TYPE_STATIC, dt, dim);
+    keep.emplace_back((const uint8_t*)bytes, (const uint8_t*)bytes + nbytes);
+    t.v1.clientBuf.data = keep.back().data();
+    t.v1.clientBuf.dataSize = nbytes;
+    G.statics.push_back(t);
+    return t;
+}
+
+template<typename QnnApi>
+static Qnn_ErrorHandle_t addNode(const QnnApi& f, Qnn_GraphHandle_t gh, const char* nm,
+                                 const char* typeName, Qnn_Param_t* params, uint32_t np,
+                                 Qnn_Tensor_t* ins, uint32_t ni, Qnn_Tensor_t* outs, uint32_t no){
+    Qnn_OpConfig_t op = QNN_OPCONFIG_INIT;
+    op.v1.name = nm;
+    op.v1.packageName = "qti.aisw";
+    op.v1.typeName = typeName;
+    op.v1.numOfParams = np;
+    op.v1.params = params;
+    op.v1.numOfInputs = ni;
+    op.v1.inputTensors = ins;
+    op.v1.numOfOutputs = no;
+    op.v1.outputTensors = outs;
+    return f.graphAddNode(gh, op);
+}
+
+static Qnn_Param_t scalarParam(const char* pname, Qnn_DataType_t dt, uint32_t v){
+    Qnn_Scalar_t s = QNN_SCALAR_INIT;
+    s.dataType = dt;
+    s.uint32Value = v;
+    Qnn_Param_t p = QNN_PARAM_INIT;
+    p.paramType = QNN_PARAMTYPE_SCALAR;
+    p.name = pname;
+    p.scalarParam = s;
+    return p;
+}
+
+// ElementWiseBinary with a chosen operation code.
+template<typename QnnApi>
+static Qnn_ErrorHandle_t addBinary(const QnnApi& f, Qnn_GraphHandle_t gh, TensorArena& A,
+                                   const char* tag, uint32_t opCode,
+                                   Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& o){
+    Qnn_Param_t p = scalarParam(QNN_OP_ELEMENT_WISE_BINARY_PARAM_OPERATION,
+                                QNN_DATATYPE_UINT_32, opCode);
+    Qnn_Tensor_t ins[2] = {a, b};
+    return addNode(f, gh, A.name(tag), QNN_OP_ELEMENT_WISE_BINARY, &p, 1, ins, 2, &o, 1);
+}
+
+template<typename QnnApi>
+static Qnn_ErrorHandle_t addUnary(const QnnApi& f, Qnn_GraphHandle_t gh, TensorArena& A,
+                                  const char* tag, uint32_t opCode,
+                                  Qnn_Tensor_t& a, Qnn_Tensor_t& o){
+    Qnn_Param_t p = scalarParam(QNN_OP_ELEMENT_WISE_UNARY_PARAM_OPERATION,
+                                QNN_DATATYPE_UINT_32, opCode);
+    return addNode(f, gh, A.name(tag), QNN_OP_ELEMENT_WISE_UNARY, &p, 1, &a, 1, &o, 1);
+}
+
+template<typename QnnApi>
+static Qnn_ErrorHandle_t addGather(const QnnApi& f, Qnn_GraphHandle_t gh, TensorArena& A,
+                                   const char* tag, Qnn_Tensor_t& table,
+                                   Qnn_Tensor_t& idx, Qnn_Tensor_t& o){
+    // axis=0: gather rows of the table. The table is rank 1 here, which is the
+    // plain "table[i]" form the perm chain wants.
+    Qnn_Param_t p = scalarParam(QNN_OP_GATHER_PARAM_AXIS, QNN_DATATYPE_UINT_32, 0);
+    Qnn_Tensor_t ins[2] = {table, idx};
+    return addNode(f, gh, A.name(tag), QNN_OP_GATHER, &p, 1, ins, 2, &o, 1);
+}
+
+// What the noise kernel needs, and what each path can do without.
+static const char* kPerlinNeeds[] = {
+    "Gather",
+    "ElementWiseUnary",
+    "ElementWiseBinary",
+};
+
+std::string runPerlinCap(){
+    if(!g.ready || !g.api) return "ERR PERLIN_CAP NOT_READY";
+    std::string present, missing;
+    for(const char* w : kPerlinNeeds){
+        if(hasOp(w)) present += present.empty() ? w : (std::string(",") + w);
+        else         missing += missing.empty() ? w : (std::string(",") + w);
+    }
+    const bool gather = hasOp("Gather");
+    const bool ewBin  = hasOp("ElementWiseBinary");
+    const bool ewUn   = hasOp("ElementWiseUnary");
+    const char* path  = (gather && ewBin && ewUn) ? "A_FULL_GRAPH"
+                      : (ewBin ? "C_HYBRID" : "NONE");
+    return "OK PERLIN_CAP path=" + std::string(path)
+         + " present=" + present
+         + " missing=" + missing
+         + " ops_cached=" + std::to_string((unsigned)g_opsCache.size());
+}
+
+// ---------------------------------------------------------------------------
+// Path A: the whole Perlin evaluation as one graph.
+//
+//   ix = floor(x) mod 256                              (per axis)
+//   for each of the 8 corners (i,j,k):
+//       h  = perm[ ix+i + perm[ iy+j + perm[ iz+k ] ] ] & 15
+//       g  = grads[h]                                  (3 floats)
+//       d  = dot(g, frac - (i,j,k))
+//   u,v,w = fade(frac)                                 (t^3(t(t*6-15)+10))
+//   result = trilinear blend of the eight d values
+//
+// perm is 512 entries and the chain indexes at most 255+1+255 = 511, so the
+// "& 255" that the CPU reference needs on the outer index is unnecessary here;
+// the table was already built doubled. That removes a mask op per corner.
+// ---------------------------------------------------------------------------
+static std::string buildPerlinFull(PerlinGraph& G, uint32_t n){
+    const auto& f = g.api->QNN_INTERFACE_VER_NAME;
+    TensorArena& A = G.arena;
+
+    // Static tables live for the lifetime of the graph, so their bytes are moved
+    // into the graph object rather than into this frame.
+    static std::deque<std::vector<uint8_t>> g_staticKeep;
+
+    G.n = n;
+    const std::string gname = "mcnpu_perlin_" + std::to_string(++g_perlinSeq);
+    Qnn_ErrorHandle_t rc = f.graphCreate(g.context, gname.c_str(), nullptr, &G.graph);
+    if(rc != QNN_SUCCESS || !G.graph)
+        return "ERR GRAPH_CREATE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+    const Qnn_DataType_t F = QNN_DATATYPE_FLOAT_32;
+    const Qnn_DataType_t I = QNN_DATATYPE_INT_32;
+
+    G.inX = mkT(A, "px", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.inY = mkT(A, "py", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.inZ = mkT(A, "pz", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.out = mkT(A, "po", QNN_TENSOR_TYPE_APP_READ,  F, n);
+
+    // perm: 512 int32. grads: 16x3, kept as three separate rank-1 tables so that
+    // no StridedSlice is needed to pull a column out - a slice op per corner
+    // would cost more than the lookup it feeds.
+    int32_t perm[512];
+    for(int i = 0; i < 512; i++) perm[i] = i & 255;
+    float gx[16], gy[16], gz[16];
+    for(int h = 0; h < 16; h++){
+        // grad_f(h, x, y, z) = +/-x +/-y, +/-x +/-z, +/-y +/-z per h band.
+        // grad_f(h,x,y,z) = ((h&1)?-u:u) + ((h&2)?-v:v) where
+        //   u = h<8  ? x : y
+        //   v = h<4  ? y : (h==12||h==14 ? x : z)
+        // Written as coefficients so the graph and the reference cannot drift.
+        const int s0 = (h & 1) ? -1 : 1;      // sign applied to u
+        const int s1 = (h & 2) ? -1 : 1;      // sign applied to v
+        if(h < 8){
+            gx[h] = (float)s0;                          // u = x
+            gy[h] = (h < 4) ? (float)s1 : 0.0f;         // v = y (h<4)
+            gz[h] = (h < 4) ? 0.0f : (float)s1;         // v = z (h>=4)
+        } else {
+            gy[h] = (float)s0;                          // u = y
+            if(h == 12 || h == 14){
+                gx[h] = (float)s1; gz[h] = 0.0f;        // v = x
+            } else {
+                gx[h] = 0.0f; gz[h] = (float)s1;        // v = z
+            }
+        }
+    }
+
+    Qnn_Tensor_t tPerm = mkStatic(A, G, "perm", I, 512, perm, sizeof(perm), g_staticKeep);
+    Qnn_Tensor_t tGX   = mkStatic(A, G, "gx",   F, 16,  gx,   sizeof(gx),   g_staticKeep);
+    Qnn_Tensor_t tGY   = mkStatic(A, G, "gy",   F, 16,  gy,   sizeof(gy),   g_staticKeep);
+    Qnn_Tensor_t tGZ   = mkStatic(A, G, "gz",   F, 16,  gz,   sizeof(gz),   g_staticKeep);
+
+    const int32_t c256 = 256, c15 = 15;
+    const float   f6 = 6.0f, f15 = 15.0f, f10 = 10.0f, f1 = 1.0f;
+    Qnn_Tensor_t t256 = mkStatic(A, G, "c256", I, 1, &c256, sizeof(c256), g_staticKeep);
+    Qnn_Tensor_t t15  = mkStatic(A, G, "c15",  I, 1, &c15,  sizeof(c15),  g_staticKeep);
+    Qnn_Tensor_t tF6  = mkStatic(A, G, "f6",   F, 1, &f6,   sizeof(f6),   g_staticKeep);
+    Qnn_Tensor_t tF15 = mkStatic(A, G, "f15",  F, 1, &f15,  sizeof(f15),  g_staticKeep);
+    Qnn_Tensor_t tF10 = mkStatic(A, G, "f10",  F, 1, &f10,  sizeof(f10),  g_staticKeep);
+    Qnn_Tensor_t tF1  = mkStatic(A, G, "f1",   F, 1, &f1,   sizeof(f1),   g_staticKeep);
+
+    // Register every tensor before any node references it.
+    std::vector<Qnn_Tensor_t*> reg;
+    reg.push_back(&G.inX); reg.push_back(&G.inY); reg.push_back(&G.inZ); reg.push_back(&G.out);
+    for(auto& t : G.statics) reg.push_back(&t);
+    for(auto p : reg){
+        rc = f.tensorCreateGraphTensor(G.graph, p);
+        if(rc != QNN_SUCCESS)
+            return "ERR TENSOR_CREATE name=" + std::string(p->v1.name)
+                 + " rc=" + std::to_string((int)rc) + " " + verbose(rc);
+    }
+
+    // frac and integer lattice per axis
+    Qnn_Tensor_t fx, fy, fz, ix, iy, iz;
+    Qnn_Tensor_t* axesIn[3] = {&G.inX, &G.inY, &G.inZ};
+    Qnn_Tensor_t* axesFr[3] = {&fx, &fy, &fz};
+    Qnn_Tensor_t* axesIx[3] = {&ix, &iy, &iz};
+    const char* axisTag[3] = {"x", "y", "z"};
+    for(int a = 0; a < 3; a++){
+        std::string tg = std::string("fl") + axisTag[a];
+        Qnn_Tensor_t fl = mkT(A, tg.c_str(), QNN_TENSOR_TYPE_NATIVE, F, n);
+        rc = f.tensorCreateGraphTensor(G.graph, &fl);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE fl rc=" + std::to_string((int)rc);
+
+        axesFr[a][0] = mkT(A, ("fr" + std::string(axisTag[a])).c_str(),
+                           QNN_TENSOR_TYPE_NATIVE, F, n);
+        rc = f.tensorCreateGraphTensor(G.graph, axesFr[a]);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE fr rc=" + std::to_string((int)rc);
+
+        // frac = x - floor(x)
+        rc = addBinary(f, G.graph, A, "sub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT,
+                       *axesIn[a], fl, *axesFr[a]);
+        if(rc != QNN_SUCCESS) return "ERR NODE sub rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+        // floor(x) then cast to int32 then mod 256
+        Qnn_Tensor_t fli = mkT(A, ("fli" + std::string(axisTag[a])).c_str(),
+                               QNN_TENSOR_TYPE_NATIVE, I, n);
+        rc = f.tensorCreateGraphTensor(G.graph, &fli);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE fli rc=" + std::to_string((int)rc);
+        rc = addUnary(f, G.graph, A, "fl", QNN_OP_ELEMENT_WISE_UNARY_OPERATION_FLOOR,
+                      *axesIn[a], fl);
+        if(rc != QNN_SUCCESS) return "ERR NODE floor rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+        rc = addNode(f, G.graph, A.name("cast"), QNN_OP_CAST, nullptr, 0, &fl, 1, &fli, 1);
+        if(rc != QNN_SUCCESS) return "ERR NODE cast rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+        axesIx[a][0] = mkT(A, ("ix" + std::string(axisTag[a])).c_str(),
+                           QNN_TENSOR_TYPE_NATIVE, I, n);
+        rc = f.tensorCreateGraphTensor(G.graph, axesIx[a]);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE ix rc=" + std::to_string((int)rc);
+        rc = addBinary(f, G.graph, A, "mod", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MOD,
+                       fli, t256, *axesIx[a]);
+        if(rc != QNN_SUCCESS) return "ERR NODE mod rc=" + std::to_string((int)rc) + " " + verbose(rc);
+    }
+
+    // fade(t) = t^3 * (t*(t*6 - 15) + 10)
+    auto buildFade = [&](Qnn_Tensor_t& t, const char* tag) -> Qnn_Tensor_t {
+        Qnn_Tensor_t a = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &a);
+        Qnn_Tensor_t b = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &b);
+        Qnn_Tensor_t c = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &c);
+        // b = t*6 - 15
+        addBinary(f, G.graph, A, "f_mul", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t, tF6, a);
+        addBinary(f, G.graph, A, "f_sub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a, tF15, b);
+        // c = t*(t*6-15) + 10
+        addBinary(f, G.graph, A, "f_mul2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t, b, a);
+        addBinary(f, G.graph, A, "f_add", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, tF10, c);
+        // out = t^3 * c
+        Qnn_Tensor_t t2 = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &t2);
+        Qnn_Tensor_t t3 = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &t3);
+        addBinary(f, G.graph, A, "f_sq", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t, t, t2);
+        addBinary(f, G.graph, A, "f_cu", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t2, t, t3);
+        addBinary(f, G.graph, A, "f_out", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t3, c, a);
+        return a;
+    };
+    Qnn_Tensor_t u = buildFade(fx, "u");
+    Qnn_Tensor_t v = buildFade(fy, "v");
+    Qnn_Tensor_t w = buildFade(fz, "w");
+
+    // Eight corners. d[corner] = dot(grads[h], frac - (i,j,k))
+    Qnn_Tensor_t d[8];
+    for(int c = 0; c < 8; c++){
+        const int i = (c & 1), j = ((c >> 1) & 1), k = ((c >> 2) & 1);
+        // perm chain: perm[iz + k] -> perm[iy + j + that] -> perm[ix + i + that]
+        int32_t ck = k, cj = j, ci = i;
+        Qnn_Tensor_t tK = mkStatic(A, G, "ck", I, 1, &ck, sizeof(ck), g_staticKeep);
+        Qnn_Tensor_t tJ = mkStatic(A, G, "cj", I, 1, &cj, sizeof(cj), g_staticKeep);
+        Qnn_Tensor_t tI = mkStatic(A, G, "ci", I, 1, &ci, sizeof(ci), g_staticKeep);
+        f.tensorCreateGraphTensor(G.graph, &tK);
+        f.tensorCreateGraphTensor(G.graph, &tJ);
+        f.tensorCreateGraphTensor(G.graph, &tI);
+
+        Qnn_Tensor_t s0 = mkT(A, "s0", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &s0);
+        addBinary(f, G.graph, A, "add_k", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, iz, tK, s0);
+        Qnn_Tensor_t p0 = mkT(A, "p0", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &p0);
+        addGather(f, G.graph, A, "g0", tPerm, s0, p0);
+
+        Qnn_Tensor_t s1 = mkT(A, "s1", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &s1);
+        addBinary(f, G.graph, A, "add_j", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, iy, p0, s1);
+        Qnn_Tensor_t s1b = mkT(A, "s1b", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &s1b);
+        addBinary(f, G.graph, A, "add_jc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, s1, tJ, s1b);
+        Qnn_Tensor_t p1 = mkT(A, "p1", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &p1);
+        addGather(f, G.graph, A, "g1", tPerm, s1b, p1);
+
+        Qnn_Tensor_t s2 = mkT(A, "s2", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &s2);
+        addBinary(f, G.graph, A, "add_i", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, ix, p1, s2);
+        Qnn_Tensor_t s2b = mkT(A, "s2b", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &s2b);
+        addBinary(f, G.graph, A, "add_ic", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, s2, tI, s2b);
+        Qnn_Tensor_t p2 = mkT(A, "p2", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &p2);
+        addGather(f, G.graph, A, "g2", tPerm, s2b, p2);
+
+        // h = p2 & 15
+        Qnn_Tensor_t hh = mkT(A, "h", QNN_TENSOR_TYPE_NATIVE, I, n);
+        f.tensorCreateGraphTensor(G.graph, &hh);
+        addBinary(f, G.graph, A, "and", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_AND, p2, t15, hh);
+
+        // gradient components
+        Qnn_Tensor_t g0 = mkT(A, "ggx", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &g0);
+        addGather(f, G.graph, A, "ggx", tGX, hh, g0);
+        Qnn_Tensor_t g1 = mkT(A, "ggy", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &g1);
+        addGather(f, G.graph, A, "ggy", tGY, hh, g1);
+        Qnn_Tensor_t g2 = mkT(A, "ggz", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &g2);
+        addGather(f, G.graph, A, "ggz", tGZ, hh, g2);
+
+        // offset = frac - (i,j,k)
+        Qnn_Tensor_t o0 = mkT(A, "ox", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &o0);
+        addBinary(f, G.graph, A, "ox", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, fx, tI, o0);
+        Qnn_Tensor_t o1 = mkT(A, "oy", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &o1);
+        addBinary(f, G.graph, A, "oy", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, fy, tJ, o1);
+        Qnn_Tensor_t o2 = mkT(A, "oz", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &o2);
+        addBinary(f, G.graph, A, "oz", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, fz, tK, o2);
+
+        // dot = gx*ox + gy*oy + gz*oz
+        Qnn_Tensor_t m0 = mkT(A, "m0", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &m0);
+        addBinary(f, G.graph, A, "m0", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g0, o0, m0);
+        Qnn_Tensor_t m1 = mkT(A, "m1", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &m1);
+        addBinary(f, G.graph, A, "m1", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g1, o1, m1);
+        Qnn_Tensor_t m2 = mkT(A, "m2", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &m2);
+        addBinary(f, G.graph, A, "m2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g2, o2, m2);
+        Qnn_Tensor_t a01 = mkT(A, "a01", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &a01);
+        addBinary(f, G.graph, A, "a01", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, m0, m1, a01);
+        d[c] = mkT(A, "dc", QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &d[c]);
+        addBinary(f, G.graph, A, "dc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a01, m2, d[c]);
+    }
+
+    // trilinear blend: lerp(a,b,t) = a + t*(b-a)
+    auto lerp = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
+                    const char* tag) -> Qnn_Tensor_t {
+        Qnn_Tensor_t df = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &df);
+        addBinary(f, G.graph, A, "lsub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, b, a, df);
+        Qnn_Tensor_t pr = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &pr);
+        addBinary(f, G.graph, A, "lmul", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
+        Qnn_Tensor_t rs = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &rs);
+        addBinary(f, G.graph, A, "ladd", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, pr, rs);
+        return rs;
+    };
+    Qnn_Tensor_t x00 = lerp(d[0], d[1], u, "x00");
+    Qnn_Tensor_t x10 = lerp(d[2], d[3], u, "x10");
+    Qnn_Tensor_t x01 = lerp(d[4], d[5], u, "x01");
+    Qnn_Tensor_t x11 = lerp(d[6], d[7], u, "x11");
+    Qnn_Tensor_t y0  = lerp(x00, x10, v, "y0");
+    Qnn_Tensor_t y1  = lerp(x01, x11, v, "y1");
+    Qnn_Tensor_t res = lerp(y0,  y1,  w, "res");
+
+    // res -> out (identity through add with zero would perturb the value; copy
+    // the tensor instead by making out an alias is not allowed, so use the
+    // result tensor as the graph output directly)
+    (void)res;
+    // Re-register out as the final output by adding a multiply by 1.0.
+    addBinary(f, G.graph, A, "outw", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, res, tF1, G.out);
+
+    rc = f.graphFinalize(G.graph, nullptr, nullptr);
+    if(rc != QNN_SUCCESS)
+        return "ERR GRAPH_FINALIZE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+    G.fullPath = true;
+    G.ready = true;
+    return "";
+}
+
+// ---------------------------------------------------------------------------
+// Path C: host resolves the tables, graph does only arithmetic.
+//
+// Inputs: d0..d7 (eight corner dot products) and u,v,w (fade weights).
+// The graph computes the trilinear blend. This is the fallback for a backend
+// without Gather - it needs ElementWiseBinary and nothing else.
+// ---------------------------------------------------------------------------
+static std::string buildPerlinHybrid(PerlinGraph& G, uint32_t n){
+    const auto& f = g.api->QNN_INTERFACE_VER_NAME;
+    TensorArena& A = G.arena;
+    const Qnn_DataType_t F = QNN_DATATYPE_FLOAT_32;
+    G.n = n;
+    const std::string gname = "mcnpu_perlin_c_" + std::to_string(++g_perlinSeq);
+    Qnn_ErrorHandle_t rc = f.graphCreate(g.context, gname.c_str(), nullptr, &G.graph);
+    if(rc != QNN_SUCCESS || !G.graph)
+        return "ERR GRAPH_CREATE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+    for(int c = 0; c < 8; c++){
+        G.inD[c] = mkT(A, "d", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        rc = f.tensorCreateGraphTensor(G.graph, &G.inD[c]);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE d rc=" + std::to_string((int)rc);
+    }
+    G.inU = mkT(A, "u", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.inV = mkT(A, "v", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.inW = mkT(A, "w", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+    G.out = mkT(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+    Qnn_Tensor_t* rest[4] = {&G.inU, &G.inV, &G.inW, &G.out};
+    for(auto p : rest){
+        rc = f.tensorCreateGraphTensor(G.graph, p);
+        if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE uvwo rc=" + std::to_string((int)rc);
+    }
+
+    auto lerp = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
+                    const char* tag) -> Qnn_Tensor_t {
+        Qnn_Tensor_t df = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &df);
+        addBinary(f, G.graph, A, "s", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, b, a, df);
+        Qnn_Tensor_t pr = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &pr);
+        addBinary(f, G.graph, A, "m", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
+        Qnn_Tensor_t rs = mkT(A, tag, QNN_TENSOR_TYPE_NATIVE, F, n);
+        f.tensorCreateGraphTensor(G.graph, &rs);
+        addBinary(f, G.graph, A, "a", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, pr, rs);
+        return rs;
+    };
+    Qnn_Tensor_t x00 = lerp(G.inD[0], G.inD[1], G.inU, "x00");
+    Qnn_Tensor_t x10 = lerp(G.inD[2], G.inD[3], G.inU, "x10");
+    Qnn_Tensor_t x01 = lerp(G.inD[4], G.inD[5], G.inU, "x01");
+    Qnn_Tensor_t x11 = lerp(G.inD[6], G.inD[7], G.inU, "x11");
+    Qnn_Tensor_t y0  = lerp(x00, x10, G.inV, "y0");
+    Qnn_Tensor_t y1  = lerp(x01, x11, G.inV, "y1");
+    Qnn_Tensor_t r   = lerp(y0,  y1,  G.inW, "r");
+
+    const float f1 = 1.0f;
+    static std::deque<std::vector<uint8_t>> keepC;
+    Qnn_Tensor_t tF1 = mkStatic(A, G, "f1", F, 1, &f1, sizeof(f1), keepC);
+    rc = f.tensorCreateGraphTensor(G.graph, &tF1);
+    if(rc != QNN_SUCCESS) return "ERR TENSOR_CREATE f1 rc=" + std::to_string((int)rc);
+    addBinary(f, G.graph, A, "out", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, r, tF1, G.out);
+
+    rc = f.graphFinalize(G.graph, nullptr, nullptr);
+    if(rc != QNN_SUCCESS)
+        return "ERR GRAPH_FINALIZE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+    G.fullPath = false;
+    G.ready = true;
+    return "";
+}
+
+// CPU reference used for the correctness check. Deliberately written the way a
+// textbook Perlin is, not the way the graph is, so that a shared bug between the
+// two cannot produce a green result.
+static double perlinRef(double x, double y, double z, const int* perm){
+    auto fade = [](double t){ return t*t*t*(t*(t*6-15)+10); };
+    auto grad = [](int h, double x, double y, double z){
+        double u = h<8 ? x : y;
+        double v = h<4 ? y : (h==12||h==14 ? x : z);
+        return ((h&1)==0?u:-u) + ((h&2)==0?v:-v);
+    };
+    int X = (int)floor(x) & 255, Y = (int)floor(y) & 255, Z = (int)floor(z) & 255;
+    x -= floor(x); y -= floor(y); z -= floor(z);
+    double u = fade(x), v = fade(y), w = fade(z);
+    int A = perm[X]+Y, AA = perm[A]+Z, AB = perm[A+1]+Z;
+    int B = perm[X+1]+Y, BA = perm[B]+Z, BB = perm[B+1]+Z;
+    auto lerp = [](double t,double a,double b){ return a + t*(b-a); };
+    return lerp(w, lerp(v, lerp(u, grad(perm[AA],x,y,z),     grad(perm[BA],x-1,y,z)),
+                           lerp(u, grad(perm[AB],x,y-1,z),   grad(perm[BB],x-1,y-1,z))),
+                   lerp(v, lerp(u, grad(perm[AA+1],x,y,z-1), grad(perm[BA+1],x-1,y,z-1)),
+                           lerp(u, grad(perm[AB+1],x,y-1,z-1), grad(perm[BB+1],x-1,y-1,z-1))));
+}
+
+// Build, run, and compare against the reference. n is capped by the element
+// budget: path A writes 3 inputs plus one output per point.
+std::string runPerlinBench(uint32_t n){
+    if(!g.ready || !g.api || !g.context) return "ERR PERLIN NOT_READY";
+    if(n == 0 || n > 16384) n = 4096;
+    if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
+
+    const bool gather = hasOp("Gather");
+    const bool ewBin  = hasOp("ElementWiseBinary");
+    const bool ewUn   = hasOp("ElementWiseUnary");
+    if(!ewBin) return "ERR PERLIN NO_ELEMENTWISE_BINARY - neither path can be built";
+    const bool useFull = gather && ewUn;
+
+    auto it = g_perlinGraphs.find(n);
+    if(it != g_perlinGraphs.end() && it->second.fullPath != useFull)
+        g_perlinGraphs.erase(it);            // capability changed; rebuild
+    auto found = g_perlinGraphs.find(n);
+    PerlinGraph* G = nullptr;
+    if(found != g_perlinGraphs.end()){
+        G = &found->second;
+    } else {
+        PerlinGraph ng;
+        std::string err = useFull ? buildPerlinFull(ng, n) : buildPerlinHybrid(ng, n);
+        if(!err.empty()) return "ERR PERLIN BUILD " + err;
+        auto ins = g_perlinGraphs.emplace(n, std::move(ng));
+        G = &ins.first->second;
+    }
+
+    const auto& f = g.api->QNN_INTERFACE_VER_NAME;
+    std::vector<float> xs(n), ys(n), zs(n), out(n, 0.0f);
+    // Non-power-of-two spacing on purpose: with 4-aligned coordinates the
+    // fractional parts are always 0, which makes fade and the interpolation
+    // degenerate and lets a broken kernel pass.
+    for(uint32_t i = 0; i < n; i++){
+        xs[i] = (float)i * (1.0f/96.0f) + 0.017f;
+        ys[i] = (float)i * (1.0f/17.0f) + 0.31f;
+        zs[i] = (float)i * (1.0f/5.0f)  + 0.7f;
+    }
+
+    int32_t perm[512];
+    for(int i = 0; i < 512; i++) perm[i] = i & 255;
+
+    Qnn_ErrorHandle_t rc = QNN_SUCCESS;
+    auto t0 = std::chrono::steady_clock::now();
+    if(G->fullPath){
+        Qnn_Tensor_t ex = G->inX, ey = G->inY, ez = G->inZ, eo = G->out;
+        ex.v1.clientBuf.data = xs.data(); ex.v1.clientBuf.dataSize = n*sizeof(float);
+        ey.v1.clientBuf.data = ys.data(); ey.v1.clientBuf.dataSize = n*sizeof(float);
+        ez.v1.clientBuf.data = zs.data(); ez.v1.clientBuf.dataSize = n*sizeof(float);
+        eo.v1.clientBuf.data = out.data(); eo.v1.clientBuf.dataSize = n*sizeof(float);
+        Qnn_Tensor_t in[3] = {ex, ey, ez};
+        rc = f.graphExecute(G->graph, in, 3, &eo, 1, nullptr, nullptr);
+    } else {
+        // host side: perm chain, gradient table and dot products
+        std::vector<float> d[8];
+        for(int c = 0; c < 8; c++) d[c].resize(n);
+        std::vector<float> u(n), v(n), w(n);
+        for(uint32_t i = 0; i < n; i++){
+            double x = xs[i], y = ys[i], z = zs[i];
+            double fx = x - floor(x), fy = y - floor(y), fz = z - floor(z);
+            int X = (int)floor(x) & 255, Y = (int)floor(y) & 255, Z = (int)floor(z) & 255;
+            auto fadeT = [](double t){ return t*t*t*(t*(t*6-15)+10); };
+            u[i] = (float)fadeT(fx); v[i] = (float)fadeT(fy); w[i] = (float)fadeT(fz);
+            for(int c = 0; c < 8; c++){
+                const int ci = c & 1, cj = (c>>1)&1, ck = (c>>2)&1;
+                int h = perm[X + ci + perm[Y + cj + perm[Z + ck]]] & 15;
+                const int s0 = (h & 1) ? -1 : 1;
+                const int s1 = (h & 2) ? -1 : 1;
+                double cgx, cgy, cgz;
+                if(h < 8){
+                    cgx = s0; cgy = (h < 4) ? s1 : 0; cgz = (h < 4) ? 0 : s1;
+                } else {
+                    cgy = s0;
+                    if(h == 12 || h == 14){ cgx = s1; cgz = 0; }
+                    else                  { cgx = 0;  cgz = s1; }
+                }
+                double ox = fx - ci, oy = fy - cj, oz = fz - ck;
+                d[c][i] = (float)(cgx*ox + cgy*oy + cgz*oz);
+            }
+        }
+        Qnn_Tensor_t in[11];
+        for(int c = 0; c < 8; c++){
+            in[c] = G->inD[c];
+            in[c].v1.clientBuf.data = d[c].data();
+            in[c].v1.clientBuf.dataSize = n*sizeof(float);
+        }
+        in[8] = G->inU; in[8].v1.clientBuf.data = u.data(); in[8].v1.clientBuf.dataSize = n*sizeof(float);
+        in[9] = G->inV; in[9].v1.clientBuf.data = v.data(); in[9].v1.clientBuf.dataSize = n*sizeof(float);
+        in[10]= G->inW; in[10].v1.clientBuf.data = w.data(); in[10].v1.clientBuf.dataSize = n*sizeof(float);
+        Qnn_Tensor_t eo = G->out;
+        eo.v1.clientBuf.data = out.data(); eo.v1.clientBuf.dataSize = n*sizeof(float);
+        rc = f.graphExecute(G->graph, in, 11, &eo, 1, nullptr, nullptr);
+    }
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - t0).count();
+    if(rc != QNN_SUCCESS)
+        return "ERR PERLIN EXECUTE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+    // compare
+    double maxAbs = 0.0; uint32_t bad = 0;
+    auto cpu0 = std::chrono::steady_clock::now();
+    for(uint32_t i = 0; i < n; i++){
+        double r = perlinRef(xs[i], ys[i], zs[i], perm);
+        double e = fabs(r - out[i]);
+        if(e > maxAbs) maxAbs = e;
+        if(e > 1e-4) bad++;
+    }
+    auto cpuUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - cpu0).count();
+
+    return "OK PERLIN path=" + std::string(G->fullPath ? "A_FULL" : "C_HYBRID")
+         + " n=" + std::to_string((unsigned)n)
+         + " bad=" + std::to_string((unsigned)bad) + "/" + std::to_string((unsigned)n)
+         + " maxAbs=" + std::to_string(maxAbs)
+         + " npu_us=" + std::to_string((long long)us)
+         + " cpu_ref_us=" + std::to_string((long long)cpuUs);
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinCap(JNIEnv* e, jclass){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    std::string r = runPerlinCap();
+    I("PERLIN_CAP %s", r.c_str());
+    return e->NewStringUTF(r.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinBench(JNIEnv* e, jclass, jint n){
+    std::lock_guard<std::mutex> lock(gRuntimeMutex);
+    std::string r = runPerlinBench((uint32_t)n);
+    I("PERLIN %s", r.c_str());
+    return e->NewStringUTF(r.c_str());
+}
+
 
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
