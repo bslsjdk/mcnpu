@@ -73,7 +73,7 @@ struct Runtime {
     Qnn_ContextHandle_t context=nullptr;
     bool ready=false;
     std::string info;
-    std::string err;
+    std::string err, errAcc;
     Qnn_LogHandle_t logger=nullptr;
     std::string libDir;
     std::string loadError;
@@ -2154,31 +2154,31 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
 
         Qnn_Tensor_t p0 = mkNI("p0");
         r = addGather(f, G.graph, A, "g0", tPK[ck], idx[2], p0);
-        if(r != QNN_SUCCESS) return "ERR NODE g0 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " g0=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t q1 = mkNI("q1");
         r = addBinary(f, G.graph, A, "add_q1", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, idx[1], p0, q1);
-        if(r != QNN_SUCCESS) return "ERR NODE add_q1 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " add_q1=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t p1 = mkNI("p1");
         r = addGather(f, G.graph, A, "g1", tPJ[cj], q1, p1);
-        if(r != QNN_SUCCESS) return "ERR NODE g1 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " g1=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t q2 = mkNI("q2");
         r = addBinary(f, G.graph, A, "add_q2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, idx[0], p1, q2);
-        if(r != QNN_SUCCESS) return "ERR NODE add_q2 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " add_q2=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t p2 = mkNI("p2");
         r = addGather(f, G.graph, A, "g2", tPI[ci], q2, p2);
-        if(r != QNN_SUCCESS) return "ERR NODE g2 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " g2=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t g0 = mkNF("ggx"), g1 = mkNF("ggy"), g2 = mkNF("ggz");
         r = addGather(f, G.graph, A, "ggx", tGX, p2, g0);
-        if(r != QNN_SUCCESS) return "ERR NODE ggx rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " ggx=rc" + std::to_string((int)r);
         r = addGather(f, G.graph, A, "ggy", tGY, p2, g1);
-        if(r != QNN_SUCCESS) return "ERR NODE ggy rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " ggy=rc" + std::to_string((int)r);
         r = addGather(f, G.graph, A, "ggz", tGZ, p2, g2);
-        if(r != QNN_SUCCESS) return "ERR NODE ggz rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " ggz=rc" + std::to_string((int)r);
 
         // offset = frac - (ci,cj,ck): the 0/1 corner offset is the frac-minus-one
         // tensor when the bit is set, so no subtract node is needed here.
@@ -2188,20 +2188,22 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
 
         Qnn_Tensor_t m0 = mkNF("m0"), m1 = mkNF("m1"), m2 = mkNF("m2");
         r = addBinary(f, G.graph, A, "m0", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g0, ox, m0);
-        if(r != QNN_SUCCESS) return "ERR NODE m0 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " m0=rc" + std::to_string((int)r);
         r = addBinary(f, G.graph, A, "m1", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g1, oy, m1);
-        if(r != QNN_SUCCESS) return "ERR NODE m1 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " m1=rc" + std::to_string((int)r);
         r = addBinary(f, G.graph, A, "m2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g2, oz, m2);
-        if(r != QNN_SUCCESS) return "ERR NODE m2 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " m2=rc" + std::to_string((int)r);
 
         Qnn_Tensor_t a01 = mkNF("a01");
         r = addBinary(f, G.graph, A, "a01", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, m0, m1, a01);
-        if(r != QNN_SUCCESS) return "ERR NODE a01 rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " a01=rc" + std::to_string((int)r);
 
         d[c2] = mkNF("dc");
         r = addBinary(f, G.graph, A, "dc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a01, m2, d[c2]);
-        if(r != QNN_SUCCESS) return "ERR NODE dc rc=" + std::to_string((int)r) + " " + verbose(r);
+        if(r != QNN_SUCCESS) errAcc += " dc=rc" + std::to_string((int)r);
     }
+
+    if(!errAcc.empty()) return "ERR NODES" + errAcc;
 
     // ---- trilinear blend: lerp(a,b,t) = a + t*(b - a) ----
     auto lerpInto = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
@@ -2552,6 +2554,75 @@ static std::string runPerlinDiag(uint32_t n){
         r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
         if(r != QNN_SUCCESS){ rec("gather_nat_c2", r); return out; }
         rec("gather_nat", f.graphFinalize(gh, nullptr, nullptr));
+    }
+
+    // ---- v4: chain shape held constant, op code varied ----
+    //
+    // ch3r is three ADD nodes through two registered NATIVE tensors and it
+    // finalizes. p_lerp is three nodes of SUBTRACT/MULTIPLY/ADD through two
+    // registered NATIVE tensors and it does not. Same node count, same tensor
+    // types, same operand classes - only the op codes differ. If this fails,
+    // ops other than ADD cannot write a NATIVE tensor here and path C cannot be
+    // built as written.
+    {
+        Qnn_ErrorHandle_t r = fresh("chs");
+        if(r != QNN_SUCCESS){ rec("chs3_crt", r); return out; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        Qnn_Tensor_t cur = a;
+        bool bad = false;
+        for(int i = 0; i < 3 && !bad; i++){
+            const bool last = (i == 2);
+            Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
+            if(!last){
+                r = f.tensorCreateGraphTensor(gh, &t);
+                if(r != QNN_SUCCESS){ rec("chs3_tcr", r); bad = true; break; }
+            }
+            r = addBinary(f, gh, A, "sb", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, cur, b, t);
+            if(r != QNN_SUCCESS){ rec("chs3_nod", r); bad = true; break; }
+            cur = t;
+        }
+        if(!bad) rec("chs3", f.graphFinalize(gh, nullptr, nullptr));
+    }
+    // ---- Gather whose index comes from MOD rather than Cast ----
+    //
+    // gather_nat showed a STATIC int32 table with a NATIVE int32 index into a
+    // NATIVE int32 output is accepted. Path A feeds the same node an index that
+    // MOD produced instead, and that is the only difference left when g0
+    // returns 6005 with every other probe green. Node shapes are identical; the
+    // producer of the index is the single variable. The 256 constant is an
+    // APP_WRITE input because that is what constMode 1 does, which is the build
+    // that actually reaches g0.
+    {
+        Qnn_ErrorHandle_t r = fresh("gm");
+        if(r != QNN_SUCCESS){ rec("gather_mod_crt", r); return out; }
+        TensorArena A;
+        std::vector<int32_t> tbl(512);
+        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
+        Qnn_Tensor_t T   = statT(A, "T", I, 512, tbl.data(), tbl.size()*sizeof(int32_t));
+        Qnn_Tensor_t ixf = reg(A, "ixf", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t cC  = reg(A, "c256", QNN_TENSOR_TYPE_APP_WRITE, I, n);
+        Qnn_Tensor_t ci  = mkT(A, "ci", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &ci);
+        if(r != QNN_SUCCESS){ rec("gather_mod_tcr", r); return out; }
+        r = addNode(f, gh, A.name("cast"), QNN_OP_CAST, nullptr, 0, &ixf, 1, &ci, 1);
+        if(r != QNN_SUCCESS){ rec("gather_mod_cast", r); return out; }
+        Qnn_Tensor_t mi  = mkT(A, "mi", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &mi);
+        if(r != QNN_SUCCESS){ rec("gather_mod_tcr2", r); return out; }
+        r = addBinary(f, gh, A, "md", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MOD, ci, cC, mi);
+        if(r != QNN_SUCCESS){ rec("gather_mod_mod", r); return out; }
+        Qnn_Tensor_t go  = mkT(A, "go", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &go);
+        if(r != QNN_SUCCESS){ rec("gather_mod_tcr3", r); return out; }
+        r = addGather(f, gh, A, "g", T, mi, go);
+        if(r != QNN_SUCCESS){ rec("gather_mod_nod", r); return out; }
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, n);
+        r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
+        if(r != QNN_SUCCESS){ rec("gather_mod_c2", r); return out; }
+        rec("gather_mod", f.graphFinalize(gh, nullptr, nullptr));
     }
     return out;
 }
