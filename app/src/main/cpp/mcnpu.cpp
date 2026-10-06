@@ -2369,7 +2369,7 @@ static std::string runPerlinDiag(uint32_t n){
         f.tensorCreateGraphTensor(gh, &t);
         return t;
     };
-    auto rec = [&](const char* tag, Qnn_ErrorHandle_t r){
+    auto rec = [&](const std::string& tag, Qnn_ErrorHandle_t r){
         out += std::string(" ") + tag + "="
              + (r == QNN_SUCCESS ? "OK" : ("rc" + std::to_string((int)r)));
     };
@@ -2454,6 +2454,53 @@ static std::string runPerlinDiag(uint32_t n){
         Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
         Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  F, n);
         fin("gather_f32", addGather(f, gh, A, "g", T, ix, o));
+    }
+    // ---- v2: can a multi-node graph finalize at all? ----
+    //
+    // Every graph that has ever finalized on this device - ADD, MATMUL, the
+    // smoke graph - has exactly one node and only APP_WRITE/APP_READ tensors.
+    // Path C chains seven lerps through NATIVE intermediates and has never
+    // finalized. The first version of this diagnostic folded addNode and
+    // graphFinalize into a single rc, so "lerp=rc1002" could not say which
+    // stage rejected, and it varied chain length and NATIVE together. This
+    // sweeps them apart and names the stage that actually fails.
+    auto chain = [&](const char* tag, int nodes, bool regNative){
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        Qnn_Tensor_t cur = a;
+        for(int i = 0; i < nodes; i++){
+            const bool last = (i == nodes-1);
+            Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
+            if(!last && regNative){
+                r = f.tensorCreateGraphTensor(gh, &t);
+                if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr"+std::to_string(i), r); return; }
+            }
+            r = addBinary(f, gh, A, "ad", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, cur, b, t);
+            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod"+std::to_string(i), r); return; }
+            cur = t;
+        }
+        rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    chain("ch1",  1, true);
+    chain("ch2r", 2, true);
+    chain("ch3r", 3, true);
+    chain("ch2u", 2, false);
+    chain("ch4u", 4, false);
+    // Gather accepted an int32 table and Cast produced int32, while a float
+    // table was refused. Gradient components are -1/0/1 and fit int32 exactly,
+    // so path A can gather ints and cast afterwards. This is that direction.
+    {
+        Qnn_ErrorHandle_t r = fresh("c2f");
+        if(r != QNN_SUCCESS){ rec("c2f_crt", r); return out; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, I, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        fin("cast_i32_to_f32", addNode(f, gh, A.name("cast"), QNN_OP_CAST,
+                                       nullptr, 0, &a, 1, &o, 1));
     }
     return out;
 }
