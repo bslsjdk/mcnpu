@@ -186,6 +186,46 @@ public final class NpuRuntime {
         }
     }
     private static native String nativeOpProbe();
+
+    /**
+     * Which noise path this backend can actually support.
+     *
+     * A: the whole Perlin evaluation as one graph. Needs Gather, ElementWiseUnary
+     *    and ElementWiseBinary.
+     * C: the host resolves perm[] and the gradient table - both pure lookups the
+     *    CPU already does well - and the graph does only the arithmetic: dot
+     *    products, the fade polynomial and the trilinear blend. Needs
+     *    ElementWiseBinary alone, which is far more basic than Gather.
+     *
+     * Reported separately from opProbe because the interesting answer here is not
+     * the op list but the path it selects.
+     */
+    public static String perlinCap() {
+        if (!ready) return "ERR PERLIN_CAP NPU_NOT_READY";
+        try {
+            String r = nativePerlinCap();
+            return r == null ? "ERR PERLIN_CAP_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR PERLIN_CAP_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativePerlinCap();
+
+    /**
+     * Build the noise graph, run it, and compare every point against a CPU
+     * reference that is written the textbook way rather than the way the graph is,
+     * so a bug shared by both cannot produce a green result.
+     */
+    public static String perlinBench(int n) {
+        if (!ready) return "ERR PERLIN NPU_NOT_READY";
+        try {
+            String r = nativePerlinBench(n);
+            return r == null ? "ERR PERLIN_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR PERLIN_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativePerlinBench(int n);
     private static native String nativeAddMax();
 
     /**

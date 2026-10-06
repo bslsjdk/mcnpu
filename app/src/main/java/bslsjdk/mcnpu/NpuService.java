@@ -186,6 +186,16 @@ public final class NpuService extends Service {
             } catch (Throwable t) {
                 log("OPPROBE_AUTO FAILED " + t);
             }
+            // Same reasoning as above: a pure query, no graph, no device work.
+            // This is the one line that decides whether the noise kernel is
+            // written at all, so it belongs in the startup log by default.
+            try {
+                long t0 = System.nanoTime();
+                String cap = NpuRuntime.perlinCap();
+                log("PERLIN_CAP_AUTO elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + " " + cap);
+            } catch (Throwable t) {
+                log("PERLIN_CAP_AUTO FAILED " + t);
+            }
         }
         // Spawned once, after the listener is up. Probing before that would delay
         // the socket MC is waiting on, and the probe builds graphs - it must never
@@ -499,6 +509,22 @@ public final class NpuService extends Service {
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
                 } else if (cmd.equals("CAPABILITIES")) {
                     reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE max_elements=" + NpuRuntime.maxAddElements();
+                } else if (cmd.equals("PERLIN_CAP")) {
+                    reply = NpuRuntime.perlinCap();
+                    log("EXEC PERLIN_CAP " + reply);
+                } else if (cmd.startsWith("PERLIN ")) {
+                    // PERLIN <n> - build, run, and verify against the CPU reference.
+                    int n = 4096;
+                    try { n = Integer.parseInt(cmd.substring(7).trim()); } catch (Throwable ignored) { }
+                    long t = System.nanoTime();
+                    reply = NpuRuntime.perlinBench(n);
+                    log("EXEC PERLIN elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0)
+                            + " " + reply);
+                } else if (cmd.equals("PERLIN")) {
+                    long t = System.nanoTime();
+                    reply = NpuRuntime.perlinBench(4096);
+                    log("EXEC PERLIN elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0)
+                            + " " + reply);
                 } else if (cmd.equals("OPPROBE")) {
                     // Asks the backend what it supports. No graph is built and no
                     // device work is queued, so this must not abort an in-flight
