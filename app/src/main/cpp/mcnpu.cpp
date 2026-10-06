@@ -2428,33 +2428,6 @@ static std::string runPerlinDiag(uint32_t n){
         Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  I, n);
         fin("gather_fwd", addGather(f, gh, A, "g", T, ix, o));
     }
-    // p_gather_rev: {indices, table}. If fwd fails and rev passes, addGather
-    // simply has its operands backwards and nothing else is wrong.
-    {
-        Qnn_ErrorHandle_t r = fresh("gr");
-        if(r != QNN_SUCCESS){ rec("gr_crt", r); return out; }
-        TensorArena A;
-        std::vector<int32_t> tbl(512);
-        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
-        Qnn_Tensor_t T  = statT(A, "T",  I, 512, tbl.data(), tbl.size()*sizeof(int32_t));
-        Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
-        Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  I, n);
-        Qnn_Tensor_t ins[2] = {ix, T};
-        Qnn_Param_t p = scalarParam(QNN_OP_GATHER_PARAM_AXIS, QNN_DATATYPE_UINT_32, 0);
-        fin("gather_rev", addNode(f, gh, A.name("g"), QNN_OP_GATHER, &p, 1, ins, 2, &o, 1));
-    }
-    // p_gather_f32: float table with int32 indices - what the gradient lookups
-    // need, in case int32 tables specifically are the thing refused.
-    {
-        Qnn_ErrorHandle_t r = fresh("g32");
-        if(r != QNN_SUCCESS){ rec("g32_crt", r); return out; }
-        TensorArena A;
-        std::vector<float> tbl(256, 1.0f);
-        Qnn_Tensor_t T  = statT(A, "T",  F, 256, tbl.data(), tbl.size()*sizeof(float));
-        Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, n);
-        Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  F, n);
-        fin("gather_f32", addGather(f, gh, A, "g", T, ix, o));
-    }
     // ---- v2: can a multi-node graph finalize at all? ----
     //
     // Every graph that has ever finalized on this device - ADD, MATMUL, the
@@ -2488,8 +2461,6 @@ static std::string runPerlinDiag(uint32_t n){
     chain("ch1",  1, true);
     chain("ch2r", 2, true);
     chain("ch3r", 3, true);
-    chain("ch2u", 2, false);
-    chain("ch4u", 4, false);
     // Gather accepted an int32 table and Cast produced int32, while a float
     // table was refused. Gradient components are -1/0/1 and fit int32 exactly,
     // so path A can gather ints and cast afterwards. This is that direction.
@@ -2501,6 +2472,86 @@ static std::string runPerlinDiag(uint32_t n){
         Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
         fin("cast_i32_to_f32", addNode(f, gh, A.name("cast"), QNN_OP_CAST,
                                        nullptr, 0, &a, 1, &o, 1));
+    }
+    // ---- v3: two confounded variables, separated ----
+    //
+    // v2 changed two things at once. Relative to ch3r, the p_lerp probe had
+    // three graph inputs instead of two AND used SUBTRACT/MULTIPLY where ch3r
+    // used only ADD. lerp failed and ch3r passed, which fits "more than two
+    // graph inputs is refused" and "ops other than ADD are refused" equally
+    // well. Path C has eleven inputs and uses SUBTRACT/MULTIPLY, so it cannot
+    // tell them apart either. These vary one thing at a time.
+    auto soloOp = [&](const char* tag, uint32_t op){
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        r = addBinary(f, gh, A, "b0", op, a, b, o);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod", r); return; }
+        rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    soloOp("op_add", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD);
+    soloOp("op_sub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT);
+    soloOp("op_mul", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY);
+
+    // Same node count and same op as ch3r (three nodes, all ADD). Only the
+    // number of graph inputs differs, so in3 vs ch3r isolates input count.
+    auto inCount = [&](const char* tag, int nIn){
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        std::vector<Qnn_Tensor_t> ins;
+        for(int i = 0; i < nIn; i++)
+            ins.push_back(reg(A, "i", QNN_TENSOR_TYPE_APP_WRITE, F, n));
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, n);
+        Qnn_Tensor_t cur = ins[0];
+        for(int i = 1; i < nIn; i++){
+            const bool last = (i == nIn - 1);
+            Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
+            if(!last){
+                r = f.tensorCreateGraphTensor(gh, &t);
+                if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr", r); return; }
+            }
+            r = addBinary(f, gh, A, "ad", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD,
+                          cur, ins[i], t);
+            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod"+std::to_string(i), r); return; }
+            cur = t;
+        }
+        rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    inCount("in3",  3);
+    inCount("in11", 11);
+
+    // ---- Gather with a NATIVE index and a NATIVE output ----
+    //
+    // gather_fwd proved a STATIC int32 table with an APP_WRITE index into an
+    // APP_READ output is accepted. buildPerlinFull hands the same node a NATIVE
+    // index produced by Cast/MOD and writes into a NATIVE output, and that is
+    // the only difference left when g0 fails with rc=6005. This mirrors it.
+    {
+        Qnn_ErrorHandle_t r = fresh("gn");
+        if(r != QNN_SUCCESS){ rec("gather_nat_crt", r); return out; }
+        TensorArena A;
+        std::vector<int32_t> tbl(512);
+        for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
+        Qnn_Tensor_t T   = statT(A, "T", I, 512, tbl.data(), tbl.size()*sizeof(int32_t));
+        Qnn_Tensor_t ixf = reg(A, "ixf", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t ci  = mkT(A, "ci", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &ci);
+        if(r != QNN_SUCCESS){ rec("gather_nat_tcr", r); return out; }
+        r = addNode(f, gh, A.name("cast"), QNN_OP_CAST, nullptr, 0, &ixf, 1, &ci, 1);
+        if(r != QNN_SUCCESS){ rec("gather_nat_cast", r); return out; }
+        Qnn_Tensor_t go  = mkT(A, "go", QNN_TENSOR_TYPE_NATIVE, I, n);
+        r = f.tensorCreateGraphTensor(gh, &go);
+        if(r != QNN_SUCCESS){ rec("gather_nat_tcr2", r); return out; }
+        r = addGather(f, gh, A, "g", T, ci, go);
+        if(r != QNN_SUCCESS){ rec("gather_nat_nod", r); return out; }
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, n);
+        r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
+        if(r != QNN_SUCCESS){ rec("gather_nat_c2", r); return out; }
+        rec("gather_nat", f.graphFinalize(gh, nullptr, nullptr));
     }
     return out;
 }
