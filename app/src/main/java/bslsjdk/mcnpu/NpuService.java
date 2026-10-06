@@ -173,6 +173,22 @@ public final class NpuService extends Service {
         log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
+        // Ask the backend once at startup which ops it registered. This is a pure
+        // query over an in-memory list - it builds no graph and queues no device
+        // work, so it is safe here, unlike addProbe which must wait for the
+        // listener. Logging it automatically means the answer is in the service
+        // log without anyone having to send OPPROBE by hand.
+        if (ok) {
+            try {
+                long t0 = System.nanoTime();
+                String ops = NpuRuntime.opProbe();
+                log("OPPROBE_AUTO elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0)
+                        + "
+" + ops);
+            } catch (Throwable t) {
+                log("OPPROBE_AUTO FAILED " + t);
+            }
+        }
         // Spawned once, after the listener is up. Probing before that would delay
         // the socket MC is waiting on, and the probe builds graphs - it must never
         // sit between init and the first accept.
