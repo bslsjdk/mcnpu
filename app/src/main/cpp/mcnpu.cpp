@@ -2707,9 +2707,13 @@ static std::string runPerlinDiag(uint32_t n){
     // hand a copy of it to a Gather, and only afterwards register the copy that
     // lives in the vector. If that reproduces 6005, the g0..ggz failures were
     // stale descriptors rather than anything about the Gather op itself.
-    {
+    //
+    // This probe is EXPECTED to fail, so it must never abort the run. An early
+    // return here used to skip every probe defined after it, which is why
+    // nl64/nl194 never appeared in any log.
+    do {
         Qnn_ErrorHandle_t r = fresh("ss");
-        if(r != QNN_SUCCESS){ rec("stat_stale_crt", r); return out; }
+        if(r != QNN_SUCCESS){ rec("stat_stale_crt", r); break; }
         TensorArena A;
         std::vector<int32_t> tbl(512);
         for(size_t i = 0; i < tbl.size(); i++) tbl[i] = (int32_t)(i & 255);
@@ -2722,19 +2726,20 @@ static std::string runPerlinDiag(uint32_t n){
         std::vector<Qnn_Tensor_t> store;
         store.push_back(stale);                       // pre-registration copy
         r = f.tensorCreateGraphTensor(gh, &store[0]); // stamps store[0] only
-        if(r != QNN_SUCCESS){ rec("stat_stale_tcr", r); return out; }
+        if(r != QNN_SUCCESS){ rec("stat_stale_tcr", r); break; }
         Qnn_Tensor_t ix = mkT(A, "ix", QNN_TENSOR_TYPE_NATIVE, I, n);
         Qnn_Tensor_t go = mkT(A, "go", QNN_TENSOR_TYPE_NATIVE, I, n);
         r = f.tensorCreateGraphTensor(gh, &ix);
         if(r == QNN_SUCCESS) r = f.tensorCreateGraphTensor(gh, &go);
-        if(r != QNN_SUCCESS){ rec("stat_stale_tcr2", r); return out; }
+        if(r != QNN_SUCCESS){ rec("stat_stale_tcr2", r); break; }
         Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, n);
         r = addGather(f, gh, A, "g", stale, ix, go);
-        if(r != QNN_SUCCESS){ rec("stat_stale_nod", r); rec("stat_stale", r); return out; }
+        if(r != QNN_SUCCESS){ rec("stat_stale_nod", r); rec("stat_stale", r); break; }
         r = addNode(f, gh, A.name("c2"), QNN_OP_CAST, nullptr, 0, &go, 1, &o, 1);
-        if(r != QNN_SUCCESS){ rec("stat_stale_cast", r); return out; }
+        if(r != QNN_SUCCESS){ rec("stat_stale_cast", r); break; }
         rec("stat_stale", f.graphFinalize(gh, nullptr, nullptr));
-    }
+   
+    } while(0);
     // ---- v6: is ~194 nodes in one graph itself too many here? ----
     //
     // Path A now adds every node and dies at graphFinalize with rc=1002, which is
@@ -2770,6 +2775,25 @@ static std::string runPerlinDiag(uint32_t n){
     };
     nodeLadder("nl64",  64);
     nodeLadder("nl194", 194);
+    // ---- is p_lerp failing because there was no room left on the context? ----
+    // p_lerp is the first probe and therefore the eighth graph on a context that
+    // ADD_PROBE has already filled with seven (16..65536). Every probe after it
+    // runs on a context the budget check has since reset, and every one of them
+    // passes. Replaying the identical chain after an explicit reset separates
+    // "this chain is refused" from "the context was already full":
+    //   lerp=rc1002 lerp_fresh=OK     -> context load, the chain is fine
+    //   lerp=rc1002 lerp_fresh=rc1002 -> the 3-node lerp chain itself is refused
+    do {
+        if(!resetContextLocked()){ rec("lerp_fresh_reset", 1); break; }
+        Qnn_ErrorHandle_t r = fresh("lf");
+        if(r != QNN_SUCCESS){ rec("lerp_fresh_crt", r); break; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t t = reg(A, "t", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        fin("lerp_fresh", lerp(A, a, b, t, o));
+    } while(0);
     return out;
 }
 
