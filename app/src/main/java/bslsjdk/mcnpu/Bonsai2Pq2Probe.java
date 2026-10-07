@@ -32,4 +32,17 @@ public final class Bonsai2Pq2Probe {
     }
 
     private static native String nativeHadamardRun();
+
+    /** Validates only GGUF header/metadata/tensor descriptors; never loads model weights. */
+    public static String validateGguf(String path) {
+        if (path == null || path.isEmpty()) return "ERR BONSAI2_PQ2_VALIDATE null_path";
+        try {
+            String r = nativeValidate(path);
+            return r == null ? "ERR BONSAI2_PQ2_VALIDATE_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR BONSAI2_PQ2_VALIDATE " + t.getClass().getSimpleName() + ": " + t.getMessage();
+        }
+    }
+
+    private static native String nativeValidate(String path);
 }
