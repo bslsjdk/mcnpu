@@ -3527,6 +3527,22 @@ std::string runPerlinBench(uint32_t n){
 
     // compare
     double maxAbs = 0.0; uint32_t bad = 0;
+    // First few point-by-point values. An aggregate like bad=829/1024 says the
+    // result is wrong but not HOW; seeing whether the NPU output is constant,
+    // scaled, or noise separates "one primitive broken" from "inputs miswired".
+    std::string firstNpu, firstRef;
+    {
+        char b[256];
+        std::snprintf(b, sizeof(b), "%.4f,%.4f,%.4f,%.4f",
+                      out[0], out[1], out[2], out[3]);
+        firstNpu = b;
+        double r0 = perlinRef(xs[0], ys[0], zs[0], perm);
+        double r1 = perlinRef(xs[1], ys[1], zs[1], perm);
+        double r2 = perlinRef(xs[2], ys[2], zs[2], perm);
+        double r3 = perlinRef(xs[3], ys[3], zs[3], perm);
+        std::snprintf(b, sizeof(b), "%.4f,%.4f,%.4f,%.4f", r0, r1, r2, r3);
+        firstRef = b;
+    }
     auto cpu0 = std::chrono::steady_clock::now();
     for(uint32_t i = 0; i < n; i++){
         double r = perlinRef(xs[i], ys[i], zs[i], perm);
@@ -3545,6 +3561,12 @@ std::string runPerlinBench(uint32_t n){
          + " maxAbs=" + std::to_string(maxAbs)
          + " npu_us=" + std::to_string((long long)us)
          + " cpu_ref_us=" + std::to_string((long long)cpuUs)
+         + " got=[" + firstNpu + "] ref=[" + firstRef + "]"
+         // The numeric probes used to live only in runPerlinDiag, which was
+         // called solely when BOTH build paths failed. Path A now builds, so
+         // that call was never reached and every run reported a wrong result
+         // with no evidence attached. Run them whenever the values disagree.
+         + (bad ? (" DIAG=[" + runPerlinDiag(n) + "]") : std::string(""))
          + " build=" + kBuildId;
 }
 
