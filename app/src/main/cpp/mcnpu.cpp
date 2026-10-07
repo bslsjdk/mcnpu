@@ -1972,7 +1972,9 @@ std::string runPerlinCap(){
 // "& 255" that the CPU reference needs on the outer index is unnecessary here;
 // the table was already built doubled. That removes a mask op per corner.
 // ---------------------------------------------------------------------------
-static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
+static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode,
+                                int nCorners = 8, bool doBlend = true,
+                                bool axesOnly = false, bool barriers = true){
     const auto& f = g.api->QNN_INTERFACE_VER_NAME;
     TensorArena& A = G.arena;
     // Static payloads are copied into here so they outlive this frame.
@@ -2195,6 +2197,39 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         if(rc != QNN_SUCCESS) return "ERR NODE cast rc=" + std::to_string((int)rc) + " " + verbose(rc);
     }
 
+    // A MULTIPLY must not consume a SUBTRACT output here. The scan put that as
+    // M<-S<-M being the one accepted arrangement, but the real graph with that
+    // arrangement still fails, so this takes the strict reading: every tensor a
+    // MULTIPLY reads that was produced by a SUBTRACT first goes through a
+    // fp32->fp32 Cast. The Cast is a no-op on the value and cast_f2f=OK proved
+    // the node itself finalizes on this device.
+    Qnn_Tensor_t frB[3], fmB[3];
+    if(barriers){
+        for(int a = 0; a < 3; a++){
+            const std::string s(axisTag[a]);
+            frB[a] = mkNF(("frb" + s).c_str());
+            rc = addNode(f, G.graph, A.name("bfr"), QNN_OP_CAST, nullptr, 0, &fr[a], 1, &frB[a], 1);
+            if(rc != QNN_SUCCESS) return "ERR NODE bfr rc=" + std::to_string((int)rc) + " " + verbose(rc);
+            fmB[a] = mkNF(("fmb" + s).c_str());
+            rc = addNode(f, G.graph, A.name("bfm"), QNN_OP_CAST, nullptr, 0, &fm[a], 1, &fmB[a], 1);
+            if(rc != QNN_SUCCESS) return "ERR NODE bfm rc=" + std::to_string((int)rc) + " " + verbose(rc);
+        }
+    } else {
+        for(int a = 0; a < 3; a++){ frB[a] = fr[a]; fmB[a] = fm[a]; }
+    }
+
+    // Diagnostic only: the three axis chains and nothing else. If this refuses
+    // to finalize the fault is in the floor/frac/index section, not in the
+    // corners or the blend.
+    if(axesOnly){
+        rc = addNode(f, G.graph, A.name("axo"), QNN_OP_CAST, nullptr, 0, &idx[0], 1, &G.out, 1);
+        if(rc != QNN_SUCCESS) return "ERR NODE axo rc=" + std::to_string((int)rc) + " " + verbose(rc);
+        rc = f.graphFinalize(G.graph, nullptr, nullptr);
+        if(rc != QNN_SUCCESS)
+            return "ERR GRAPH_FINALIZE rc=" + std::to_string((int)rc) + " " + verbose(rc);
+        G.fullPath = true; G.ready = true; return "";
+    }
+
     std::string err, errAcc;
 
     // ---- fade(t) = t^3 * (t*(t*6 - 15) + 10) ----
@@ -2206,12 +2241,24 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         if(r != QNN_SUCCESS){ err = "ERR NODE f_mul rc="  + std::to_string((int)r) + " " + verbose(r); return a; }
         r = addBinary(f, G.graph, A, "f_sub",  QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a,   tF15, b);
         if(r != QNN_SUCCESS){ err = "ERR NODE f_sub rc="  + std::to_string((int)r) + " " + verbose(r); return a; }
+        if(barriers){
+            Qnn_Tensor_t bb = mkNF(tag);
+            r = addNode(f, G.graph, A.name("bf1"), QNN_OP_CAST, nullptr, 0, &b, 1, &bb, 1);
+            if(r != QNN_SUCCESS){ err = "ERR NODE bf1 rc=" + std::to_string((int)r) + " " + verbose(r); return a; }
+            b = bb;
+        }
         r = addBinary(f, G.graph, A, "f_mul2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t,   b,    c);
         if(r != QNN_SUCCESS){ err = "ERR NODE f_mul2 rc=" + std::to_string((int)r) + " " + verbose(r); return a; }
         // c + 10 as c - (-10): this backend will not finalize a graph that
         // holds ADD next to SUBTRACT/MULTIPLY.
         r = addBinary(f, G.graph, A, "f_add",  QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, c,   tFm10, b);
         if(r != QNN_SUCCESS){ err = "ERR NODE f_add rc="  + std::to_string((int)r) + " " + verbose(r); return a; }
+        if(barriers){
+            Qnn_Tensor_t bb = mkNF(tag);
+            r = addNode(f, G.graph, A.name("bf2"), QNN_OP_CAST, nullptr, 0, &b, 1, &bb, 1);
+            if(r != QNN_SUCCESS){ err = "ERR NODE bf2 rc=" + std::to_string((int)r) + " " + verbose(r); return a; }
+            b = bb;
+        }
         r = addBinary(f, G.graph, A, "f_sq",   QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t,   t,    t2);
         if(r != QNN_SUCCESS){ err = "ERR NODE f_sq rc="   + std::to_string((int)r) + " " + verbose(r); return a; }
         r = addBinary(f, G.graph, A, "f_cu",   QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, t2,  t,    t3);
@@ -2226,7 +2273,7 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
 
     // ---- eight corners ----
     Qnn_Tensor_t d[8];
-    for(int c2 = 0; c2 < 8; c2++){
+    for(int c2 = 0; c2 < nCorners; c2++){
         const int ci = c2 & 1, cj = (c2 >> 1) & 1, ck = (c2 >> 2) & 1;
         Qnn_ErrorHandle_t r;
 
@@ -2270,9 +2317,9 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
 
         // offset = frac - (ci,cj,ck): the 0/1 corner offset is the frac-minus-one
         // tensor when the bit is set, so no subtract node is needed here.
-        Qnn_Tensor_t& ox = ci ? fm[0] : fr[0];
-        Qnn_Tensor_t& oy = cj ? fm[1] : fr[1];
-        Qnn_Tensor_t& oz = ck ? fm[2] : fr[2];
+        Qnn_Tensor_t& ox = ci ? fmB[0] : frB[0];
+        Qnn_Tensor_t& oy = cj ? fmB[1] : frB[1];
+        Qnn_Tensor_t& oz = ck ? fmB[2] : frB[2];
 
         Qnn_Tensor_t m0 = mkNF("m0"), m1 = mkNF("m1"), m2 = mkNF("m2");
         r = addBinary(f, G.graph, A, "m0", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, g0, ox, m0);
@@ -2292,7 +2339,7 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         r = addBinary(f, G.graph, A, "s12", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, m1, m2, s12);
         if(r != QNN_SUCCESS) errAcc += " s12=rc" + std::to_string((int)r);
 
-        d[c2] = mkNF("dc");
+        d[c2] = (c2 == 0 && !doBlend) ? G.out : mkNF("dc");
         r = addBinary(f, G.graph, A, "dc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, m0, s12, d[c2]);
         if(r != QNN_SUCCESS) errAcc += " dc=rc" + std::to_string((int)r);
     }
@@ -2316,15 +2363,27 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         if(r != QNN_SUCCESS){ err = "ERR NODE ladd rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
         return true;
     };
+    if(doBlend){
+    // The corner values are SUBTRACT outputs and the blend opens with two
+    // MULTIPLYs, so they get the same barrier.
+    Qnn_Tensor_t dB[8];
+    for(int i = 0; i < 8; i++){
+        if(barriers){
+            dB[i] = mkNF("db");
+            rc = addNode(f, G.graph, A.name("bfd"), QNN_OP_CAST, nullptr, 0, &d[i], 1, &dB[i], 1);
+            if(rc != QNN_SUCCESS) return "ERR NODE bfd rc=" + std::to_string((int)rc) + " " + verbose(rc);
+        } else dB[i] = d[i];
+    }
     Qnn_Tensor_t x00 = mkNF("x00"), x10 = mkNF("x10"), x01 = mkNF("x01"), x11 = mkNF("x11");
     Qnn_Tensor_t y0  = mkNF("y0"),  y1  = mkNF("y1");
-    if(!lerpInto(d[0], d[1], u, x00, "x00")) return err;
-    if(!lerpInto(d[2], d[3], u, x10, "x10")) return err;
-    if(!lerpInto(d[4], d[5], u, x01, "x01")) return err;
-    if(!lerpInto(d[6], d[7], u, x11, "x11")) return err;
+    if(!lerpInto(dB[0], dB[1], u, x00, "x00")) return err;
+    if(!lerpInto(dB[2], dB[3], u, x10, "x10")) return err;
+    if(!lerpInto(dB[4], dB[5], u, x01, "x01")) return err;
+    if(!lerpInto(dB[6], dB[7], u, x11, "x11")) return err;
     if(!lerpInto(x00, x10, v, y0, "y0")) return err;
     if(!lerpInto(x01, x11, v, y1, "y1")) return err;
     if(!lerpInto(y0, y1, w, G.out, "res")) return err;
+    }
 
     rc = f.graphFinalize(G.graph, nullptr, nullptr);
     if(rc != QNN_SUCCESS)
@@ -3000,6 +3059,35 @@ static std::string runPerlinDiag(uint32_t n){
         }
         out += std::string(" m2fail=") + (f2.empty() ? std::string("none") : f2);
         out += std::string(" m3fail=") + (f3.empty() ? std::string("none") : f3);
+    }
+
+    // ---- v11: localise the real graph instead of guessing a rule again ----
+    //
+    // The 3-node scan gave a rule and the rewritten graph obeyed it and still
+    // refuses to finalize, so the rule does not transfer to a 190 node graph.
+    // This builds the real graph in six stages - axes only, then 1/2/4/8
+    // corners, then the trilinear blend on top - each in its own context, and
+    // reports which stage first refuses. That names the section instead of
+    // another hypothesis about which op code is at fault.
+    {
+        std::string bs;
+        auto stage = [&](const char* tag, int nc, bool blend, bool axo){
+            if(!bs.empty()) bs += " ";
+            if(!resetContextLocked()){ bs += std::string(tag) + "=reset"; return; }
+            PerlinGraph pg;
+            std::string e = buildPerlinFull(pg, n, 0, nc, blend, axo, true);
+            if(e.empty()){ bs += std::string(tag) + "=OK"; return; }
+            size_t q = e.find("rc=");
+            bs += std::string(tag) + "=" + (q == std::string::npos ? e.substr(0, 20)
+                                                                   : e.substr(q, 8));
+        };
+        stage("ax", 0, false, true);    // three axis chains only
+        stage("c1", 1, false, false);   // + one corner
+        stage("c2", 2, false, false);
+        stage("c4", 4, false, false);
+        stage("c8", 8, false, false);   // all eight corners, no blend
+        stage("bl", 8, true,  false);   // the full graph
+        out += std::string(" bsA=[") + bs + "]";
     }
 
     // Fallback if no binary op may write APP_READ: end the graph in a unary
