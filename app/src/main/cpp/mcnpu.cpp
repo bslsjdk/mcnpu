@@ -2803,6 +2803,36 @@ static std::string runPerlinDiag(uint32_t n){
         Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
         fin("lerp_fresh", lerp(A, a, b, t, o));
     } while(0);
+    // ---- v7: is it the number of graph INPUTS, not the ops or the node count? ----
+    //
+    // Every ingredient has now been cleared on its own:
+    //   op_sub / op_mul  single-node SUBTRACT, single-node MULTIPLY   -> OK
+    //   chs3             3 nodes of SUBTRACT, 2 inputs                -> OK
+    //   nl194            194 nodes of ADD, 2 inputs                   -> OK
+    //   lerp / lerp_fresh  3 nodes SUB+MUL+ADD, 3 inputs, after reset -> rc1002
+    //
+    // The one variable still separating lerp from every probe that passes is
+    // that it takes three graph inputs. in3 passed, but in3 is a SINGLE node,
+    // so "3 inputs" and "multi-node" have never been true at the same time in
+    // any probe so far. These replay the identical three-op chain with fewer
+    // inputs so that the input count is the only thing that moves:
+    //   lerp1i=OK lerp2i=OK -> three inputs is what breaks it; path C feeds 11
+    //                          and would have to pack them into one
+    //   lerp1i=rc..         -> the SUB+MUL+ADD chain itself is refused once it
+    //                          spans more than one node, which kills path C
+    auto lerpN = [&](const char* tag, int inputs){
+        if(!resetContextLocked()){ rec(std::string(tag)+"_reset", 1); return; }
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = (inputs >= 2) ? reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n) : a;
+        Qnn_Tensor_t t = (inputs >= 3) ? reg(A, "t", QNN_TENSOR_TYPE_APP_WRITE, F, n) : a;
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        fin(tag, lerp(A, a, b, t, o));
+    };
+    lerpN("lerp1i", 1);
+    lerpN("lerp2i", 2);
     return out;
 }
 
