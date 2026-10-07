@@ -228,6 +228,91 @@ public final class NpuRuntime {
     private static native String nativePerlinBench(int n);
     private static native String nativeAddMax();
 
+    // ---- PERLIN regression gate -------------------------------------------
+    // The noise graph is the only end-to-end case we have: it builds a real
+    // graph, runs it on the HTP and diffs every point against an independent CPU
+    // reference. That makes it worth more as a gate than as a benchmark - so
+    // record the verdict instead of leaving it in a log line nobody checks.
+    //
+    // The gate reports; it does not yet block. Perlin is not on the data path
+    // today, so refusing service would only get in the way of the debugging that
+    // produced this. Wire isPerlinVerified() into the dispatcher the moment
+    // anything serves noise to the game.
+    private static volatile boolean perlinVerified = false;
+    private static volatile String perlinGateReport = "未自检";
+    /**
+     * Not a guess: the passing run reports maxAbs=0.000001, and fp32 across a
+     * DSP will never be bit-exact. Anything above this is a wrong kernel, not
+     * rounding.
+     */
+    private static final double PERLIN_MAX_ABS_TOL = 1e-5;
+
+    public static boolean isPerlinVerified() { return perlinVerified; }
+    public static String perlinGateReport() { return perlinGateReport; }
+
+    /** Judge one perlinBench reply. Safe to call with anything, including null. */
+    public static void notePerlinSelfTest(String reply) {
+        boolean ok;
+        String why;
+        if (reply == null) {
+            ok = false; why = "reply=null";
+        } else if (!reply.startsWith("OK PERLIN")) {
+            ok = false; why = reply.length() > 40 ? reply.substring(0, 40) : reply;
+        } else {
+            int bad = intField(reply, "bad=");
+            int total = intAfter(reply, "bad=", '/');
+            double maxAbs = dblField(reply, "maxAbs=");
+            if (bad < 0 || total <= 0) {
+                ok = false; why = "unparsable bad";
+            } else if (bad != 0) {
+                ok = false; why = "bad=" + bad + "/" + total;
+            } else if (!(maxAbs <= PERLIN_MAX_ABS_TOL)) {
+                // Also false for NaN, so a reply missing maxAbs cannot pass.
+                ok = false; why = "maxAbs=" + maxAbs;
+            } else {
+                ok = true; why = "bad=0/" + total + " maxAbs=" + maxAbs;
+            }
+        }
+        perlinVerified = ok;
+        perlinGateReport = (ok ? "PASS " : "FAIL ") + why;
+    }
+
+    /** Integer immediately after key, or -1. */
+    private static int intField(String s, String key) {
+        int i = s.indexOf(key);
+        if (i < 0) return -1;
+        int j = i + key.length(), k = j;
+        while (k < s.length() && Character.isDigit(s.charAt(k))) k++;
+        if (k == j) return -1;
+        try { return Integer.parseInt(s.substring(j, k)); } catch (Throwable t) { return -1; }
+    }
+
+    /** Integer after the first occurrence of sep following key, or -1. */
+    private static int intAfter(String s, String key, char sep) {
+        int i = s.indexOf(key);
+        if (i < 0) return -1;
+        int p = s.indexOf(sep, i + key.length());
+        if (p < 0) return -1;
+        int j = p + 1, k = j;
+        while (k < s.length() && Character.isDigit(s.charAt(k))) k++;
+        if (k == j) return -1;
+        try { return Integer.parseInt(s.substring(j, k)); } catch (Throwable t) { return -1; }
+    }
+
+    /** Double after key, or NaN when absent or unparsable. */
+    private static double dblField(String s, String key) {
+        int i = s.indexOf(key);
+        if (i < 0) return Double.NaN;
+        int j = i + key.length(), k = j;
+        while (k < s.length()) {
+            char c = s.charAt(k);
+            if (Character.isDigit(c) || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E') k++;
+            else break;
+        }
+        if (k == j) return Double.NaN;
+        try { return Double.parseDouble(s.substring(j, k)); } catch (Throwable t) { return Double.NaN; }
+    }
+
     /**
      * Drop every cached graph and rebuild the QNN context.
      *

@@ -788,6 +788,10 @@ public final class NpuService extends Service {
                     long tp = System.nanoTime();
                     String p = NpuRuntime.perlinBench(4096);
                     log("PERLIN_AUTO elapsed_ms=" + ((System.nanoTime() - tp) / 1_000_000.0) + " " + p);
+                    // Verdict, not just a number in a line: the self test only
+                    // pays for itself if something reads it.
+                    NpuRuntime.notePerlinSelfTest(p);
+                    log("PERLIN_GATE " + NpuRuntime.perlinGateReport());
                 } catch (Throwable pe) {
                     log("PERLIN_AUTO FAILED " + pe);
                 }
