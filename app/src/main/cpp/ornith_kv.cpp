@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <fstream>
 
 namespace {
 
@@ -144,6 +145,17 @@ static float maxAbs(const std::vector<float>& a,const std::vector<float>& b) {
 
 static uint64_t ceilDiv(uint64_t a,uint64_t b){return b?((a+b-1)/b):0;}
 
+static uint64_t rssBytes() {
+    std::ifstream in("/proc/self/status");
+    std::string key;
+    uint64_t kb=0;
+    while (in >> key) {
+        if (key == "VmRSS:") { in >> kb; break; }
+        std::string rest; std::getline(in, rest);
+    }
+    return kb * 1024u;
+}
+
 static std::string probe(int requestedTokens, int mode) {
     if(requestedTokens<=0 || requestedTokens>262144) return "ERR ORNITH15_KV bad_tokens";
     if(mode<0 || mode>3) return "ERR ORNITH15_KV bad_mode";
@@ -151,6 +163,7 @@ static std::string probe(int requestedTokens, int mode) {
     const uint64_t elementsPerPage=kPageTokens*kFullLayers*kKvHeads*kHeadDim;
     const size_t testElements=std::min<uint64_t>(elementsPerPage, 1u<<20);
 
+    const uint64_t rssBefore = rssBytes();
     std::vector<float> k(testElements), v(testElements), rk(testElements), rv(testElements);
     for(size_t i=0;i<testElements;i++) {
         k[i]=std::sin((float)i*0.017f)*1.7f+std::cos((float)i*0.0031f)*0.23f;
@@ -184,6 +197,15 @@ static std::string probe(int requestedTokens, int mode) {
         const uint64_t blocksPerToken=ceilDiv(elementsPerToken,kBlock);
         bytesPerToken=elementsPerToken*(kb+vb)/8 + blocksPerToken*2*sizeof(float);
     }
+
+    const uint64_t rssAfter = rssBytes();
+    const uint64_t pageBytes = [&]() -> uint64_t {
+        if (mode == 0) return kPageTokens * f16PerToken;
+        const int kb = 8, vb = (mode == 1 ? 8 : (mode == 2 ? 5 : 4));
+        const uint64_t totalElements = kPageTokens * elementsPerToken;
+        const uint64_t blocks = ceilDiv(totalElements, kBlock);
+        return totalElements * (uint64_t)(kb + vb) / 8u + blocks * 2u * sizeof(float);
+    }();
 
     std::string out="OK ORNITH15_KV/2";
     out+=" mode="+std::string(name);
