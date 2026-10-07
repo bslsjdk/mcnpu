@@ -3131,6 +3131,203 @@ static std::string runPerlinDiag(uint32_t n){
         if(r != QNN_SUCCESS){ rec("cast_f2f_nod", r); break; }
         rec("cast_f2f", f.graphFinalize(gh, nullptr, nullptr));
     } while(0);
+
+    // ---- numeric probes ----------------------------------------------------
+    // Everything above asks only whether a graph finalizes. Path A now builds
+    // AND runs, and 829 of 1024 points come back wrong, so the fault is a value
+    // somewhere in the chain, not a topology. These execute tiny graphs and
+    // compare the read-back against the host, so "which primitive computes the
+    // wrong thing" becomes one line of log instead of another round of guesses.
+    {
+        const uint32_t m = 8;
+        auto nx = [&](Qnn_Tensor_t* ins, uint32_t ni, Qnn_Tensor_t& ot,
+                      void* ob, size_t obn)->Qnn_ErrorHandle_t{
+            ot.v1.clientBuf.data = ob;
+            ot.v1.clientBuf.dataSize = obn;
+            return f.graphExecute(gh, ins, ni, &ot, 1, nullptr, nullptr);
+        };
+        // nstat: does a STATIC fp32 constant reach the graph carrying its value?
+        {
+            Qnn_ErrorHandle_t r = fresh("nstat");
+            if(r != QNN_SUCCESS){ rec("nstat_crt", r); }
+            else {
+                TensorArena A;
+                std::vector<float> cv((size_t)m, 256.0f);
+                Qnn_Tensor_t s = statT(A, "s", F, m, cv.data(), cv.size()*sizeof(float));
+                Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ, F, m);
+                r = addNode(f, gh, A.name("c"), QNN_OP_CAST, nullptr, 0, &s, 1, &o, 1);
+                if(r != QNN_SUCCESS){ rec("nstat_nod", r); }
+                else {
+                    r = f.graphFinalize(gh, nullptr, nullptr);
+                    if(r != QNN_SUCCESS){ rec("nstat_fin", r); }
+                    else {
+                        std::vector<float> ob(m, -1.0f);
+                        r = nx(nullptr, 0, o, ob.data(), ob.size()*sizeof(float));
+                        if(r != QNN_SUCCESS){ rec("nstat_exe", r); }
+                        else {
+                            bool ok = true;
+                            for(uint32_t i = 0; i < m; i++)
+                                if(fabsf(ob[i] - 256.0f) > 1e-3f) ok = false;
+                            out += std::string(" nstat=") + (ok ? "OK" : "BAD")
+                                 + "[" + std::to_string(ob[0]) + "]";
+                        }
+                    }
+                }
+            }
+        }
+        // nbcast: the fp32->fp32 Cast used as an M<-S barrier must not change
+        // the value. If it does, every barrier in path A corrupts its operand.
+        {
+            Qnn_ErrorHandle_t r = fresh("nbc");
+            if(r != QNN_SUCCESS){ rec("nbc_crt", r); }
+            else {
+                TensorArena A;
+                Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, m);
+                Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, m);
+                r = addNode(f, gh, A.name("c"), QNN_OP_CAST, nullptr, 0, &a, 1, &o, 1);
+                if(r != QNN_SUCCESS){ rec("nbc_nod", r); }
+                else {
+                    r = f.graphFinalize(gh, nullptr, nullptr);
+                    if(r != QNN_SUCCESS){ rec("nbc_fin", r); }
+                    else {
+                        std::vector<float> ia(m), ob(m, -1.0f);
+                        for(uint32_t i = 0; i < m; i++) ia[i] = 1.5f + (float)i;
+                        a.v1.clientBuf.data = ia.data();
+                        a.v1.clientBuf.dataSize = ia.size()*sizeof(float);
+                        r = nx(&a, 1, o, ob.data(), ob.size()*sizeof(float));
+                        if(r != QNN_SUCCESS){ rec("nbc_exe", r); }
+                        else {
+                            bool ok = true;
+                            for(uint32_t i = 0; i < m; i++)
+                                if(fabsf(ob[i] - (1.5f + (float)i)) > 1e-4f) ok = false;
+                            out += std::string(" nbcast=") + (ok ? "OK" : "BAD")
+                                 + "[" + std::to_string(ob[0]) + "]";
+                        }
+                    }
+                }
+            }
+        }
+        // ncast_i: fp32 -> int32. The whole lattice index chain depends on this
+        // actually converting. A Cast that leaves the bit pattern untouched
+        // would still finalize, and would feed float bits to Gather as indices.
+        {
+            Qnn_ErrorHandle_t r = fresh("nci");
+            if(r != QNN_SUCCESS){ rec("nci_crt", r); }
+            else {
+                TensorArena A;
+                Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, m);
+                Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  I, m);
+                r = addNode(f, gh, A.name("c"), QNN_OP_CAST, nullptr, 0, &a, 1, &o, 1);
+                if(r != QNN_SUCCESS){ rec("nci_nod", r); }
+                else {
+                    r = f.graphFinalize(gh, nullptr, nullptr);
+                    if(r != QNN_SUCCESS){ rec("nci_fin", r); }
+                    else {
+                        std::vector<float> ia(m);
+                        std::vector<int32_t> want(m), ob(m, -99);
+                        for(uint32_t i = 0; i < m; i++){
+                            ia[i] = 3.0f + (float)i;          // 3,4,5,...10
+                            want[i] = 3 + (int32_t)i;
+                        }
+                        a.v1.clientBuf.data = ia.data();
+                        a.v1.clientBuf.dataSize = ia.size()*sizeof(float);
+                        r = nx(&a, 1, o, ob.data(), ob.size()*sizeof(int32_t));
+                        if(r != QNN_SUCCESS){ rec("nci_exe", r); }
+                        else {
+                            bool ok = true;
+                            for(uint32_t i = 0; i < m; i++) if(ob[i] != want[i]) ok = false;
+                            out += std::string(" ncast_i=") + (ok ? "OK" : "BAD")
+                                 + "[" + std::to_string(ob[0]) + "]";
+                        }
+                    }
+                }
+            }
+        }
+        // ngather: a STATIC int32 table indexed by an int32 tensor. Checks the
+        // table payload and the lookup in one go, which is what the perm chain
+        // is made of.
+        {
+            Qnn_ErrorHandle_t r = fresh("nga");
+            if(r != QNN_SUCCESS){ rec("nga_crt", r); }
+            else {
+                TensorArena A;
+                std::vector<int32_t> tbl(m);
+                for(uint32_t i = 0; i < m; i++) tbl[i] = (int32_t)(100 + i*10);
+                Qnn_Tensor_t T = statT(A, "T", I, m, tbl.data(), tbl.size()*sizeof(int32_t));
+                Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, m);
+                Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  I, m);
+                r = addGather(f, gh, A, "g", T, ix, o);
+                if(r != QNN_SUCCESS){ rec("nga_nod", r); }
+                else {
+                    r = f.graphFinalize(gh, nullptr, nullptr);
+                    if(r != QNN_SUCCESS){ rec("nga_fin", r); }
+                    else {
+                        std::vector<int32_t> iq(m), want(m), ob(m, -99);
+                        const int32_t order[8] = {0,3,1,7,2,5,4,6};
+                        for(uint32_t i = 0; i < m; i++){
+                            iq[i]   = order[i];
+                            want[i] = 100 + order[i]*10;
+                        }
+                        ix.v1.clientBuf.data = iq.data();
+                        ix.v1.clientBuf.dataSize = iq.size()*sizeof(int32_t);
+                        r = nx(&ix, 1, o, ob.data(), ob.size()*sizeof(int32_t));
+                        if(r != QNN_SUCCESS){ rec("nga_exe", r); }
+                        else {
+                            bool ok = true;
+                            for(uint32_t i = 0; i < m; i++) if(ob[i] != want[i]) ok = false;
+                            out += std::string(" ngather=") + (ok ? "OK" : "BAD")
+                                 + "[" + std::to_string(ob[0]) + "]";
+                        }
+                    }
+                }
+            }
+        }
+        // ncast_o: negative int32 -> fp32, the direction every gradient
+        // component takes. -1 must come back as -1.0, not as a huge positive.
+        {
+            Qnn_ErrorHandle_t r = fresh("nco");
+            if(r != QNN_SUCCESS){ rec("nco_crt", r); }
+            else {
+                TensorArena A;
+                std::vector<int32_t> tbl(m);
+                for(uint32_t i = 0; i < m; i++) tbl[i] = (i & 1) ? -1 : 1;
+                Qnn_Tensor_t T = statT(A, "T", I, m, tbl.data(), tbl.size()*sizeof(int32_t));
+                Qnn_Tensor_t ix = reg(A, "ix", QNN_TENSOR_TYPE_APP_WRITE, I, m);
+                Qnn_Tensor_t gi = mkT(A, "gi", QNN_TENSOR_TYPE_NATIVE, I, m);
+                f.tensorCreateGraphTensor(gh, &gi);
+                Qnn_Tensor_t o  = reg(A, "o",  QNN_TENSOR_TYPE_APP_READ,  F, m);
+                r = addGather(f, gh, A, "g", T, ix, gi);
+                if(r != QNN_SUCCESS){ rec("nco_g", r); }
+                else {
+                    r = addNode(f, gh, A.name("c"), QNN_OP_CAST, nullptr, 0, &gi, 1, &o, 1);
+                    if(r != QNN_SUCCESS){ rec("nco_nod", r); }
+                    else {
+                        r = f.graphFinalize(gh, nullptr, nullptr);
+                        if(r != QNN_SUCCESS){ rec("nco_fin", r); }
+                        else {
+                            std::vector<int32_t> iq(m);
+                            std::vector<float> want(m), ob(m, -99.0f);
+                            for(uint32_t i = 0; i < m; i++){
+                                iq[i]   = (int32_t)i;
+                                want[i] = (i & 1) ? -1.0f : 1.0f;
+                            }
+                            ix.v1.clientBuf.data = iq.data();
+                            ix.v1.clientBuf.dataSize = iq.size()*sizeof(int32_t);
+                            r = nx(&ix, 1, o, ob.data(), ob.size()*sizeof(float));
+                            if(r != QNN_SUCCESS){ rec("nco_exe", r); }
+                            else {
+                                bool ok = true;
+                                for(uint32_t i = 0; i < m; i++)
+                                    if(fabsf(ob[i] - want[i]) > 1e-4f) ok = false;
+                                out += std::string(" ncast_o=") + (ok ? "OK" : "BAD")
+                                     + "[" + std::to_string(ob[1]) + "]";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     return out;
 }
 
