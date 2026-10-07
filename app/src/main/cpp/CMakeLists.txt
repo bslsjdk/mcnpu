@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(mcnpu)
-add_library(mcnpu SHARED mcnpu.cpp bonsai_pq2.cpp)
+add_library(mcnpu SHARED mcnpu.cpp bonsai_pq2.cpp ornith_kv.cpp)
 set(QNN_INC "" CACHE PATH "QNN headers")
 if(NOT QNN_INC)
     message(FATAL_ERROR "QNN_INC is required")
