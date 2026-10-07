@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
@@ -49,6 +50,17 @@ public final class ChatActivity extends Activity {
 
         loadHistory();
         updateRuntimeState();
+        initLocalRuntime();
+    }
+
+    private void initLocalRuntime() {
+        new Thread(() -> {
+            boolean ok = NpuRuntime.init(getApplicationContext());
+            main.post(() -> {
+                updateRuntimeState();
+                if (ok) statusLine.setText("本地 NPU 在线 · Bonsai 2 PQ2_0 内核待接入");
+            });
+        }, "mcnpu-init").start();
     }
 
     @Override protected void onResume() {
