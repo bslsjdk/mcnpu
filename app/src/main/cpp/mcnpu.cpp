@@ -3544,14 +3544,54 @@ std::string runPerlinBench(uint32_t n){
         firstRef = b;
     }
     auto cpu0 = std::chrono::steady_clock::now();
+    // Statistics, not more hypotheses. bad=829/1024 alone cannot distinguish
+    // "tail never written" from "wrong value everywhere past a point" from
+    // "scattered index corruption" - the SHAPE of the bad-index set can.
+    std::vector<char> isBad(n, 0);
+    std::string badList, badDetail;
+    long long idxMaxObs = -1;
     for(uint32_t i = 0; i < n; i++){
         double r = perlinRef(xs[i], ys[i], zs[i], perm);
         double e = fabs(r - out[i]);
         if(e > maxAbs) maxAbs = e;
-        if(e > 1e-4) bad++;
+        if(e > 1e-4){
+            bad++;
+            isBad[i] = 1;
+            if(!badList.empty()) badList += ",";
+            badList += std::to_string(i);
+            if(badDetail.size() < 400){
+                char b[200];
+                std::snprintf(b, sizeof(b),
+                    "%u:got=%.4f ref=%.4f xyz=(%.3f,%.3f,%.3f); ",
+                    i, (double)out[i], r, (double)xs[i], (double)ys[i], (double)zs[i]);
+                badDetail += b;
+            }
+        }
+        int X = (int)floor(xs[i]) & 255, Y = (int)floor(ys[i]) & 255, Z = (int)floor(zs[i]) & 255;
+        int A = perm[X]+Y, B = perm[X+1]+Y;
+        long long m = (long long)std::max(std::max(perm[A],perm[A+1]),
+                                          std::max(perm[B],perm[B+1])) + Z + 1;
+        if(m > idxMaxObs) idxMaxObs = m;
     }
     auto cpuUs = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now() - cpu0).count();
+
+    // Shape of the bad set: leading good run, and the first index from which
+    // EVERY point is bad (a real tail) vs -1 (interleaved -> not a capacity
+    // boundary, so look at indexing instead).
+    uint32_t goodHead = 0;
+    while(goodHead < n && !isBad[goodHead]) goodHead++;
+    long long tailFrom = -1;
+    for(uint32_t k = 0; k <= n; k++){
+        bool allBad = true;
+        for(uint32_t i = k; i < n; i++) if(!isBad[i]){ allBad = false; break; }
+        if(allBad){ tailFrom = (long long)k; break; }
+    }
+    uint32_t badRunMax = 0, curRun = 0;
+    for(uint32_t i = 0; i < n; i++){
+        if(isBad[i]){ curRun++; if(curRun > badRunMax) badRunMax = curRun; }
+        else curRun = 0;
+    }
 
     return "OK PERLIN path=" + std::string(G->fullPath ? "A_FULL" : "C_HYBRID")
          + " cm=" + std::to_string(G->constMode)
@@ -3562,6 +3602,12 @@ std::string runPerlinBench(uint32_t n){
          + " npu_us=" + std::to_string((long long)us)
          + " cpu_ref_us=" + std::to_string((long long)cpuUs)
          + " got=[" + firstNpu + "] ref=[" + firstRef + "]"
+         + " goodHead=" + std::to_string((unsigned)goodHead)
+         + " tailFrom=" + std::to_string((long long)tailFrom)
+         + " badRunMax=" + std::to_string((unsigned)badRunMax)
+         + " idxMax=" + std::to_string((long long)idxMaxObs)
+         + " bad3=[" + badDetail + "]"
+         + " badIdx=[" + badList + "]"
          // The numeric probes used to live only in runPerlinDiag, which was
          // called solely when BOTH build paths failed. Path A now builds, so
          // that call was never reached and every run reported a wrong result
