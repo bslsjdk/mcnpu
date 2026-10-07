@@ -3,6 +3,11 @@
 #include <fstream>
 #include <string>
 #include <cstring>
+#include <vector>
+#include <algorithm>
+#if MCNPU_HAS_LLAMA
+#include "llama.h"
+#endif
 
 namespace {
 
@@ -15,6 +20,11 @@ struct RuntimeState {
     uint64_t vocab = 0;
     std::string arch;
     bool loaded = false;
+#if MCNPU_HAS_LLAMA
+    llama_model * model = nullptr;
+    llama_context * ctx = nullptr;
+    llama_sampler * sampler = nullptr;
+#endif
 } g;
 
 static bool readU32(std::ifstream &f, uint32_t &v) {
@@ -57,6 +67,14 @@ static bool skipValue(std::ifstream &f, uint32_t type, int depth=0) {
 }
 
 static std::string loadModel(const std::string &path, uint64_t requested) {
+#if MCNPU_HAS_LLAMA
+    if (g.loaded) {
+        if (g.sampler) { llama_sampler_free(g.sampler); g.sampler=nullptr; }
+        if (g.ctx) { llama_free(g.ctx); g.ctx=nullptr; }
+        if (g.model) { llama_model_free(g.model); g.model=nullptr; }
+        g.loaded=false;
+    }
+#endif
     std::ifstream f(path, std::ios::binary|std::ios::ate);
     if(!f) return "ERR ORNITH15_RUNTIME open_failed";
     const std::streamoff end=f.tellg();
@@ -99,6 +117,34 @@ static std::string loadModel(const std::string &path, uint64_t requested) {
     if(g.context==0) return "ERR ORNITH15_RUNTIME missing_context";
     if(requested>g.context) return "ERR ORNITH15_RUNTIME requested_context="+std::to_string(requested)+" native="+std::to_string(g.context);
 
+#if MCNPU_HAS_LLAMA
+    llama_backend_init();
+    llama_model_params mp = llama_model_default_params();
+    mp.n_gpu_layers = 0;
+    mp.use_mmap = true;
+    g.model = llama_model_load_from_file(path.c_str(), mp);
+    if (!g.model) return "ERR ORNITH15_RUNTIME llama_model_load_failed";
+    llama_context_params cp = llama_context_default_params();
+    cp.n_ctx = (uint32_t) requested;
+    cp.n_batch = (uint32_t) std::min<uint64_t>(requested, 512);
+    cp.n_ubatch = std::min<uint32_t>(cp.n_batch, 512);
+    cp.n_seq_max = 1;
+    g.ctx = llama_init_from_model(g.model, cp);
+    if (!g.ctx) {
+        llama_model_free(g.model); g.model=nullptr;
+        return "ERR ORNITH15_RUNTIME llama_context_failed";
+    }
+    auto sp = llama_sampler_chain_default_params();
+    sp.no_perf = true;
+    g.sampler = llama_sampler_chain_init(sp);
+    if (!g.sampler) {
+        llama_free(g.ctx); g.ctx=nullptr;
+        llama_model_free(g.model); g.model=nullptr;
+        return "ERR ORNITH15_RUNTIME llama_sampler_failed";
+    }
+    llama_sampler_chain_add(g.sampler, llama_sampler_init_greedy());
+#endif
+
     g.path=path; g.context=requested; g.loaded=true;
     return "OK ORNITH15_RUNTIME/1 arch="+g.arch+
            " layers="+std::to_string(g.blocks)+
@@ -106,7 +152,42 @@ static std::string loadModel(const std::string &path, uint64_t requested) {
            " vocab="+std::to_string(g.vocab)+
            " context="+std::to_string(requested)+
            " file_bytes="+std::to_string(g.fileBytes)+
-           " inference=NOT_ATTACHED";
+           " inference=LLAMA_CPU_BASELINE";
+}
+
+static std::string generateModel(const std::string &prompt, int maxTokens) {
+#if !MCNPU_HAS_LLAMA
+    return "ERR ORNITH15_RUNTIME llama_backend_not_compiled";
+#else
+    if (!g.loaded || !g.model || !g.ctx || !g.sampler)
+        return "ERR ORNITH15_RUNTIME not_loaded";
+    if (maxTokens <= 0 || maxTokens > 4096)
+        return "ERR ORNITH15_RUNTIME bad_max_tokens";
+    const llama_vocab * vocab = llama_model_get_vocab(g.model);
+    int n = -llama_tokenize(vocab, prompt.c_str(), (int32_t)prompt.size(), nullptr, 0, true, true);
+    if (n <= 0) return "ERR ORNITH15_RUNTIME tokenize_failed";
+    std::vector<llama_token> tokens((size_t)n);
+    if (llama_tokenize(vocab, prompt.c_str(), (int32_t)prompt.size(), tokens.data(), n, true, true) < 0)
+        return "ERR ORNITH15_RUNTIME tokenize_failed";
+    llama_sampler_reset(g.sampler);
+    llama_batch batch = llama_batch_get_one(tokens.data(), (int32_t)tokens.size());
+    if (llama_decode(g.ctx, batch) != 0)
+        return "ERR ORNITH15_RUNTIME prompt_decode_failed";
+    std::string out;
+    out.reserve((size_t)maxTokens * 4);
+    for (int i=0; i<maxTokens; ++i) {
+        llama_token tok = llama_sampler_sample(g.sampler, g.ctx, -1);
+        if (llama_vocab_is_eog(vocab, tok)) break;
+        char buf[4096];
+        int m = llama_token_to_piece(vocab, tok, buf, (int32_t)sizeof(buf), 0, false);
+        if (m < 0) return "ERR ORNITH15_RUNTIME token_to_piece_failed";
+        out.append(buf, (size_t)m);
+        batch = llama_batch_get_one(&tok, 1);
+        if (llama_decode(g.ctx, batch) != 0)
+            return "ERR ORNITH15_RUNTIME decode_failed";
+    }
+    return "OK ORNITH15_GENERATE/1 text=" + out;
+#endif
 }
 
 } // namespace
@@ -120,6 +201,14 @@ Java_bslsjdk_mcnpu_Ornith15Runtime_nativeLoad(JNIEnv* env,jclass,jstring jpath,j
 }
 
 extern "C" JNIEXPORT jstring JNICALL
+Java_bslsjdk_mcnpu_Ornith15Runtime_nativeGenerate(JNIEnv* env,jclass,jstring jprompt,jint maxTokens) {
+    const char* p=env->GetStringUTFChars(jprompt,nullptr);
+    std::string s=generateModel(p?p:"",(int)maxTokens);
+    if(p) env->ReleaseStringUTFChars(jprompt,p);
+    return env->NewStringUTF(s.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
 Java_bslsjdk_mcnpu_Ornith15Runtime_nativeInfo(JNIEnv* env,jclass) {
     std::string s=g.loaded
         ? "OK ORNITH15_RUNTIME/1 loaded=true path="+g.path+" context="+std::to_string(g.context)
@@ -129,5 +218,10 @@ Java_bslsjdk_mcnpu_Ornith15Runtime_nativeInfo(JNIEnv* env,jclass) {
 
 extern "C" JNIEXPORT void JNICALL
 Java_bslsjdk_mcnpu_Ornith15Runtime_nativeUnload(JNIEnv*,jclass) {
+#if MCNPU_HAS_LLAMA
+    if (g.sampler) { llama_sampler_free(g.sampler); g.sampler=nullptr; }
+    if (g.ctx) { llama_free(g.ctx); g.ctx=nullptr; }
+    if (g.model) { llama_model_free(g.model); g.model=nullptr; }
+#endif
     g=RuntimeState{};
 }
