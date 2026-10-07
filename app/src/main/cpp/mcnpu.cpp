@@ -1828,6 +1828,7 @@ struct PerlinGraph {
 
 static std::map<uint32_t, PerlinGraph> g_perlinGraphs;
 static uint32_t g_perlinSeq = 0;
+static uint32_t g_perlinMaxN = 0;   // 0 = not probed yet
 
 static Qnn_Tensor_t mkT(TensorArena& A, const char* prefix, Qnn_TensorType_t type,
                         Qnn_DataType_t dt, uint32_t dim){
@@ -3090,6 +3091,26 @@ static std::string runPerlinDiag(uint32_t n){
         out += std::string(" bsA=[") + bs + "]";
     }
 
+    // ---- v12: size ladder on the real graph -------------------------------
+    // bsA proved the topology finalizes, but it runs at this function's clamped
+    // n (64) while runPerlinBench asks for 4096. Build the identical full graph
+    // at every size in one go so the ceiling is measured, not inferred.
+    {
+        std::string bn;
+        const uint32_t ladder[8] = {32, 64, 128, 256, 512, 1024, 2048, 4096};
+        for(int i = 0; i < 8; i++){
+            if(!bn.empty()) bn += " ";
+            if(!resetContextLocked()){ bn += "n" + std::to_string(ladder[i]) + "=reset"; continue; }
+            PerlinGraph pg;
+            std::string e = buildPerlinFull(pg, ladder[i], 0);
+            bn += "n" + std::to_string(ladder[i]) + "=";
+            if(e.empty()){ bn += "OK"; continue; }
+            size_t q = e.find("rc=");
+            bn += (q == std::string::npos ? e.substr(0, 20) : e.substr(q, 8));
+        }
+        out += std::string(" bsN=[") + bn + "]";
+    }
+
     // Fallback if no binary op may write APP_READ: end the graph in a unary
     // Cast instead. gather_fms already proved Cast(int32 NATIVE) -> fp32
     // APP_READ finalizes; this is the same thing without a type change.
@@ -3140,6 +3161,10 @@ static double perlinRef(double x, double y, double z, const int* perm){
 std::string runPerlinBench(uint32_t n){
     if(!g.ready || !g.api || !g.context) return "ERR PERLIN NOT_READY";
     if(n == 0 || n > 16384) n = 4096;
+    // v12: the graph refuses graphFinalize at 4096 but the byte-identical
+    // graph finalizes at 64, so the ceiling is the batch size, not the
+    // topology. Never ask for more than the largest size known to build.
+    if(g_perlinMaxN != 0 && n > g_perlinMaxN) n = g_perlinMaxN;
     if(!ensureGraphBudget()) return "ERR GRAPH_BUDGET_EXHAUSTED";
 
     const bool gather = hasOp("Gather");
@@ -3156,66 +3181,61 @@ std::string runPerlinBench(uint32_t n){
     if(found != g_perlinGraphs.end()){
         G = &found->second;
     } else {
-        std::string aFail;
-        // Path A is ~194 nodes and ~180 NATIVE tensors, by far the largest graph
-        // this service ever builds. ADD_PROBE leaves one graph per ladder rung on
-        // the context, the last of them holding 65536 elements, and
-        // ensureGraphBudget only resets once the eighth is requested - so a graph
-        // this size can be refused at graphFinalize with rc=1002 on a context that
-        // still carries those, while every addNode is accepted. That same
-        // mechanism is why p_lerp was the only failing probe in every run: three
-        // nodes is not the problem, being the eighth graph on a full context is.
-        // The build gets a context of its own instead of another inference.
-        if(!resetContextLocked()) return "ERR PERLIN CONTEXT_RESET";
-        if(useFull){
-            // STATIC constants first, then constants-as-graph-inputs. Both are
-            // cheap to build and the second mode exists only because HTP
-            // rejected the first; whichever one finalizes is the one that runs,
-            // and both failure strings are carried out so a rejected op never
-            // gets mistaken for "Perlin cannot be built here".
+        // v12: a refused finalize here no longer ends the run. runPerlinDiag
+        // clamps n to 64 and its last stage builds the whole graph at that size
+        // (bsA=[... bl=OK]) while this path asks for 4096 and is refused, so the
+        // limit is the batch size. Walk it down and keep the first that builds.
+        const uint32_t cand[8] = {4096, 2048, 1024, 512, 256, 128, 64, 32};
+        std::string lastErr;
+        for(int ci = 0; ci < 8 && !G; ci++){
+            uint32_t s = cand[ci];
+            if(s > n) continue;
+            std::string aFail;
+            if(!resetContextLocked()){ lastErr = "ERR PERLIN CONTEXT_RESET"; break; }
+            // STATIC constants first, then constants-as-graph-inputs.
             const int modes[2] = {0, 1};
-            for(int m = 0; m < 2 && !G; m++){
-                // Each attempt starts from a pristine context as well. A rejected
-                // finalize can leave the graph and its NATIVE allocations resident
-                // and there is no per-graph destroy here to reclaim them, so the
-                // second mode would otherwise be built on top of the first failure.
-                if(m > 0 && !resetContextLocked()){
-                    aFail += " | cm" + std::to_string(modes[m]) + "=ERR CONTEXT_RESET";
+            if(useFull){
+                for(int m = 0; m < 2 && !G; m++){
+                    if(m > 0 && !resetContextLocked()){
+                        aFail += " | cm" + std::to_string(modes[m]) + "=ERR CONTEXT_RESET";
+                        break;
+                    }
+                    PerlinGraph cg;
+                    std::string e = buildPerlinFull(cg, s, modes[m]);
+                    if(e.empty()){
+                        auto ins = g_perlinGraphs.emplace(s, std::move(cg));
+                        G = &ins.first->second;
+                        G->aFail = aFail;
+                    } else {
+                        if(!aFail.empty()) aFail += " | ";
+                        aFail += "cm" + std::to_string(modes[m]) + "=" + e;
+                    }
+                }
+            }
+            if(!G){
+                if(!resetContextLocked()){
+                    lastErr = "ERR PERLIN CONTEXT_RESET_C A=[" + aFail + "]";
                     break;
                 }
                 PerlinGraph cg;
-                std::string e = buildPerlinFull(cg, n, modes[m]);
-                if(e.empty()){
-                    auto ins = g_perlinGraphs.emplace(n, std::move(cg));
-                    G = &ins.first->second;
-                } else {
-                    if(!aFail.empty()) aFail += " | ";
-                    aFail += "cm" + std::to_string(modes[m]) + "=" + e;
+                std::string cErr = buildPerlinHybrid(cg, s);
+                if(!cErr.empty()){
+                    lastErr = "A=[" + aFail + "] C=[" + cErr + "]";
+                    continue;
                 }
+                auto ins = g_perlinGraphs.emplace(s, std::move(cg));
+                G = &ins.first->second;
+                G->aFail = aFail;
             }
+            if(G){ g_perlinMaxN = s; n = s; }
         }
         if(!G){
-            // Path A would not build. Fall back to C so a run still yields a
-            // measured number instead of only an error, and carry the reason
-            // out in the report - otherwise one rejected op hides whether the
-            // arithmetic itself is any good.
-            if(!resetContextLocked())
-                return "ERR PERLIN CONTEXT_RESET_C A=[" + aFail + "]";
-            PerlinGraph cg;
-            std::string cErr = buildPerlinHybrid(cg, n);
-            if(!cErr.empty()){
-                // Both paths refused. Run the diagnostic rather than report
-                // only the failure, so the next attempt starts from a measured
-                // answer instead of another hypothesis about which op is at
-                // fault.
-                const std::string d = runPerlinDiag(n);
-                return "ERR PERLIN BUILD build=" + std::string(kBuildId)
-                     + " A=[" + aFail + "] C=[" + cErr
-                     + "] DIAG=[" + d + "]";
-            }
-            auto ins = g_perlinGraphs.emplace(n, std::move(cg));
-            G = &ins.first->second;
-            G->aFail = aFail;
+            // Nothing built at any size. Run the diagnostic rather than report
+            // only the failure, so the next attempt starts from a measured
+            // answer instead of another hypothesis.
+            const std::string d = runPerlinDiag(n);
+            return "ERR PERLIN BUILD build=" + std::string(kBuildId)
+                 + " " + lastErr + " DIAG=[" + d + "]";
         }
     }
 
