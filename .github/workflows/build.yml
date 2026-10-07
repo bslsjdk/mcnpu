@@ -182,7 +182,9 @@ jobs:
           MCNPU_KEYSTORE_B64: ${{ secrets.MCNPU_KEYSTORE_B64 }}
           MCNPU_KEYSTORE_PASSWORD: ${{ secrets.MCNPU_KEYSTORE_PASSWORD }}
 
-      # Delivery route: a prerelease asset. Release assets do NOT draw on the account's
+      # Delivery route: a release asset. It must NOT be a prerelease: GitHub's
+      # /releases/latest only resolves to a full release, so publishing as a
+      # prerelease makes that URL 404 and leaves no stable link to hand out. Release assets do NOT draw on the account's
       # Actions storage quota, which is exhausted until the billing cycle resets, so this
       # is the route that keeps working. The upload-artifact step was removed: while the
       # quota is out it can only fail, and a permanently red annotation is worse than none.
@@ -208,7 +210,7 @@ jobs:
             echo "- sha256: ${SUM}"
             echo "- signing: fixed repository key, so this installs over the previous build"
             echo ""
-            echo "Pre-release: engineering build for on-device testing, not a stable release."
+            echo "Engineering build for on-device testing."
             echo "Signed with the same key, so it installs over the previous build."
           } > build/release-notes.md
           # Recreate instead of upload --clobber: GitHub keeps the ORIGINAL created_at on
@@ -220,6 +222,6 @@ jobs:
           # The APK uploaded here is the one just built in this run, so deleting the
           # previous release loses nothing.
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" "$APK" --prerelease \
+          gh release create "$TAG" "$APK" \
             --title "$TITLE" --notes-file build/release-notes.md
           gh release view "$TAG" --json tagName,isPrerelease,assets
