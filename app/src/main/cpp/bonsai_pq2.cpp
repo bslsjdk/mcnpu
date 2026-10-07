@@ -4,7 +4,6 @@
 #include <chrono>
 #include <cmath>
 #include <string>
-#include <cstdio>
 
 namespace {
 
@@ -54,7 +53,6 @@ static void decode_block(const uint8_t * block, float * out) {
     }
 }
 
-
 static void fwht_normalized(float * x, size_t n) {
     for (size_t h = 1; h < n; h <<= 1) {
         for (size_t i = 0; i < n; i += h << 1) {
@@ -80,8 +78,6 @@ static std::string run_hadamard_probe() {
         original[i] = x[i];
     }
 
-    // Prism's metadata contract is normalized Sylvester-Walsh-Hadamard.
-    // Apply a deterministic explicit sign vector first, then the normalized FWHT.
     for (size_t i = 0; i < N; ++i) {
         const float s = (i % 7u == 0u || i % 11u == 0u) ? -1.0f : 1.0f;
         x[i] *= s;
@@ -90,7 +86,6 @@ static std::string run_hadamard_probe() {
     fwht_normalized(x, N);
     fwht_normalized(x, N);
 
-    // H is self-inverse. Undo the explicit signs and compare with the source.
     for (size_t i = 0; i < N; ++i) {
         const float s = (i % 7u == 0u || i % 11u == 0u) ? -1.0f : 1.0f;
         x[i] *= s;
@@ -116,14 +111,11 @@ static std::string run_hadamard_probe() {
 
 static std::string run_probe() {
     alignas(16) uint8_t block[PQ2_BLOCK_BYTES] = {};
-    // fp16 1.0 = 0x3c00, little endian.
     block[0] = 0x00;
     block[1] = 0x3c;
 
-    // Cycle all four codes. The first 8 decoded values must be:
-    // -1, 0, +1, +2, -1, 0, +1, +2.
     for (size_t i = 0; i < 32; ++i) {
-        block[2 + i] = 0xE4; // 11 10 01 00, read least-significant pair first.
+        block[2 + i] = 0xE4;
     }
 
     float out[PQ2_VALUES];
@@ -165,23 +157,6 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_bslsjdk_mcnpu_Bonsai2Pq2Probe_nativeRun(JNIEnv * env, jclass) {
     const std::string r = run_probe();
     return env->NewStringUTF(r.c_str());
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_bslsjdk_mcnpu_Bonsai2Pq2Probe_nativeValidate(JNIEnv * env, jclass, jstring jpath) {
-    if (!jpath) return env->NewStringUTF("ERR BONSAI2_PQ2_VALIDATE null_path");
-    const char * path = env->GetStringUTFChars(jpath, nullptr);
-    if (!path) return env->NewStringUTF("ERR BONSAI2_PQ2_VALIDATE path_utf8");
-    FILE * f = std::fopen(path, "rb");
-    if (!f) { env->ReleaseStringUTFChars(jpath, path); return env->NewStringUTF("ERR BONSAI2_PQ2_VALIDATE open"); }
-    uint8_t magic[4] = {};
-    uint32_t version = 0;
-    const bool ok = std::fread(magic, 1, 4, f) == 4 &&
-        magic[0] == 'G' && magic[1] == 'G' && magic[2] == 'U' && magic[3] == 'F' &&
-        std::fread(&version, 1, 4, f) == 4 && (version == 2 || version == 3);
-    std::fclose(f);
-    env->ReleaseStringUTFChars(jpath, path);
-    return env->NewStringUTF(ok ? "OK BONSAI2_PQ2_GGUF_HEADER/1 metadata_parser=pending" : "ERR BONSAI2_PQ2_VALIDATE invalid_header");
 }
 
 extern "C" JNIEXPORT jstring JNICALL
