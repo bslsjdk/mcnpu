@@ -82,8 +82,6 @@ static Encoded encodeQ(const float* src, size_t n, int bits) {
             size_t byte=bit>>3;
             unsigned shift=(unsigned)(bit&7u);
             uint32_t mask=(1u<<bits)-1u;
-            uint32_t word=(uint32_t)out.payload[byte] | ((uint32_t)q /* overwritten below */ << 0);
-            (void)word;
             uint32_t value=(uint32_t)out.payload[byte] | ((uq & mask) << shift);
             out.payload[byte]=(uint8_t)(value&0xffu);
             if(shift+bits>8) {
@@ -214,6 +212,10 @@ static std::string probe(int requestedTokens, int mode) {
     out+=" stored_tokens="+std::to_string(storedTokens);
     out+=" bytes_per_token_est="+std::to_string(bytesPerToken);
     out+=" bytes_est="+std::to_string(storedTokens*bytesPerToken);
+    out+=" page_bytes_est="+std::to_string(pageBytes);
+    out+=" rss_before="+std::to_string(rssBefore);
+    out+=" rss_after="+std::to_string(rssAfter);
+    out+=" rss_delta="+std::to_string(rssAfter>=rssBefore ? rssAfter-rssBefore : 0);
     out+=" codec_payload_bytes="+std::to_string(ek.payload.size()+ev.payload.size());
     out+=" codec_scale_bytes="+std::to_string((ek.scales.size()+ev.scales.size())*sizeof(float));
     out+=" codec_test_elements_per_stream="+std::to_string(testElements);
