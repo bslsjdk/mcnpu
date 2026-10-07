@@ -121,7 +121,6 @@ static std::string loadModel(const std::string &path, uint64_t requested) {
     llama_backend_init();
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0;
-    mp.use_mmap = true;
     g.model = llama_model_load_from_file(path.c_str(), mp);
     if (!g.model) return "ERR ORNITH15_RUNTIME llama_model_load_failed";
     llama_context_params cp = llama_context_default_params();
