@@ -3336,7 +3336,13 @@ static std::string runPerlinDiag(uint32_t n){
 // two cannot produce a green result.
 static double perlinRef(double x, double y, double z, const int* perm){
     auto fade = [](double t){ return t*t*t*(t*(t*6-15)+10); };
-    auto grad = [](int h, double x, double y, double z){
+    // Classic Perlin converts the 0..255 permutation hash down to 0..15 before
+    // picking one of the sixteen gradient directions. Path A's gradient tables
+    // and Path C's host-side loop both do this; the reference has to do the
+    // same, otherwise it disagrees with the graph for every corner whose hash
+    // is >= 16 - which is most of them once the lattice indices grow.
+    auto grad = [](int hash, double x, double y, double z){
+        int h = hash & 15;
         double u = h<8 ? x : y;
         double v = h<4 ? y : (h==12||h==14 ? x : z);
         return ((h&1)==0?u:-u) + ((h&2)==0?v:-v);
