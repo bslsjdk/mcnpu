@@ -3,8 +3,9 @@ package bslsjdk.mcnpu;
 /**
  * Pure arithmetic planner for Ornith-1.5-9B long-context state.
  *
- * This class does not allocate KV memory and does not claim that a cache format
- * is implemented. It gives the runtime a deterministic budget before allocation.
+ * This class does not allocate KV memory. It models the actual page codec used by
+ * Ornith15KvProbe, including per-block FP32 scale metadata, so the runtime can
+ * budget the representation before allocation.
  */
 public final class Ornith15MemoryPlanner {
     public static final long HARD_RAM_BYTES = 4L * 1024L * 1024L * 1024L;
@@ -30,6 +31,18 @@ public final class Ornith15MemoryPlanner {
      * Planning bit-widths for K/V. These are storage estimates only.
      * Q8_Q5 means 8 bits for K and 5 bits for V before block metadata/alignment.
      */
+    /** Actual bytes/token for the current page codec, including FP32 scale metadata. */
+    public static long codecBytesPerToken(Mode mode) {
+        if (mode == Mode.FP16) return fp16BytesPerToken();
+        long elementsPerToken = FULL_ATTN_LAYERS * KV_HEADS * HEAD_DIM;
+        int kBits = 8;
+        int vBits = mode == Mode.Q8_Q8 ? 8 : (mode == Mode.Q8_Q5 ? 5 : 4);
+        long blocksPerToken = (elementsPerToken + 31L) / 32L;
+        long payload = (elementsPerToken * (long) (kBits + vBits)) / 8L;
+        long scaleBytes = blocksPerToken * 2L * Float.BYTES;
+        return payload + scaleBytes;
+    }
+
     public static double bitsPerElement(Mode mode) {
         switch (mode) {
             case FP16: return 16.0;
@@ -42,8 +55,7 @@ public final class Ornith15MemoryPlanner {
 
     public static long estimatedBytes(long tokens, Mode mode) {
         if (tokens <= 0) return 0;
-        double bytes = (double) fp16BytesPerToken() * tokens
-                * bitsPerElement(mode) / 16.0;
+        double bytes = (double) codecBytesPerToken(mode) * tokens;
         if (bytes >= Long.MAX_VALUE) return Long.MAX_VALUE;
         return (long) Math.ceil(bytes);
     }
@@ -54,7 +66,7 @@ public final class Ornith15MemoryPlanner {
      */
     public static long maxTokens(long budgetBytes, Mode mode) {
         if (budgetBytes <= 0) return 0;
-        double perToken = fp16BytesPerToken() * bitsPerElement(mode) / 16.0;
+        double perToken = codecBytesPerToken(mode);
         return (long) Math.floor(budgetBytes / perToken);
     }
 
@@ -78,6 +90,9 @@ public final class Ornith15MemoryPlanner {
         s.append(" context=").append(contextTokens);
         s.append(" ram_ceiling=").append(HARD_RAM_BYTES);
         s.append(" kv_budget=").append(kvBudget);
+        s.append(" codec_q8q8_bpt=").append(codecBytesPerToken(Mode.Q8_Q8));
+        s.append(" codec_q8q5_bpt=").append(codecBytesPerToken(Mode.Q8_Q5));
+        s.append(" codec_q8q4_bpt=").append(codecBytesPerToken(Mode.Q8_Q4));
 
         for (Mode mode : Mode.values()) {
             s.append(" ").append(mode.name().toLowerCase())
