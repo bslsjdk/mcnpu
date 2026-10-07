@@ -1,6 +1,10 @@
 package bslsjdk.mcnpu;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.PowerManager;
+import android.provider.Settings;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -51,11 +55,18 @@ public final class NpuKeepAlive {
      * build on the device, not a transient failure, so no later pass can fix it.
      */
     private static volatile boolean unsupported = false;
+    /**
+     * Application context captured from the startup call. Only the application
+     * context is kept, never the service or an activity, so holding it cannot
+     * leak one.
+     */
+    private static volatile Context sAppCtx = null;
 
     private NpuKeepAlive() {}
 
     /** Fire-and-forget; safe to call from the service startup path. */
     public static synchronized void apply(final Context ctx) {
+        if (ctx != null && sAppCtx == null) sAppCtx = ctx.getApplicationContext();
         if (running) {
             android.util.Log.i(TAG, "KEEPALIVE already running, skip");
             return;
@@ -139,7 +150,15 @@ public final class NpuKeepAlive {
             // Shizuku build that has no way to run a command, so a permanent failure reports
             // itself once and the thread exits rather than spinning every ten minutes forever.
             if (unsupported) {
-                lastReport = "Shizuku 不提供 shell 接口，无法加入省电白名单"
+                // Shizuku has no way to run a command, so the doze whitelist is
+                // out of reach: only a shell identity can write it. What an app
+                // can still obtain on its own is the battery-optimization
+                // opt-out, granted once by the user in a system dialog. It is
+                // not the doze whitelist and does not replace it - it does not
+                // stop doze - but it is the only measure left that needs no
+                // shell, and with none of them the service stays a candidate
+                // for LMK while a world load is allocating hundreds of MB.
+                lastReport = fallbackBatteryOpt()
                         + (lastError == null ? "" : " err=" + lastError);
                 android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
                 return;
@@ -148,6 +167,54 @@ public final class NpuKeepAlive {
             if (!sleepQuietly(REAPPLY_MS)) return;
         }
     }
+
+    /**
+     * The no-shell path: ask the system for a battery-optimization exemption.
+     *
+     * Deliberately tried only once per process. The dialog is a user-visible
+     * interruption and re-raising it on every re-apply pass would turn a
+     * background service into a notification nuisance.
+     */
+    private static synchronized String fallbackBatteryOpt() {
+        if (sFallbackDone) return lastReport;
+        sFallbackDone = true;
+
+        Context c = sAppCtx;
+        if (c == null) return "Shizuku 不提供 shell 接口，且无 Context 可发起省电豁免请求";
+
+        boolean ignoring = false;
+        try {
+            PowerManager pm = (PowerManager) c.getSystemService(Context.POWER_SERVICE);
+            ignoring = pm != null && pm.isIgnoringBatteryOptimizations(PKG);
+        } catch (Throwable t) {
+            android.util.Log.w(TAG, "KEEPALIVE isIgnoringBatteryOptimizations failed", t);
+        }
+        if (ignoring) {
+            applied = true;
+            return "Shizuku 不提供 shell 接口 · 已在系统省电豁免名单(doze 白名单仍无法加入)";
+        }
+
+        try {
+            Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + PKG));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            c.startActivity(i);
+            return "Shizuku 不提供 shell 接口 · 已弹出系统省电豁免请求，请点「允许」(doze 白名单仍需 shell)";
+        } catch (Throwable t) {
+            // Most likely the background-activity-start restriction on Android
+            // 10+. Say exactly that instead of "failed", so the next pass knows
+            // the dialog itself is unreachable and the user must go via Settings.
+            return "Shizuku 不提供 shell 接口，且无法弹出豁免请求("
+                    + t.getClass().getSimpleName()
+                    + ") · 请手动: 设置 → 应用 → MCNPU → 电池 → 不受限制";
+        }
+    }
+
+    /**
+     * Fallback already attempted in this process. Without it every re-apply
+     * pass would raise the system dialog again.
+     */
+    private static volatile boolean sFallbackDone = false;
 
     /** @return false if interrupted. */
     private static boolean sleepQuietly(long ms) {
