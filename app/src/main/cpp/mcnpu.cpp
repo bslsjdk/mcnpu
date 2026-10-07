@@ -72,6 +72,16 @@ void logInfo(const char* fmt, ...){
 #define I(...) logInfo(__VA_ARGS__)
 #define E(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
 
+// Recorded at init and named in every cache line: a cache that silently lands
+// somewhere unwritable is indistinguishable from a device that never caches.
+static std::string g_workDir;
+static std::string currentWorkDir(){
+    if(!g_workDir.empty()) return g_workDir;
+    char cwd[512]={0};
+    if(getcwd(cwd,sizeof cwd)) g_workDir=cwd; else g_workDir="<unknown>";
+    return g_workDir;
+}
+
 namespace {
 struct Runtime {
     uint64_t diagCount=0;
@@ -730,17 +740,6 @@ static uint32_t probeAddPass(bool fp16, std::string& lines, long long& budgetUs)
 //
 // Both helpers assume gRuntimeMutex is held: they read Runtime state.
 static const char* LADDER_CACHE_FILE = "mcnpu_add_ladder.cache";
-
-// Recorded at init. A cache that silently lands somewhere unwritable is
-// indistinguishable from a device that never caches, so every cache line names
-// the directory it is using.
-static std::string g_workDir;
-static std::string currentWorkDir(){
-    if(!g_workDir.empty()) return g_workDir;
-    char cwd[512]={0};
-    if(getcwd(cwd,sizeof cwd)) g_workDir=cwd; else g_workDir="<unknown>";
-    return g_workDir;
-}
 
 static std::string deviceCapKeyLocked(){
     char plat[PROP_VALUE_MAX]={0}, soc[PROP_VALUE_MAX]={0};
