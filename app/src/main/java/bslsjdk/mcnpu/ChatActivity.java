@@ -97,6 +97,7 @@ public final class ChatActivity extends Activity {
         bubble.setTextColor(Color.rgb(17, 24, 39));
         bubble.setPadding(16, 12, 16, 12);
         bubble.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        bubble.setTag(role);
 
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -140,10 +141,7 @@ public final class ChatActivity extends Activity {
             View v = messages.getChildAt(i);
             if (!(v instanceof TextView)) continue;
             TextView t = (TextView) v;
-            String role = "assistant";
-            int bg = 0;
-            if (t.getTextSize() < 15) role = "system";
-            else if (t.getGravity() == Gravity.END) role = "user";
+            String role = t.getTag() instanceof String ? (String) t.getTag() : "assistant";
             try {
                 JSONObject m = new JSONObject();
                 m.put("role", role);
