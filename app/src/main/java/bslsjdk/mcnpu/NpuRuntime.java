@@ -433,6 +433,26 @@ public final class NpuRuntime {
 
     private static native String nativeGetLastError();
     private static native boolean nativeInit(String qnnDir, String workDir);
+    private static native String nativeDrainDiag();
+
+    /**
+     * Native status lines since the last drain.
+     *
+     * The .so logs a lot that the Java layer never sees - cache hits and misses,
+     * context resets, graph-budget drops - and logcat is not something the
+     * diagnostic can collect. Without this the native side can be reporting a
+     * reason for a failure and the collected log still shows nothing, which
+     * reads as "it never happened".
+     */
+    public static String drainDiag() {
+        if (!ready) return "";
+        try {
+            String s = nativeDrainDiag();
+            return s == null ? "" : s;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
     private static native String nativeTestDetail();

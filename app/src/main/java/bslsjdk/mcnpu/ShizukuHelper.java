@@ -6,12 +6,15 @@ import rikka.shizuku.Shizuku;
 public final class ShizukuHelper {
     public static final int REQUEST_CODE = 2401;
     private static volatile String lastResult = "尚未申请";
+    /** True once this process has actually seen a permission result. */
+    private static volatile boolean fired = false;
     private static Runnable callback;
 
     private static final Shizuku.OnRequestPermissionResultListener LISTENER =
             (requestCode, result) -> {
                 if (requestCode != REQUEST_CODE) return;
                 lastResult = result == PackageManager.PERMISSION_GRANTED ? "已授权" : "未授权";
+                fired = true;
                 android.util.Log.i("MCNPU", "Shizuku permission result=" + result);
                 if (callback != null) callback.run();
             };
@@ -59,5 +62,21 @@ public final class ShizukuHelper {
         return "Shizuku：已连接，等待授权";
     }
 
-    public static String result() { return lastResult; }
+    /**
+     * What the last permission request produced - but not at the cost of
+     * contradicting the current state.
+     *
+     * lastResult only changes when the result listener fires, and that only
+     * happens if this process both asked and got an answer. On a device where
+     * the permission was granted in an earlier run, or granted by Shizuku's own
+     * UI, the listener never fires and the field stayed "尚未申请" forever while
+     * status() correctly said "已授权". Two lines of the same diagnostic
+     * disagreeing about the same fact is worse than either being vague, so the
+     * live state wins whenever the listener has nothing to add.
+     */
+    public static String result() {
+        if (granted()) return fired ? "已授权(本次会话)" : "已授权(此前已授予)";
+        if (!available()) return "Shizuku 未运行";
+        return lastResult;
+    }
 }

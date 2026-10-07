@@ -389,7 +389,7 @@ public final class MainActivity extends Activity {
                 + "ADD_MAX: " + NpuServiceClient.request("CAPABILITIES") + "\n"
                 + "PROBE: " + lastProbeLine() + "\n"
                 + "KEEPALIVE: " + NpuKeepAlive.lastReport() + "\n"
-+ "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
+                + "AUTH_RESULT: " + ShizukuHelper.result() + "\n\n"
                 + "--- PERSISTENT SERVICE LOG ---\n"
                 + readLocalLog()
                 + "\n--- UI SESSION LOG ---\n"

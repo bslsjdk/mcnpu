@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cstdint>
+#include <cstdarg>
 #include <sched.h>
 #include <deque>
 #include <map>
@@ -37,7 +38,38 @@
 
 #define TAG "MCNPU"
 #define HTP_ID 6
-#define I(...) __android_log_print(ANDROID_LOG_INFO,TAG,__VA_ARGS__)
+
+// ---- native diagnostic ring ----------------------------------------------
+// I() used to go to logcat and nowhere else. The diagnostic the app collects is
+// built from the service's own Java log, so every status line the native side
+// emitted - cache hits, cache misses, context resets, graph-budget drops - was
+// invisible to it. Instrumentation nobody can read is worse than no
+// instrumentation: it reads as "no news is good news", and a probe that never
+// appears cannot tell you it never ran.
+//
+// Mirror every native info line into a bounded ring that Java drains into the
+// same log. The ring is bounded because it is drained opportunistically and a
+// long-lived service that never gets drained must not grow without limit.
+namespace {
+std::mutex gDiagMutex;
+std::deque<std::string> gDiag;
+const size_t MAX_DIAG_LINES = 400;
+
+void logInfo(const char* fmt, ...) __attribute__((format(printf,1,2)));
+void logInfo(const char* fmt, ...){
+    char buf[512];
+    va_list ap;
+    va_start(ap,fmt);
+    vsnprintf(buf,sizeof buf,fmt,ap);
+    va_end(ap);
+    __android_log_print(ANDROID_LOG_INFO,TAG,"%s",buf);
+    std::lock_guard<std::mutex> lk(gDiagMutex);
+    if(gDiag.size()>=MAX_DIAG_LINES) gDiag.pop_front();
+    gDiag.push_back(buf);
+}
+} // namespace
+
+#define I(...) logInfo(__VA_ARGS__)
 #define E(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
 
 namespace {
@@ -235,6 +267,7 @@ bool loadRuntime(const std::string& qnnDir, const std::string& workDir) {
         g.err="chdir workDir failed errno="+std::to_string(errno)+"("+errnoText(errno)+")";
         return false;
     }
+    g_workDir=workDir;
 
     g.qnn=dlopen((g.libDir+"/libQnnHtp.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
     if(!g.qnn){
@@ -698,6 +731,17 @@ static uint32_t probeAddPass(bool fp16, std::string& lines, long long& budgetUs)
 // Both helpers assume gRuntimeMutex is held: they read Runtime state.
 static const char* LADDER_CACHE_FILE = "mcnpu_add_ladder.cache";
 
+// Recorded at init. A cache that silently lands somewhere unwritable is
+// indistinguishable from a device that never caches, so every cache line names
+// the directory it is using.
+static std::string g_workDir;
+static std::string currentWorkDir(){
+    if(!g_workDir.empty()) return g_workDir;
+    char cwd[512]={0};
+    if(getcwd(cwd,sizeof cwd)) g_workDir=cwd; else g_workDir="<unknown>";
+    return g_workDir;
+}
+
 static std::string deviceCapKeyLocked(){
     char plat[PROP_VALUE_MAX]={0}, soc[PROP_VALUE_MAX]={0};
     __system_property_get("ro.board.platform", plat);
@@ -710,7 +754,7 @@ static std::string deviceCapKeyLocked(){
 
 static bool ladderCacheReadLocked(uint32_t& out){
     std::ifstream f(LADDER_CACHE_FILE);
-    if(!f) return false;
+    if(!f){ I("ADD LADDER CACHE no file (cwd=%s)", currentWorkDir().c_str()); return false; }
     std::string key, val;
     if(!std::getline(f,key)) return false;
     if(!std::getline(f,val)) return false;
@@ -730,9 +774,17 @@ static bool ladderCacheReadLocked(uint32_t& out){
 // again next boot; nothing downstream depends on this file existing.
 static void ladderCacheWriteLocked(uint32_t maxv){
     std::ofstream f(LADDER_CACHE_FILE, std::ios::trunc);
-    if(!f) return;
+    if(!f){
+        // Say so instead of returning quietly. A cache that cannot be written
+        // costs the full probe on every boot, and the only symptom would have
+        // been its absence from a log line that was not being collected anyway.
+        I("ADD LADDER CACHE WRITE FAILED (cwd=%s errno=%d)", currentWorkDir().c_str(), errno);
+        return;
+    }
     f << deviceCapKeyLocked() << "\n"
       << "max=" << maxv << "\n";
+    f.flush();
+    I("ADD LADDER CACHE WROTE max=%u (cwd=%s)", maxv, currentWorkDir().c_str());
 }
 
 // Same argument for the largest Perlin batch size that finalizes. Without this
@@ -745,7 +797,7 @@ static const char* PERLIN_N_CACHE_FILE = "mcnpu_perlin_n.cache";
 
 static bool perlinNCacheReadLocked(uint32_t& out){
     std::ifstream f(PERLIN_N_CACHE_FILE);
-    if(!f) return false;
+    if(!f){ I("PERLIN N CACHE no file (cwd=%s)", currentWorkDir().c_str()); return false; }
     std::string key, val;
     if(!std::getline(f,key)) return false;
     if(!std::getline(f,val)) return false;
@@ -760,9 +812,14 @@ static bool perlinNCacheReadLocked(uint32_t& out){
 
 static void perlinNCacheWriteLocked(uint32_t n){
     std::ofstream f(PERLIN_N_CACHE_FILE, std::ios::trunc);
-    if(!f) return;
+    if(!f){
+        I("PERLIN N CACHE WRITE FAILED (cwd=%s errno=%d)", currentWorkDir().c_str(), errno);
+        return;
+    }
     f << deviceCapKeyLocked() << "\n"
       << "n=" << n << "\n";
+    f.flush();
+    I("PERLIN N CACHE WROTE n=%u", n);
 }
 
 static std::string probeAddLadder(){
@@ -1644,6 +1701,18 @@ extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(J
     if(p) e->ReleaseStringUTFChars(jq,p);
     if(w) e->ReleaseStringUTFChars(jw,w);
     return initRuntime(qnnDir,workDir)?JNI_TRUE:JNI_FALSE;
+}
+// Drains the native diagnostic ring. Everything logged with I() since the last
+// drain comes back as one block, so the app log shows what the native side
+// actually did instead of only what the Java wrapper asked it to do.
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeDrainDiag(JNIEnv* e,jclass){
+    std::string out;
+    {
+        std::lock_guard<std::mutex> lk(gDiagMutex);
+        for(const std::string& s : gDiag){ out += s; out += "\n"; }
+        gDiag.clear();
+    }
+    return e->NewStringUTF(out.c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
     return e->NewStringUTF((g.ready?g.info:deepReport()).c_str());

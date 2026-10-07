@@ -173,6 +173,7 @@ public final class NpuService extends Service {
         log("QNN/HTP init END ok=" + ok + " elapsed_ms=" + ((System.nanoTime() - initStart) / 1_000_000.0));
         updateNotification(ok ? "HTP V73 已就绪" : "HTP 初始化失败");
         log(ok ? "QNN/HTP 初始化成功" : "QNN/HTP 初始化失败: " + NpuRuntime.getLastError());
+        drainNative("init");
         // Ask the backend once at startup which ops it registered. This is a pure
         // query over an in-memory list - it builds no graph and queues no device
         // work, so it is safe here, unlike addProbe which must wait for the
@@ -766,6 +767,23 @@ public final class NpuService extends Service {
     /** True while the startup probe still owns candidate graph builds. */
     private volatile boolean addProbeRunning = false;
 
+    /**
+     * Pull the native status lines into this log.
+     *
+     * Everything the .so says is invisible to the diagnostic otherwise, so a
+     * native reason for a failure never reaches the report. Drained at the
+     * points where the native side has just done something worth explaining:
+     * after init, after the ladder probe, after the Perlin self test.
+     */
+    private void drainNative(String where) {
+        try {
+            String d = NpuRuntime.drainDiag();
+            if (d == null || d.trim().isEmpty()) return;
+            log("NATIVE(" + where + ")\n" + d);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void startAddProbe() {
         Thread t = new Thread(() -> {
             try {
@@ -777,6 +795,7 @@ public final class NpuService extends Service {
                 String r = NpuRuntime.addProbe();
                 log("ADD_PROBE elapsed_ms=" + ((System.nanoTime() - t0) / 1_000_000.0) + "\n" + r);
                 log("ADD max_elements=" + NpuRuntime.maxAddElements());
+                drainNative("add_probe");
 
                 // Capability alone never proved the kernel works - it only said
                 // the ops exist. This actually builds the noise graph, runs it and
@@ -792,6 +811,7 @@ public final class NpuService extends Service {
                     // pays for itself if something reads it.
                     NpuRuntime.notePerlinSelfTest(p);
                     log("PERLIN_GATE " + NpuRuntime.perlinGateReport());
+                    drainNative("perlin");
                 } catch (Throwable pe) {
                     log("PERLIN_AUTO FAILED " + pe);
                 }

@@ -1,9 +1,11 @@
 package bslsjdk.mcnpu;
 
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.PowerManager;
+import android.os.Process;
 import android.provider.Settings;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -17,25 +19,24 @@ import java.util.ArrayList;
  * Why this exists:
  *   Creating a world allocates hundreds of megabytes. Android's LMK reaps background
  *   processes under that pressure, and MCNPU is a background service of an app the user
- *   is not looking at. A captured run shows the service killed and rebuilt by
- *   START_STICKY 2m40s later - long after the world load had stopped waiting for it.
+ *   is not looking at.
  *
- * What this does, in descending order of value:
- *   1. Adds the package to the deviceidle (doze) whitelist - the most effective measure
- *      available without root, because doze and app-standby are what actually stop
- *      background work on modern Android.
- *   2. Allows the AppOps ColorOS/realme checks before freezing a background app:
- *      RUN_IN_BACKGROUND / RUN_ANY_IN_BACKGROUND / WAKE_LOCK.
- *   3. Pins the standby bucket to ACTIVE so standby quotas do not throttle it.
+ * What can actually be achieved, in descending order of value:
+ *   1. Deviceidle (doze) whitelist - needs a shell identity, so only Shizuku can
+ *      write it. On a Shizuku build without newProcess this is permanently out of
+ *      reach and no amount of retrying changes that.
+ *   2. Battery-optimization opt-out - any app can request it with a system dialog.
+ *   3. AppOps RUN_IN_BACKGROUND / RUN_ANY_IN_BACKGROUND / WAKE_LOCK - the ROM-level
+ *      freezes. Writing them needs a shell, but READING them does not, so their
+ *      current state is always knowable.
  *
- * All of that needs a shell-level identity, which is what Shizuku provides.
+ * The previous version derived every field from a shell command. On this device
+ * there is no shell, so the report was "uid=? doze_whitelist=no RUN_IN_BACKGROUND=?
+ * ..." - four unknowns - and the header still said "部分生效", which claims a
+ * partial success for a pass that applied nothing. A report has to be built from
+ * what was verified, and the shell-free half of this was never being asked.
  *
- * Shizuku is invoked reflectively on purpose: the exact process API varies between
- * Shizuku releases, and a compile-time dependency on it would turn an optional
- * enhancement into a hard build break. If the API is absent this class logs what it
- * would have done and stops. It never throws into the service startup path.
- *
- * Every step is read back and verified rather than assumed.
+ * Every step is read back rather than assumed.
  */
 public final class NpuKeepAlive {
     private static final String TAG = "MCNPU";
@@ -44,15 +45,29 @@ public final class NpuKeepAlive {
     private static final long REAPPLY_MS = 10 * 60 * 1000L;
     /** Poll interval while waiting for the Shizuku permission to be granted. */
     private static final long WAIT_SHIZUKU_MS = 10 * 1000L;
+    /**
+     * Bounded: waiting for Shizuku is only worth doing while it might still turn up.
+     * Past this the shell-free measures are what is left, and they can be applied
+     * without it, so the thread stops waiting and applies them.
+     */
+    private static final int MAX_SHIZUKU_WAITS = 3;
+
+    // AppOpsManager.MODE_* values, fixed in the platform.
+    private static final int MODE_ALLOWED = 0;
+    private static final int MODE_IGNORED = 1;
+    private static final int MODE_ERRORED = 2;
+    private static final int MODE_DEFAULT = 3;
+    private static final int MODE_FOREGROUND = 4;
 
     private static volatile String lastReport = "未执行";
     private static volatile boolean applied = false;
     private static volatile boolean running = false;
-    /** First failure reason from the most recent pass, surfaced in the report. */
+    /** First failure reason from the most recent pass, surfaced at most once. */
     private static volatile String lastError = null;
     /**
-     * Set once the shell factory is found to be missing. That is a property of the Shizuku
-     * build on the device, not a transient failure, so no later pass can fix it.
+     * Set once the shell factory is found to be missing. That is a property of the
+     * Shizuku build on the device, not a transient failure, so no later pass can
+     * fix it and retrying would only spin.
      */
     private static volatile boolean unsupported = false;
     /**
@@ -92,79 +107,175 @@ public final class NpuKeepAlive {
     public static void kick(final Context ctx) { apply(ctx); }
 
     private static void runLoop() {
-        // Wait for Shizuku rather than giving up. This thread starts when the
-        // service starts, which is normally BEFORE the user has accepted the
-        // Shizuku prompt - and returning here was permanent, so the whitelist
-        // was never applied even though the same diagnostic later reported
-        // "已授权". Observed as: KEEPALIVE "未授权" next to AUTH_RESULT "已授权".
-        while (!ShizukuHelper.available() || !ShizukuHelper.granted()) {
-            lastReport = ShizukuHelper.available()
-                    ? "等待 Shizuku 授权（暂时无法加入省电白名单）"
-                    : "等待 Shizuku 启动（暂时无法加入省电白名单）";
+        // Wait for Shizuku rather than giving up immediately: this thread starts
+        // when the service starts, which is normally BEFORE the user has accepted
+        // the Shizuku prompt. Bounded, though - the shell-free measures below do
+        // not need Shizuku, and waiting forever for a shell that may never come
+        // would leave them unapplied and the report permanently stale.
+        int waited = 0;
+        while (waited < MAX_SHIZUKU_WAITS && (!ShizukuHelper.available() || !ShizukuHelper.granted())) {
+            // Report the shell-free state while waiting, so the diagnostic shows
+            // something real instead of "未执行" for the first thirty seconds.
+            lastReport = "等待 Shizuku(" + (ShizukuHelper.available() ? "待授权" : "未运行")
+                    + ") · " + join(shellFreeState());
             android.util.Log.i(TAG, "KEEPALIVE wait: " + lastReport);
+            waited++;
             if (!sleepQuietly(WAIT_SHIZUKU_MS)) return;
         }
+
         while (true) {
             ArrayList<String> results = new ArrayList<String>();
             lastError = null;
-            String uid = shell("id", "-u");
-            results.add("uid=" + (uid == null ? "?" : uid.trim()));
 
-            // 1. Doze whitelist - the one that actually matters.
-            shell("cmd", "deviceidle", "whitelist", "+" + PKG);
-            boolean whitelisted = verifyWhitelist();
-            results.add("doze_whitelist=" + (whitelisted ? "YES" : "no"));
+            // Everything here is knowable without a shell.
+            results.addAll(shellFreeState());
 
-            // 2. AppOps ColorOS checks before freezing a background app.
-            String[] ops = {"RUN_IN_BACKGROUND", "RUN_ANY_IN_BACKGROUND", "WAKE_LOCK"};
-            for (int i = 0; i < ops.length; i++) {
-                String r = shell("cmd", "appops", "set", PKG, ops[i], "allow");
-                results.add(ops[i] + "=" + (r == null ? "?" : (r.trim().length() == 0 ? "ok" : r.trim())));
-            }
-
-            // 3. Standby bucket: ACTIVE keeps it out of standby quota throttling.
-            shell("am", "set-standby-bucket", PKG, "active");
-
-            // Every command is read back rather than assumed. If the shell identity is
-            // broken they all return null, and reporting "已保活" over a list of "?" would
-            // claim success for a pass that applied nothing at all. The header must
-            // follow the one result that matters, not the fact that we tried.
-            applied = whitelisted;
-            int unknown = 0;
-            for (int i = 0; i < results.size(); i++) {
-                if (results.get(i).endsWith("=?")) unknown++;
-            }
-            String head;
-            if (unknown == results.size()) {
-                head = "保活失败(所有命令未执行)";
-            } else if (!whitelisted) {
-                head = "部分生效(省电白名单未加入)";
+            // The doze whitelist is the one measure that needs a shell identity.
+            // Attempted only if one is reachable; otherwise the field says why it
+            // is missing rather than reporting a bare "no".
+            String whitelist;
+            if (unsupported) {
+                whitelist = "需shell";
             } else {
-                head = "已保活";
+                shell("cmd", "deviceidle", "whitelist", "+" + PKG);
+                whitelist = verifyWhitelist() ? "yes" : "no";
+            }
+            results.add("doze=" + whitelist);
+
+            // Only the whitelist decides "applied": it is the only measure strong
+            // enough to matter on its own. The shell-free ones are reported either
+            // way, but claiming success over a list of unknowns is what produced
+            // the "部分生效" over four "?" in the first place.
+            int measures = countMeasures(results);
+            String head;
+            if ("yes".equals(whitelist)) {
+                head = "已保活(doze白名单已加入)";
+            } else if (measures == 0) {
+                head = "未生效(无任何措施在读回中确认)";
+            } else {
+                head = "部分生效(" + measures + " 项应用层措施, doze 白名单" + whitelist + ")";
             }
             lastReport = head + " · " + join(results)
                     + (lastError == null ? "" : " err=" + lastError);
             android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
 
-            // Retrying exists to fight ROMs that quietly undo these settings. It cannot fight a
-            // Shizuku build that has no way to run a command, so a permanent failure reports
-            // itself once and the thread exits rather than spinning every ten minutes forever.
+            // A Shizuku build with no way to run a command cannot be fixed by a
+            // later pass: report the fallback once and stop instead of spinning
+            // every ten minutes for the life of the process.
             if (unsupported) {
-                // Shizuku has no way to run a command, so the doze whitelist is
-                // out of reach: only a shell identity can write it. What an app
-                // can still obtain on its own is the battery-optimization
-                // opt-out, granted once by the user in a system dialog. It is
-                // not the doze whitelist and does not replace it - it does not
-                // stop doze - but it is the only measure left that needs no
-                // shell, and with none of them the service stays a candidate
-                // for LMK while a world load is allocating hundreds of MB.
-                lastReport = fallbackBatteryOpt()
-                        + (lastError == null ? "" : " err=" + lastError);
+                lastError = null;
+                lastReport = fallbackBatteryOpt();
                 android.util.Log.i(TAG, "KEEPALIVE " + lastReport);
                 return;
             }
 
             if (!sleepQuietly(REAPPLY_MS)) return;
+        }
+    }
+
+    /** How many of the reported measures are actually in force. */
+    private static int countMeasures(ArrayList<String> results) {
+        int n = 0;
+        for (int i = 0; i < results.size(); i++) {
+            String r = results.get(i);
+            if (r.startsWith("battery_opt= exempt")) n++;
+            else if (r.startsWith("RUN_IN_BACKGROUND=allow")) n++;
+            else if (r.startsWith("RUN_ANY_IN_BACKGROUND=allow")) n++;
+            else if (r.startsWith("WAKE_LOCK=allow")) n++;
+            else if (r.startsWith("standby=ACTIVE")) n++;
+        }
+        return n;
+    }
+
+    /**
+     * Everything that can be read back without a shell.
+     *
+     * These used to come from "cmd appops get", which needs the same shell identity
+     * the device does not have, so they came back as "?". AppOpsManager reads them
+     * directly for the app's own uid, which needs no permission at all.
+     */
+    private static ArrayList<String> shellFreeState() {
+        ArrayList<String> out = new ArrayList<String>();
+        int uid = Process.myUid();
+        out.add("uid=" + uid);
+
+        Context c = sAppCtx;
+        if (c == null) {
+            out.add("battery_opt=?");
+            out.add("RUN_IN_BACKGROUND=?");
+            out.add("RUN_ANY_IN_BACKGROUND=?");
+            out.add("WAKE_LOCK=?");
+            out.add("standby=?");
+            return out;
+        }
+
+        // Battery optimization: the one measure an app can obtain on its own.
+        String batt;
+        try {
+            PowerManager pm = (PowerManager) c.getSystemService(Context.POWER_SERVICE);
+            batt = (pm != null && pm.isIgnoringBatteryOptimizations(PKG)) ? "exempt" : "restricted";
+        } catch (Throwable t) {
+            batt = "?";
+        }
+        out.add("battery_opt=" + batt);
+
+        AppOpsManager ao = null;
+        try {
+            ao = (AppOpsManager) c.getSystemService(Context.APP_OPS_SERVICE);
+        } catch (Throwable ignored) {
+        }
+        out.add("RUN_IN_BACKGROUND=" + opState(ao, "OPSTR_RUN_IN_BACKGROUND", uid));
+        out.add("RUN_ANY_IN_BACKGROUND=" + opState(ao, "OPSTR_RUN_ANY_IN_BACKGROUND", uid));
+        out.add("WAKE_LOCK=" + opState(ao, "OPSTR_WAKE_LOCK", uid));
+
+        // Standby bucket. ACTIVE keeps it out of standby quota throttling. Read
+        // reflectively because the constant is not on every compile SDK, and a
+        // compile break here would cost more than the field is worth.
+        String bucket = "?";
+        try {
+            Object usm = c.getSystemService("usagestats");
+            if (usm != null) {
+                Method m = usm.getClass().getMethod("getAppStandbyBucket");
+                Object v = m.invoke(usm);
+                int b = v == null ? -1 : ((Integer) v).intValue();
+                bucket = b == 5 ? "EXEMPTED" : b == 10 ? "ACTIVE" : b == 20 ? "WORKING_SET"
+                        : b == 30 ? "FREQUENT" : b == 40 ? "RARE" : b == 50 ? "RESTRICTED"
+                        : b < 0 ? "?" : "bucket" + b;
+            }
+        } catch (Throwable ignored) {
+        }
+        out.add("standby=" + bucket);
+        return out;
+    }
+
+    /**
+     * One AppOps mode, read through the public checker.
+     *
+     * The OPSTR_ constants are looked up by name: they exist from API 28 but are
+     * not on every compile SDK this project has been built against, and a hard
+     * reference to a missing constant is a build break rather than a "?".
+     */
+    private static String opState(AppOpsManager ao, String constName, int uid) {
+        if (ao == null) return "?";
+        String op;
+        try {
+            op = (String) AppOpsManager.class.getField(constName).get(null);
+        } catch (Throwable t) {
+            return "n/a";
+        }
+        if (op == null) return "n/a";
+        try {
+            int m = ao.checkOpNoThrow(op, uid, PKG);
+            switch (m) {
+                case MODE_ALLOWED: return "allow";
+                case MODE_IGNORED: return "ignore";
+                case MODE_ERRORED: return "deny";
+                case MODE_DEFAULT: return "default";
+                case MODE_FOREGROUND: return "foreground";
+                default: return "mode" + m;
+            }
+        } catch (Throwable t) {
+            return "?";
         }
     }
 
@@ -191,7 +302,8 @@ public final class NpuKeepAlive {
         }
         if (ignoring) {
             applied = true;
-            return "Shizuku 不提供 shell 接口 · 已在系统省电豁免名单(doze 白名单仍无法加入)";
+            return "部分生效(系统省电豁免已获得) · doze 白名单需 shell 无法加入 · "
+                    + join(shellFreeState());
         }
 
         try {
@@ -199,14 +311,15 @@ public final class NpuKeepAlive {
                     Uri.parse("package:" + PKG));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             c.startActivity(i);
-            return "Shizuku 不提供 shell 接口 · 已弹出系统省电豁免请求，请点「允许」(doze 白名单仍需 shell)";
+            return "等待用户确认系统省电豁免 · doze 白名单需 shell 无法加入 · "
+                    + join(shellFreeState());
         } catch (Throwable t) {
             // Most likely the background-activity-start restriction on Android
             // 10+. Say exactly that instead of "failed", so the next pass knows
             // the dialog itself is unreachable and the user must go via Settings.
-            return "Shizuku 不提供 shell 接口，且无法弹出豁免请求("
-                    + t.getClass().getSimpleName()
-                    + ") · 请手动: 设置 → 应用 → MCNPU → 电池 → 不受限制";
+            return "未生效(无法弹出豁免请求: " + t.getClass().getSimpleName()
+                    + ") · 请手动: 设置 → 应用 → MCNPU → 电池 → 不受限制 · "
+                    + join(shellFreeState());
         }
     }
 
