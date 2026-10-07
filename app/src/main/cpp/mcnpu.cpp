@@ -2901,58 +2901,72 @@ static std::string runPerlinDiag(uint32_t n){
     arNat("ar_nat2",   false, true );   // (APP_WRITE, NATIVE) -> APP_READ : the lerp shape
     arNat("ar_natnat", true,  true );   // (NATIVE, NATIVE)    -> APP_READ : the path C shape
 
-    // ---- v9: is ADD the one op that cannot be mixed with the others? ----
+        // v9 is dead: it claimed ADD cannot be mixed with SUBTRACT/MULTIPLY, and
+    // the device answered mix_ams (ADD,MUL,SUB) = OK but mix_sms (SUB,MUL,SUB)
+    // = rc1002. That is the opposite of the prediction. The v10 block below
+    // replaces rule-guessing with a full enumeration of the op sequences.
+
+// ---- v10: stop guessing - enumerate every 2- and 3-node binary chain ----
     //
-    // Sorting every probe that has ever run on this device by which binary op
-    // codes it contains separates cleanly, and nothing else does:
-    //   ADD only                    ch1/ch2r/ch3r, nl64, nl194, in3, in11,
-    //                               op_add, ar_nat1/2/natnat          -> OK
-    //   SUBTRACT only               chs3, op_sub                      -> OK
-    //   MUL + FLOOR + SUB + CAST
-    //     + GATHER, no ADD at all   gather_fms                        -> OK
-    //   SUB + MUL + ADD             lerp, lerp_fresh, lerp1i, lerp2i  -> rc1002
-    //
-    // Node count is not it (nl194 finalizes with 194), input count is not it
-    // (lerp1i fails off a single input), the final node's operand classes are
-    // not it (ar_nat2 is the lerp shape and passes) and the context load is
-    // not it (lerp_fresh replays after a reset). Not one graph that has ever
-    // finalized here contains ADD together with SUBTRACT or MULTIPLY.
-    //   mix_as  ADD then SUBTRACT -> separates "ADD may not be mixed" (FAIL)
-    //            from "three distinct binary ops" (OK, only two here)
-    //   mix_sms SUB, MUL, SUB     -> the rewrite path A and path C now use
-    auto mixChain = [&](const char* tag, const uint32_t* ops, int nodes){
-        if(!resetContextLocked()){ rec(std::string(tag)+"_reset", 1); return; }
-        Qnn_ErrorHandle_t r = fresh(tag);
-        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
-        TensorArena A;
-        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
-        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
-        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
-        Qnn_Tensor_t cur = a;
-        bool bad = false;
-        for(int i = 0; i < nodes && !bad; i++){
-            const bool last = (i == nodes-1);
-            Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
-            if(!last){
-                r = f.tensorCreateGraphTensor(gh, &t);
-                if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr", r); bad = true; break; }
-            }
-            r = addBinary(f, gh, A, "mx", ops[i], cur, b, t);
-            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod"+std::to_string(i), r); bad = true; break; }
-            cur = t;
-        }
-        if(!bad) rec(tag, f.graphFinalize(gh, nullptr, nullptr));
-    };
+    // v9's rule was wrong. It predicted mix_ams (ADD,MUL,SUB) would fail, and
+    // mix_ams passes, while mix_sms (SUB,MUL,SUB) does not. So the constraint
+    // is not "which op codes appear in the graph" - it depends on the order
+    // they appear in. Every previous round guessed a rule and the next log
+    // broke it, so instead of guessing again this runs all 3^2 + 3^3 chains
+    // and lets the device say which sequences it accepts.
+    //   A = ADD, S = SUBTRACT, M = MULTIPLY
+    //   m3fail=SMS,SMA  -> only those two of the 27 three-node chains refused
+    //   m3fail=none     -> every three-node chain is fine, so the real graph
+    //                      is failing on something no probe has reproduced
     {
-        const uint32_t ADD = QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD;
-        const uint32_t SUB = QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT;
-        const uint32_t MUL = QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY;
-        const uint32_t as[2]  = {ADD, SUB};
-        const uint32_t ams[3] = {ADD, MUL, SUB};
-        const uint32_t sms[3] = {SUB, MUL, SUB};
-        mixChain("mix_as",  as,  2);
-        mixChain("mix_ams", ams, 3);
-        mixChain("mix_sms", sms, 3);
+        const uint32_t OP[3] = {
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD,
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT,
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY
+        };
+        const char C[3] = {'A','S','M'};
+        std::string f2, f3;
+        auto addFail = [](std::string& acc, const char* s){
+            if(!acc.empty()) acc += ",";
+            acc += s;
+        };
+        // Same shape as every chain probe that has passed here: two APP_WRITE
+        // inputs, NATIVE intermediates, APP_READ output, second operand always
+        // the same tensor b. Only the op sequence varies.
+        auto runChain = [&](const uint32_t* ops, int nodes)->Qnn_ErrorHandle_t{
+            if(!resetContextLocked()) return (Qnn_ErrorHandle_t)1;
+            Qnn_ErrorHandle_t r = fresh("mx");
+            if(r != QNN_SUCCESS) return r;
+            TensorArena A;
+            Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+            Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+            Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+            Qnn_Tensor_t cur = a;
+            for(int i = 0; i < nodes; i++){
+                const bool last = (i == nodes - 1);
+                Qnn_Tensor_t t = last ? o : mkT(A, "c", QNN_TENSOR_TYPE_NATIVE, F, n);
+                if(!last){
+                    r = f.tensorCreateGraphTensor(gh, &t);
+                    if(r != QNN_SUCCESS) return r;
+                }
+                r = addBinary(f, gh, A, "mx", ops[i], cur, b, t);
+                if(r != QNN_SUCCESS) return r;
+                cur = t;
+            }
+            return f.graphFinalize(gh, nullptr, nullptr);
+        };
+        for(int i = 0; i < 3; i++) for(int j = 0; j < 3; j++){
+            uint32_t seq[2] = {OP[i], OP[j]};
+            char s[4] = {C[i], C[j], 0};
+            if(runChain(seq, 2) != QNN_SUCCESS) addFail(f2, s);
+        }
+        for(int i = 0; i < 3; i++) for(int j = 0; j < 3; j++) for(int k = 0; k < 3; k++){
+            uint32_t seq[3] = {OP[i], OP[j], OP[k]};
+            char s[5] = {C[i], C[j], C[k], 0};
+            if(runChain(seq, 3) != QNN_SUCCESS) addFail(f3, s);
+        }
+        out += std::string(" m2fail=") + (f2.empty() ? std::string("none") : f2);
+        out += std::string(" m3fail=") + (f3.empty() ? std::string("none") : f3);
     }
 
     // Fallback if no binary op may write APP_READ: end the graph in a unary
