@@ -12,7 +12,7 @@ The PrismML fork defines PQ2_0 as GGML type 142, group size 128, with a 34-byte 
 
 The standalone native probe in app/src/main/cpp/bonsai_pq2.cpp constructs one synthetic block, decodes all 128 values, and checks every output against the expected four-code cycle. It does not load model weights and does not allocate a model-sized buffer.
 
-A small Java wrapper is available as Bonsai2Pq2Probe.run().
+A small Java wrapper is available as Bonsai2Pq2Probe.run(). A second entry point, Bonsai2Pq2Probe.runHadamard(), validates the normalized 1024-point FWHT self-inverse property with an explicit sign vector.
 
 This is a codec correctness probe only. A passing probe does not mean that Bonsai 2 inference is integrated.
 
@@ -24,7 +24,7 @@ The implementation baseline is the PrismML prism branch. Their current model for
 
 1. GGUF model loading for type 142 in MCNPU.
 2. Bonsai 2 tokenizer/model graph/runtime.
-3. Hadamard/sign/permutation activation transform.
+3. Hadamard/sign/permutation activation transform.\n   - The normalized 1024-point FWHT algebra is now covered by a standalone correctness probe.\n   - Real GGUF metadata parsing and the model graph path are still not integrated.
 4. Mapping transformer matmuls onto the existing HTP INT8 path.
 5. KV-cache management and sampling.
 6. End-to-end correctness against the official Prism runtime.
