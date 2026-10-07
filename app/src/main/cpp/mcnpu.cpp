@@ -20,6 +20,11 @@
 #include <sched.h>
 #include <deque>
 #include <map>
+#include <sys/system_properties.h>
+// Older NDK headers leave this out; the value is fixed at 92 in every Bionic.
+#ifndef PROP_VALUE_MAX
+#define PROP_VALUE_MAX 92
+#endif
 #include "QnnInterface.h"
 #include "QnnLog.h"
 #include "QnnBackend.h"
@@ -678,9 +683,108 @@ static uint32_t probeAddPass(bool fp16, std::string& lines, long long& budgetUs)
     return best;
 }
 
+// ---- ADD ladder cache ----------------------------------------------------
+// The ladder is a property of the device, not of the process. It was being
+// re-measured on every boot: eight graphs built and then thrown away, most of
+// four hundred milliseconds of the startup window, to rediscover a number that
+// has come back 65536 on every run so far. Persist it instead.
+//
+// Keyed on the things that can actually change it: the SoC, the QNN library
+// directory and the selected backend. A ROM update or a swapped QNN build
+// misses and the probe runs again. That is the safe direction to fail in - an
+// entry that is too low only costs throughput, one that is too high would hand
+// the data path a size the HTP then rejects on every real call.
+//
+// Both helpers assume gRuntimeMutex is held: they read Runtime state.
+static const char* LADDER_CACHE_FILE = "mcnpu_add_ladder.cache";
+
+static std::string deviceCapKeyLocked(){
+    char plat[PROP_VALUE_MAX]={0}, soc[PROP_VALUE_MAX]={0};
+    __system_property_get("ro.board.platform", plat);
+    __system_property_get("ro.soc.model", soc);
+    return std::string("v1|plat=")+plat
+         + "|soc="  + soc
+         + "|lib="  + g.libDir
+         + "|be="   + std::to_string(g.selectedBackend);
+}
+
+static bool ladderCacheReadLocked(uint32_t& out){
+    std::ifstream f(LADDER_CACHE_FILE);
+    if(!f) return false;
+    std::string key, val;
+    if(!std::getline(f,key)) return false;
+    if(!std::getline(f,val)) return false;
+    if(key!=deviceCapKeyLocked()) return false;
+    if(val.rfind("max=",0)!=0) return false;
+    errno=0;
+    unsigned long long v=strtoull(val.c_str()+4,nullptr,10);
+    if(errno!=0) return false;
+    // Refuse to adopt anything below the largest bucket we already hard-code:
+    // that cannot be a real measurement, only a corrupt or truncated file.
+    if(v < ADD_LADDER_BASE[5]) return false;
+    out=(uint32_t)v;
+    return true;
+}
+
+// Best effort only. If the work directory is unwritable the probe simply runs
+// again next boot; nothing downstream depends on this file existing.
+static void ladderCacheWriteLocked(uint32_t maxv){
+    std::ofstream f(LADDER_CACHE_FILE, std::ios::trunc);
+    if(!f) return;
+    f << deviceCapKeyLocked() << "\n"
+      << "max=" << maxv << "\n";
+}
+
+// Same argument for the largest Perlin batch size that finalizes. Without this
+// every boot pays two refused builds at 4096 and 2048 - each one a full graph
+// construction plus a context reset, because a refused finalize leaves the
+// context needing one - before landing on 1024, which is where it always lands.
+// Caching a value that is too low would only shrink the self-test batch, so the
+// failure mode is throughput, never correctness.
+static const char* PERLIN_N_CACHE_FILE = "mcnpu_perlin_n.cache";
+
+static bool perlinNCacheReadLocked(uint32_t& out){
+    std::ifstream f(PERLIN_N_CACHE_FILE);
+    if(!f) return false;
+    std::string key, val;
+    if(!std::getline(f,key)) return false;
+    if(!std::getline(f,val)) return false;
+    if(key!=deviceCapKeyLocked()) return false;
+    if(val.rfind("n=",0)!=0) return false;
+    errno=0;
+    unsigned long long v=strtoull(val.c_str()+2,nullptr,10);
+    if(errno!=0 || v<32 || v>16384) return false;
+    out=(uint32_t)v;
+    return true;
+}
+
+static void perlinNCacheWriteLocked(uint32_t n){
+    std::ofstream f(PERLIN_N_CACHE_FILE, std::ios::trunc);
+    if(!f) return;
+    f << deviceCapKeyLocked() << "\n"
+      << "n=" << n << "\n";
+}
+
 static std::string probeAddLadder(){
     std::string lines;
     char buf[256];
+
+    // Cache hit: adopt the last measurement and skip the eight builds. This is
+    // the only path that costs no graphs, which also means no context reset and
+    // no device memory churn before real work starts.
+    {
+        std::lock_guard<std::mutex> lock(gRuntimeMutex);
+        uint32_t cachedMax=0;
+        if(ladderCacheReadLocked(cachedMax)){
+            if(cachedMax>g_addLadderMax) g_addLadderMax=cachedMax;
+            I("ADD_PROBE CACHE HIT max=%u builds_skipped=8",(unsigned)g_addLadderMax);
+            snprintf(buf,sizeof buf,
+                     "OK ADD_PROBE max_fp32=%u ladder=%s cached=1\n",
+                     (unsigned)g_addLadderMax, addLadderText().c_str());
+            return std::string(buf);
+        }
+        I("ADD_PROBE CACHE MISS (measuring)");
+    }
 
     // fp32 first: it is the datatype the data path actually uses, so its result
     // is the one that may be adopted.
@@ -700,6 +804,9 @@ static std::string probeAddLadder(){
         // The probe just built one graph per candidate, which is exactly the
         // cache pressure the ladder exists to avoid. Flush before real work.
         resetContextLocked();
+        // Only persist a real measurement. best32==0 means every candidate
+        // failed, and writing that would cap the data path at zero next boot.
+        if(best32>0) ladderCacheWriteLocked(g_addLadderMax);
         snprintf(buf,sizeof buf,
                  "OK ADD_PROBE max_fp32=%u ladder=%s\n",
                  (unsigned)g_addLadderMax, addLadderText().c_str());
@@ -3364,6 +3471,15 @@ static double perlinRef(double x, double y, double z, const int* perm){
 std::string runPerlinBench(uint32_t n){
     if(!g.ready || !g.api || !g.context) return "ERR PERLIN NOT_READY";
     if(n == 0 || n > 16384) n = 4096;
+    // Adopt last boot's measured ceiling before touching the device, so the
+    // first thing we build is a size we already know finalizes.
+    if(g_perlinMaxN == 0){
+        uint32_t cachedN = 0;
+        if(perlinNCacheReadLocked(cachedN)){
+            g_perlinMaxN = cachedN;
+            I("PERLIN CACHE HIT maxN=%u (4096/2048 builds skipped)",(unsigned)cachedN);
+        }
+    }
     // v12: the graph refuses graphFinalize at 4096 but the byte-identical
     // graph finalizes at 64, so the ceiling is the batch size, not the
     // topology. Never ask for more than the largest size known to build.
@@ -3430,7 +3546,7 @@ std::string runPerlinBench(uint32_t n){
                 G = &ins.first->second;
                 G->aFail = aFail;
             }
-            if(G){ g_perlinMaxN = s; n = s; }
+            if(G){ g_perlinMaxN = s; n = s; perlinNCacheWriteLocked(s); }
         }
         if(!G){
             // Nothing built at any size. Run the diagnostic rather than report
