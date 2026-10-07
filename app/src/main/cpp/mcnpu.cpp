@@ -2833,6 +2833,71 @@ static std::string runPerlinDiag(uint32_t n){
     };
     lerpN("lerp1i", 1);
     lerpN("lerp2i", 2);
+
+    // ---- v8: which operand slot of the FINAL node is the problem? ----
+    //
+    // v7 killed the input-count hypothesis: lerp1i runs the identical
+    // SUB+MUL+ADD chain off a single graph input and still returns 1002.
+    // What every passing chain has in common is the shape of its last node:
+    //   ch3r / nl194 : addBinary(NATIVE, APP_WRITE) -> APP_READ   -> OK
+    //   lerp         : addBinary(APP_WRITE, NATIVE) -> APP_READ   -> rc1002
+    // and gather_fms, which also mixes ops and also feeds a NATIVE into the
+    // second slot, ends in a unary Cast rather than a binary op.
+    // Path C's last lerp is addBinary(NATIVE, NATIVE) -> APP_READ, which no
+    // probe has ever isolated. These four separate the three shapes, and the
+    // fourth one tests the fallback (a unary Cast into APP_READ) in case no
+    // binary op is allowed to write the output at all.
+    auto arNat = [&](const char* tag, bool firstNative, bool secondNative){
+        if(!resetContextLocked()){ rec(std::string(tag)+"_reset", 1); return; }
+        Qnn_ErrorHandle_t r = fresh(tag);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_crt", r); return; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        Qnn_Tensor_t p = mkT(A, "p", QNN_TENSOR_TYPE_NATIVE, F, n);
+        r = f.tensorCreateGraphTensor(gh, &p);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr", r); return; }
+        r = addBinary(f, gh, A, "mk", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, b, p);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_mk", r); return; }
+        Qnn_Tensor_t q = p;
+        if(firstNative && secondNative){
+            q = mkT(A, "q", QNN_TENSOR_TYPE_NATIVE, F, n);
+            r = f.tensorCreateGraphTensor(gh, &q);
+            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_tcr2", r); return; }
+            r = addBinary(f, gh, A, "mk2", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, b, a, q);
+            if(r != QNN_SUCCESS){ rec(std::string(tag)+"_mk2", r); return; }
+        }
+        Qnn_Tensor_t in1 = firstNative ? p : a;
+        Qnn_Tensor_t in2 = secondNative ? q : b;
+        r = addBinary(f, gh, A, "out", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, in1, in2, o);
+        if(r != QNN_SUCCESS){ rec(std::string(tag)+"_nod", r); return; }
+        rec(tag, f.graphFinalize(gh, nullptr, nullptr));
+    };
+    arNat("ar_nat1",   true,  false);   // (NATIVE, APP_WRITE) -> APP_READ : known-good shape
+    arNat("ar_nat2",   false, true );   // (APP_WRITE, NATIVE) -> APP_READ : the lerp shape
+    arNat("ar_natnat", true,  true );   // (NATIVE, NATIVE)    -> APP_READ : the path C shape
+
+    // Fallback if no binary op may write APP_READ: end the graph in a unary
+    // Cast instead. gather_fms already proved Cast(int32 NATIVE) -> fp32
+    // APP_READ finalizes; this is the same thing without a type change.
+    do {
+        if(!resetContextLocked()){ rec("cast_f2f_reset", 1); break; }
+        Qnn_ErrorHandle_t r = fresh("cf");
+        if(r != QNN_SUCCESS){ rec("cast_f2f_crt", r); break; }
+        TensorArena A;
+        Qnn_Tensor_t a = reg(A, "a", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t b = reg(A, "b", QNN_TENSOR_TYPE_APP_WRITE, F, n);
+        Qnn_Tensor_t o = reg(A, "o", QNN_TENSOR_TYPE_APP_READ,  F, n);
+        Qnn_Tensor_t p = mkT(A, "p", QNN_TENSOR_TYPE_NATIVE, F, n);
+        r = f.tensorCreateGraphTensor(gh, &p);
+        if(r != QNN_SUCCESS){ rec("cast_f2f_tcr", r); break; }
+        r = addBinary(f, gh, A, "mk", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, b, p);
+        if(r != QNN_SUCCESS){ rec("cast_f2f_mk", r); break; }
+        r = addNode(f, gh, A.name("c"), QNN_OP_CAST, nullptr, 0, &p, 1, &o, 1);
+        if(r != QNN_SUCCESS){ rec("cast_f2f_nod", r); break; }
+        rec("cast_f2f", f.graphFinalize(gh, nullptr, nullptr));
+    } while(0);
     return out;
 }
 
