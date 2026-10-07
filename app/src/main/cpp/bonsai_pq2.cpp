@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <cstdio>
 
 namespace {
 
