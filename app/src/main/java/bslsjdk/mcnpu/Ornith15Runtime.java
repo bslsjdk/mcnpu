@@ -38,6 +38,22 @@ public final class Ornith15Runtime {
         }
     }
 
+    /**
+     * Runs the real local llama.cpp baseline when the optional llama backend is
+     * compiled. No network transport is involved. This is intentionally a
+     * synchronous correctness path before MCNPU acceleration is inserted.
+     */
+    public static synchronized String generate(String prompt, int maxTokens) {
+        if (!loaded) return "ERR ORNITH15_RUNTIME not_loaded";
+        if (prompt == null || prompt.isEmpty()) return "ERR ORNITH15_RUNTIME empty_prompt";
+        try {
+            String r = nativeGenerate(prompt, maxTokens);
+            return r == null ? "ERR ORNITH15_RUNTIME null_generate" : r;
+        } catch (Throwable t) {
+            return "ERR ORNITH15_RUNTIME generate_" + t.getClass().getSimpleName();
+        }
+    }
+
     public static synchronized String info() {
         try {
             String r = nativeInfo();
@@ -58,6 +74,6 @@ public final class Ornith15Runtime {
     }
 
     private static native String nativeLoad(String modelPath, long contextTokens);
-    private static native String nativeInfo();
+    private static native String nativeGenerate(String prompt, int maxTokens);\n    private static native String nativeInfo();
     private static native void nativeUnload();
 }
