@@ -21,4 +21,15 @@ public final class Bonsai2Pq2Probe {
     }
 
     private static native String nativeRun();
+
+    public static String runHadamard() {
+        try {
+            String r = nativeHadamardRun();
+            return r == null ? "ERR BONSAI2_HADAMARD_PROBE_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR BONSAI2_HADAMARD_PROBE " + t.getClass().getSimpleName() + ": " + t.getMessage();
+        }
+    }
+
+    private static native String nativeHadamardRun();
 }
