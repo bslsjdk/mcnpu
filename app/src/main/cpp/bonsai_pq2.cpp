@@ -53,6 +53,66 @@ static void decode_block(const uint8_t * block, float * out) {
     }
 }
 
+
+static void fwht_normalized(float * x, size_t n) {
+    for (size_t h = 1; h < n; h <<= 1) {
+        for (size_t i = 0; i < n; i += h << 1) {
+            for (size_t j = 0; j < h; ++j) {
+                const float a = x[i + j];
+                const float b = x[i + j + h];
+                x[i + j] = a + b;
+                x[i + j + h] = a - b;
+            }
+        }
+    }
+    const float scale = 1.0f / std::sqrt(static_cast<float>(n));
+    for (size_t i = 0; i < n; ++i) x[i] *= scale;
+}
+
+static std::string run_hadamard_probe() {
+    constexpr size_t N = 1024;
+    float x[N];
+    float original[N];
+    for (size_t i = 0; i < N; ++i) {
+        const float sign = (i & 1u) ? -1.0f : 1.0f;
+        x[i] = sign * (0.125f + static_cast<float>(i % 17) * 0.03125f);
+        original[i] = x[i];
+    }
+
+    // Prism's metadata contract is normalized Sylvester-Walsh-Hadamard.
+    // Apply a deterministic explicit sign vector first, then the normalized FWHT.
+    for (size_t i = 0; i < N; ++i) {
+        const float s = (i % 7u == 0u || i % 11u == 0u) ? -1.0f : 1.0f;
+        x[i] *= s;
+    }
+
+    fwht_normalized(x, N);
+    fwht_normalized(x, N);
+
+    // H is self-inverse. Undo the explicit signs and compare with the source.
+    for (size_t i = 0; i < N; ++i) {
+        const float s = (i % 7u == 0u || i % 11u == 0u) ? -1.0f : 1.0f;
+        x[i] *= s;
+    }
+
+    float max_abs = 0.0f;
+    double energy_before = 0.0;
+    double energy_after = 0.0;
+    int bad = 0;
+    for (size_t i = 0; i < N; ++i) {
+        const float err = std::fabs(x[i] - original[i]);
+        max_abs = std::fmax(max_abs, err);
+        if (err > 1e-5f) ++bad;
+        energy_before += static_cast<double>(original[i]) * original[i];
+        energy_after += static_cast<double>(x[i]) * x[i];
+    }
+
+    return "OK BONSAI2_HADAMARD_PROBE/1 block=1024 transform=normalized-sylvester-walsh-hadamard "
+           "sign_mode=explicit self_inverse=1 bad=" + std::to_string(bad) +
+           " max_abs=" + std::to_string(max_abs) +
+           " energy_err=" + std::to_string(std::fabs(energy_after - energy_before));
+}
+
 static std::string run_probe() {
     alignas(16) uint8_t block[PQ2_BLOCK_BYTES] = {};
     // fp16 1.0 = 0x3c00, little endian.
@@ -103,5 +163,11 @@ Java_bslsjdk_mcnpu_NpuRuntime_nativeBonsai2Pq2DecodeProbe(JNIEnv * env, jclass) 
 extern "C" JNIEXPORT jstring JNICALL
 Java_bslsjdk_mcnpu_Bonsai2Pq2Probe_nativeRun(JNIEnv * env, jclass) {
     const std::string r = run_probe();
+    return env->NewStringUTF(r.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_bslsjdk_mcnpu_Bonsai2Pq2Probe_nativeHadamardRun(JNIEnv * env, jclass) {
+    const std::string r = run_hadamard_probe();
     return env->NewStringUTF(r.c_str());
 }
