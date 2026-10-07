@@ -370,5 +370,5 @@ public final class NpuRuntime {
     private static native String nativeMatMulInt8(int m, int k, int n);
     /** Returns [4-byte LE scaleC][m*n int8 result], or null on failure. */
     private static native byte[] nativeMatMulInt8Buf(byte[] a, byte[] b, int m, int k, int n);
-    private static native void nativeShutdown();
+    private static native String nativeBonsai2Pq2DecodeProbe();\n    private static native void nativeShutdown();
 }
