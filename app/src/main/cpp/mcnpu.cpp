@@ -2133,21 +2133,39 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     Qnn_Tensor_t fr[3], fm[3], idx[3];
     Qnn_Tensor_t* axesIn[3] = {&G.inX, &G.inY, &G.inZ};
     const char* axisTag[3] = {"x", "y", "z"};
+    // Each axis starts with a MULTIPLY by 1.0. Not for the value: it puts a
+    // MULTIPLY at the root of every data path so that every later SUBTRACT is
+    // fed by a MULTIPLY. The scan showed M<-S finalizes only in that
+    // arrangement (MSM passes; ASM/SSM/SMA/SMS/SMM do not).
+    Qnn_Tensor_t ax[3];
+    for(int a = 0; a < 3; a++){
+        ax[a] = mkNF(("ax" + std::string(axisTag[a])).c_str());
+        rc = addBinary(f, G.graph, A, "mroot", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY,
+                       *axesIn[a], tOne, ax[a]);
+        if(rc != QNN_SUCCESS) return "ERR NODE mroot rc=" + std::to_string((int)rc) + " " + verbose(rc);
+    }
     for(int a = 0; a < 3; a++){
         const std::string s(axisTag[a]);
         Qnn_Tensor_t fl = mkNF(("fl" + s).c_str());
         rc = addUnary(f, G.graph, A, "fl", QNN_OP_ELEMENT_WISE_UNARY_OPERATION_FLOOR,
-                      *axesIn[a], fl);
+                      ax[a], fl);
         if(rc != QNN_SUCCESS) return "ERR NODE floor rc=" + std::to_string((int)rc) + " " + verbose(rc);
 
         fr[a] = mkNF(("fr" + s).c_str());
         rc = addBinary(f, G.graph, A, "sub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT,
-                       *axesIn[a], fl, fr[a]);
+                       ax[a], fl, fr[a]);
         if(rc != QNN_SUCCESS) return "ERR NODE sub rc=" + std::to_string((int)rc) + " " + verbose(rc);
+
+        // fm = ax - (fl + 1). The old form was fr - 1, which made fm a
+        // SUBTRACT fed by a SUBTRACT; that is exactly the shape refused.
+        Qnn_Tensor_t fp = mkNF(("fp" + s).c_str());
+        rc = addBinary(f, G.graph, A, "add1", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD,
+                       fl, tOne, fp);
+        if(rc != QNN_SUCCESS) return "ERR NODE add1 rc=" + std::to_string((int)rc) + " " + verbose(rc);
 
         fm[a] = mkNF(("fm" + s).c_str());
         rc = addBinary(f, G.graph, A, "sub1", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT,
-                       fr[a], tOne, fm[a]);
+                       ax[a], fp, fm[a]);
         if(rc != QNN_SUCCESS) return "ERR NODE sub1 rc=" + std::to_string((int)rc) + " " + verbose(rc);
 
         // idx = fl mod 256, in the float domain, then cast once.
@@ -2267,12 +2285,15 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
         // gy and gz come out of the negated tables above, so m1 and m2 already
         // carry the minus sign and the dot product is two SUBTRACTs. That keeps
         // ADD out of a graph that also holds SUBTRACT and MULTIPLY.
-        Qnn_Tensor_t a01 = mkNF("a01");
-        r = addBinary(f, G.graph, A, "a01", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, m0, m1, a01);
-        if(r != QNN_SUCCESS) errAcc += " a01=rc" + std::to_string((int)r);
+        // dot = m0 - m1 - m2, written as m0 - (m1 + m2). The SUBTRACT that
+        // feeds the trilinear MULTIPLY is then fed by a MULTIPLY and an ADD
+        // instead of by another SUBTRACT.
+        Qnn_Tensor_t s12 = mkNF("s12");
+        r = addBinary(f, G.graph, A, "s12", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, m1, m2, s12);
+        if(r != QNN_SUCCESS) errAcc += " s12=rc" + std::to_string((int)r);
 
         d[c2] = mkNF("dc");
-        r = addBinary(f, G.graph, A, "dc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a01, m2, d[c2]);
+        r = addBinary(f, G.graph, A, "dc", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, m0, s12, d[c2]);
         if(r != QNN_SUCCESS) errAcc += " dc=rc" + std::to_string((int)r);
     }
 
@@ -2281,14 +2302,17 @@ static std::string buildPerlinFull(PerlinGraph& G, uint32_t n, int constMode){
     // ---- trilinear blend: lerp(a,b,t) = a + t*(b - a) ----
     auto lerpInto = [&](Qnn_Tensor_t& a, Qnn_Tensor_t& b, Qnn_Tensor_t& t,
                         Qnn_Tensor_t& o, const char* tag)->bool{
-        Qnn_Tensor_t df = mkNF(tag), pr = mkNF(tag);
+        // o = a + (b*t - a*t). Both products are formed first so no MULTIPLY
+        // consumes a SUBTRACT output.
+        Qnn_Tensor_t at = mkNF(tag), bt = mkNF(tag), df = mkNF(tag);
         Qnn_ErrorHandle_t r;
-        // a - (a-b)*t; see the note in buildPerlinHybrid for why ADD is avoided.
-        r = addBinary(f, G.graph, A, "lsub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a, b, df);
+        r = addBinary(f, G.graph, A, "lma", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, a, t, at);
+        if(r != QNN_SUCCESS){ err = "ERR NODE lma rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
+        r = addBinary(f, G.graph, A, "lmb", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, b, t, bt);
+        if(r != QNN_SUCCESS){ err = "ERR NODE lmb rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
+        r = addBinary(f, G.graph, A, "lsub", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, bt, at, df);
         if(r != QNN_SUCCESS){ err = "ERR NODE lsub rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
-        r = addBinary(f, G.graph, A, "lmul", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
-        if(r != QNN_SUCCESS){ err = "ERR NODE lmul rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
-        r = addBinary(f, G.graph, A, "ladd", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a, pr, o);
+        r = addBinary(f, G.graph, A, "ladd", QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, df, o);
         if(r != QNN_SUCCESS){ err = "ERR NODE ladd rc=" + std::to_string((int)r) + " " + verbose(r); return false; }
         return true;
     };
@@ -2366,19 +2390,28 @@ static std::string buildPerlinHybrid(PerlinGraph& G, uint32_t n){
         // this backend every graph mixing ADD with SUBTRACT/MULTIPLY has died
         // at graphFinalize (1002), while chains built purely from
         // SUBTRACT/MULTIPLY (gather_fms) finalize.
+        // lerp(a,b,t) = a + (b*t - a*t). Both products are formed first, so
+        // no MULTIPLY ever consumes a SUBTRACT output. The op-chain scan in
+        // runPerlinDiag showed M<-S is refused (m2fail=SM; m3fail contains
+        // ASM,SSM,SMA,SMS,SMM) while M<-S<-M is accepted (MSM passes).
+        Qnn_Tensor_t at = mkN(tag); if(!herr.empty()) return false;
+        Qnn_ErrorHandle_t r = addBinary(f, G.graph, A, "ma",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, a, t, at);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE ma(" + std::string(tag) + ") rc="
+            + std::to_string((int)r) + " " + verbose(r); return false; }
+        Qnn_Tensor_t bt = mkN(tag); if(!herr.empty()) return false;
+        r = addBinary(f, G.graph, A, "mb",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, b, t, bt);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE mb(" + std::string(tag) + ") rc="
+            + std::to_string((int)r) + " " + verbose(r); return false; }
         Qnn_Tensor_t df = mkN(tag); if(!herr.empty()) return false;
-        Qnn_ErrorHandle_t r = addBinary(f, G.graph, A, "s",
-            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a, b, df);
-        if(r != QNN_SUCCESS){ herr = "ERR NODE s(" + std::string(tag) + ") rc="
+        r = addBinary(f, G.graph, A, "sd",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, bt, at, df);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE sd(" + std::string(tag) + ") rc="
             + std::to_string((int)r) + " " + verbose(r); return false; }
-        Qnn_Tensor_t pr = mkN(tag); if(!herr.empty()) return false;
-        r = addBinary(f, G.graph, A, "m",
-            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_MULTIPLY, df, t, pr);
-        if(r != QNN_SUCCESS){ herr = "ERR NODE m(" + std::string(tag) + ") rc="
-            + std::to_string((int)r) + " " + verbose(r); return false; }
-        r = addBinary(f, G.graph, A, "a",
-            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_SUBTRACT, a, pr, o);
-        if(r != QNN_SUCCESS){ herr = "ERR NODE a(" + std::string(tag) + ") rc="
+        r = addBinary(f, G.graph, A, "aa",
+            QNN_OP_ELEMENT_WISE_BINARY_OPERATION_ADD, a, df, o);
+        if(r != QNN_SUCCESS){ herr = "ERR NODE aa(" + std::string(tag) + ") rc="
             + std::to_string((int)r) + " " + verbose(r); return false; }
         return true;
     };
