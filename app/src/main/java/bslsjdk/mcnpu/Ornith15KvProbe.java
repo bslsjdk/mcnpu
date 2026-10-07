@@ -3,9 +3,9 @@ package bslsjdk.mcnpu;
 /**
  * Native micro-probe for the Ornith-1.5 KV page codec.
  *
- * This intentionally allocates only a tiny synthetic page. It validates the
- * quantize/dequantize path and reports the page-based memory model without
- * allocating a 64K cache.
+ * This runs the real page quantize/dequantize codec on a bounded micro-page.
+ * It validates packing, scale metadata, reconstruction error and RSS impact
+ * without allocating a full 64K or 262K cache.
  */
 public final class Ornith15KvProbe {
     public static final int F16 = 0;
