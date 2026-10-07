@@ -2,7 +2,7 @@ name: MCNPU Android
 # CI smoke check: keep native compiler validation before Gradle packaging.
 on:
   push:
-    branches: [main]
+    branches: [main, bonsai2-pq2-baseline]
   workflow_dispatch:
 permissions:
   contents: write
@@ -62,6 +62,19 @@ jobs:
           test -f qnn_probe/app/src/main/assets/qnnlibs/libQnnHtp.so
           test -f qnn_probe/app/src/main/jniLibs/arm64-v8a/libQnnHtpV73Skel.so
 
+      - name: Fetch pinned llama.cpp for Ornith runtime
+        run: |
+          set -eux
+          rm -rf llama.cpp
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git llama.cpp
+          cd llama.cpp
+          git fetch --depth 1 origin 42c787e8c191d49c01c757f4b7029d69ec0bf2c8
+          git checkout --detach 42c787e8c191d49c01c757f4b7029d69ec0bf2c8
+          test "$(git rev-parse HEAD)" = "42c787e8c191d49c01c757f4b7029d69ec0bf2c8"
+          cd ..
+          test -f llama.cpp/include/llama.h
+          grep -q 'QWEN35' llama.cpp/src/llama.cpp llama.cpp/src/models/qwen35.cpp
+
       - name: Stage QNN HTP V73 libraries
         run: |
           set -eux
@@ -96,7 +109,7 @@ jobs:
         run: |
           set -eux
           rm -rf build/native
-          cmake -S app/src/main/cpp -B build/native -G Ninja             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"             -DANDROID_ABI=arm64-v8a             -DANDROID_PLATFORM=android-35             -DCMAKE_BUILD_TYPE=Release             -DANDROID_STL=c++_static             -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"
+          cmake -S app/src/main/cpp -B build/native -G Ninja             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.0.12077973/build/cmake/android.toolchain.cmake"             -DANDROID_ABI=arm64-v8a             -DANDROID_PLATFORM=android-35             -DCMAKE_BUILD_TYPE=Release             -DANDROID_STL=c++_static             -DQNN_INC="$GITHUB_WORKSPACE/qnn_probe/app/src/main/cpp/qnn_inc"             -DLLAMA_CPP_SRC="$GITHUB_WORKSPACE/llama.cpp"
           mkdir -p build
           cmake --build build/native --config Release --parallel 2 2>&1 | tee build/native.log
           test -f build/native/libmcnpu.so
