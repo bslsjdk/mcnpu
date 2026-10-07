@@ -74,7 +74,7 @@ static BlockQ5 quant5(const float* p, size_t n) {
     return b;
 }
 
-static float rmse(const std::vector<float>& a,const std::vector<float>& b) {
+static float maxAbs(const std::vector<float>& a,const std::vector<float>& b) {\n    float m=0.f; for(size_t i=0;i<a.size();i++) m=std::max(m,std::fabs(a[i]-b[i])); return m;\n}\n\nstatic float rmse(const std::vector<float>& a,const std::vector<float>& b) {
     long double s=0; for(size_t i=0;i<a.size();i++){long double d=a[i]-b[i];s+=d*d;}
     return (float)std::sqrt((double)(s/a.size()));
 }
@@ -92,18 +92,18 @@ static std::string probe(int requestedTokens, int mode) {
     for(size_t i=0;i<src.size();++i)
         src[i]=std::sin((float)i*0.017f)*1.7f+std::cos((float)i*0.0031f)*0.23f;
 
-    std::vector<float> restored(src.size());
+    std::vector<float> restoredK(src.size()), restoredV(src.size());
     uint64_t payload=0, metadata=0;
     const char* modeName="";
     if(mode==0) {
         modeName="F16";
         std::vector<uint16_t> q(src.size());
-        for(size_t i=0;i<src.size();++i) q[i]=f32_to_f16(src[i]), restored[i]=f16_to_f32(q[i]);
+        for(size_t i=0;i<src.size();++i) q[i]=f32_to_f16(src[i]), restoredK[i]=f16_to_f32(q[i]), restoredV[i]=restoredK[i];
         payload=(uint64_t)kProbeElements*2;
     } else if(mode==1) {
         modeName="Q8_Q8";
         auto k=quant8(src.data(),src.size()), v=quant8(src.data(),src.size());
-        for(size_t i=0;i<src.size();++i) restored[i]=(float)k.q[i]*k.scale;
+        for(size_t i=0;i<src.size();++i) { restoredK[i]=(float)k.q[i]*k.scale; restoredV[i]=(float)v.q[i]*v.scale; }
         payload=(uint64_t)k.q.size()*2; metadata=8;
         (void)v;
     } else if(mode==2) {
@@ -125,7 +125,7 @@ static std::string probe(int requestedTokens, int mode) {
     uint64_t bytesPerToken;
     if(mode==0) bytesPerToken=f16PerToken;
     else if(mode==1) bytesPerToken=f16PerToken/2 + 16;
-    else if(mode==2) bytesPerToken=(f16PerToken*13)/32 + 16;
+    else if(mode==2) bytesPerToken=(f16PerToken*13)/16 + 16;
     else bytesPerToken=(f16PerToken*3)/8 + 16;
 
     const uint64_t pages=ceilDiv((uint64_t)requestedTokens,kPageTokens);
@@ -142,7 +142,7 @@ static std::string probe(int requestedTokens, int mode) {
     out+=" f16_bytes_per_token="+std::to_string(f16PerToken);
     out+=" probe_payload_bytes="+std::to_string(payload);
     out+=" probe_metadata_bytes="+std::to_string(metadata);
-    out+=" probe_rmse="+std::to_string(rmse(src,restored));
+    out+=" probe_k_rmse="+std::to_string(rmse(src,restoredK));\n    out+=" probe_v_rmse="+std::to_string(rmse(src,restoredV));\n    out+=" probe_k_max_abs="+std::to_string(maxAbs(src,restoredK));\n    out+=" probe_v_max_abs="+std::to_string(maxAbs(src,restoredV));
     out+=" implementation=PAGE_CODEC_PROBE_ONLY";
     return out;
 }
