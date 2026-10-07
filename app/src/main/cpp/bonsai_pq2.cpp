@@ -99,3 +99,9 @@ Java_bslsjdk_mcnpu_NpuRuntime_nativeBonsai2Pq2DecodeProbe(JNIEnv * env, jclass) 
     const std::string r = run_probe();
     return env->NewStringUTF(r.c_str());
 }
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_bslsjdk_mcnpu_Bonsai2Pq2Probe_nativeRun(JNIEnv * env, jclass) {
+    const std::string r = run_probe();
+    return env->NewStringUTF(r.c_str());
+}
