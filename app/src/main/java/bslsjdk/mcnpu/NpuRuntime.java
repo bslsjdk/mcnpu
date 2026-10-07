@@ -340,6 +340,17 @@ public final class NpuRuntime {
         if (!ready) return null;
         return nativeMatMulInt8Buf(a, b, m, k, n);
     }
+
+    /**
+     * Bonsai 2 kernel-baseline descriptor. This is deliberately metadata-only:
+     * it tells the external runtime which MCNPU transport is available without
+     * loading or copying the 27B model into this process.
+     */
+    public static String bonsai2Capabilities() {
+        return "OK BONSAI2_NPU/1 mode=KERNEL_BASELINE backend=HTP_V73 "
+                + "matmul=int8 binary=SUBMITBIN_MATMUL8 pq2=NOT_INTEGRATED "
+                + "memory_ceiling_bytes=4294967296";
+    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
