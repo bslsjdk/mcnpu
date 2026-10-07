@@ -211,4 +211,124 @@ public final class Bonsai2Pq2Probe {
             default: return false;
         }
     }
+
+    /** Reads exactly one 34-byte type-142 block from the model file and decodes it. */
+    public static String inspectFirstPq2Block(String path) {
+        if (path == null || path.isEmpty()) return "ERR BONSAI2_PQ2_BLOCK null_path";
+        try (java.io.RandomAccessFile f = new java.io.RandomAccessFile(path, "r")) {
+            byte[] magic = new byte[4];
+            f.readFully(magic);
+            if (magic[0] != 'G' || magic[1] != 'G' || magic[2] != 'U' || magic[3] != 'F')
+                return "ERR BONSAI2_PQ2_BLOCK bad_magic";
+            long version = u32(f);
+            if (version != 2 && version != 3) return "ERR BONSAI2_PQ2_BLOCK version=" + version;
+            long tensorCount = u64(f);
+            long kvCount = u64(f);
+            if (tensorCount <= 0 || tensorCount > 200000 || kvCount > 100000)
+                return "ERR BONSAI2_PQ2_BLOCK counts";
+
+            long alignment = 32;
+            for (long i = 0; i < kvCount; i++) {
+                String key = string(f);
+                int type = (int)u32(f);
+                if ("general.alignment".equals(key)) {
+                    if (type != 4) return "ERR BONSAI2_PQ2_BLOCK alignment_type";
+                    alignment = u32(f);
+                    if (alignment <= 0 || alignment > (1L << 20) || (alignment & (alignment - 1)) != 0)
+                        return "ERR BONSAI2_PQ2_BLOCK alignment";
+                } else if (!skipValue(f, type)) {
+                    return "ERR BONSAI2_PQ2_BLOCK metadata";
+                }
+            }
+
+            long tensorBase = alignUp(f.getFilePointer(), alignment);
+            long firstOffset = -1;
+            String firstName = null;
+            long firstDim = 0;
+            long firstType = -1;
+            for (long i = 0; i < tensorCount; i++) {
+                String name = string(f);
+                long dims = u32(f);
+                if (dims <= 0 || dims > 8) return "ERR BONSAI2_PQ2_BLOCK dims";
+                long dim0 = 0;
+                for (long d = 0; d < dims; d++) {
+                    long n = u64(f);
+                    if (n <= 0) return "ERR BONSAI2_PQ2_BLOCK shape";
+                    if (d == 0) dim0 = n;
+                }
+                long type = u32(f);
+                long offset = u64(f);
+                if (type == 142 && firstOffset < 0) {
+                    firstOffset = offset;
+                    firstName = name;
+                    firstDim = dim0;
+                    firstType = type;
+                }
+            }
+
+            if (firstOffset < 0) return "ERR BONSAI2_PQ2_BLOCK no_type_142";
+            if (firstDim % 128 != 0) return "ERR BONSAI2_PQ2_BLOCK dim0_not_group128";
+            if (firstOffset > Long.MAX_VALUE - tensorBase) return "ERR BONSAI2_PQ2_BLOCK offset_overflow";
+
+            long absolute = tensorBase + firstOffset;
+            if (absolute < 0 || absolute > f.length() - 34) return "ERR BONSAI2_PQ2_BLOCK out_of_file";
+            f.seek(absolute);
+
+            int d0 = f.readUnsignedByte();
+            int d1 = f.readUnsignedByte();
+            float scale = halfToFloat(d0 | (d1 << 8));
+            if (!Float.isFinite(scale)) return "ERR BONSAI2_PQ2_BLOCK bad_scale";
+
+            float min = Float.POSITIVE_INFINITY, max = Float.NEGATIVE_INFINITY;
+            double sum = 0.0;
+            int[] hist = new int[4];
+            for (int i = 0; i < 32; i++) {
+                int packed = f.readUnsignedByte();
+                for (int slot = 0; slot < 4; slot++) {
+                    int q = (packed >>> (slot * 2)) & 3;
+                    hist[q]++;
+                    float v = (q - 1) * scale;
+                    min = Math.min(min, v);
+                    max = Math.max(max, v);
+                    sum += v;
+                }
+            }
+            return "OK BONSAI2_PQ2_BLOCK/1 type=142 tensor=" + firstName +
+                    " absolute_offset=" + absolute + " block_bytes=34 scale=" + scale +
+                    " min=" + min + " max=" + max + " sum=" + sum +
+                    " codes=" + hist[0] + "," + hist[1] + "," + hist[2] + "," + hist[3];
+        } catch (java.io.EOFException e) {
+            return "ERR BONSAI2_PQ2_BLOCK truncated";
+        } catch (Throwable t) {
+            return "ERR BONSAI2_PQ2_BLOCK " + t.getClass().getSimpleName() + ": " + t.getMessage();
+        }
+    }
+
+    private static long alignUp(long value, long alignment) {
+        long mask = alignment - 1;
+        if (value > Long.MAX_VALUE - mask) throw new IllegalArgumentException("alignment overflow");
+        return (value + mask) & ~mask;
+    }
+
+    private static float halfToFloat(int h) {
+        int sign = (h & 0x8000) << 16;
+        int exp = (h >>> 10) & 0x1f;
+        int mant = h & 0x3ff;
+        int bits;
+        if (exp == 0) {
+            if (mant == 0) bits = sign;
+            else {
+                int e = -14;
+                while ((mant & 0x400) == 0) { mant <<= 1; e--; }
+                mant &= 0x3ff;
+                bits = sign | ((e + 127) << 23) | (mant << 13);
+            }
+        } else if (exp == 31) {
+            bits = sign | 0x7f800000 | (mant << 13);
+        } else {
+            bits = sign | ((exp - 15 + 127) << 23) | (mant << 13);
+        }
+        return Float.intBitsToFloat(bits);
+    }
+
 }
