@@ -69,7 +69,7 @@ static Encoded encodeQ(const float* src, size_t n, int bits) {
     const int maxQ = (1 << (bits - 1)) - 1;
     const int minQ = -(1 << (bits - 1));
     for(size_t b=0; b<blocks; ++b) {
-        const size_t begin=b*kBlock, end=std::min(n,begin+kBlock);
+        const size_t begin=b*(size_t)kBlock, end=std::min(n,begin+(size_t)kBlock);
         float mx=0.f;
         for(size_t i=begin;i<end;i++) mx=std::max(mx,std::fabs(src[i]));
         float scale = mx > 0.f ? mx/(float)maxQ : 1.f;
