@@ -1930,6 +1930,14 @@ static const char* kPerlinNeeds[] = {
     "ElementWiseBinary",
 };
 
+#ifndef MCNPU_BUILD_ID
+#define MCNPU_BUILD_ID "unknown"
+#endif
+// Stamped into every PERLIN log line. Without it there is no way to tell from a
+// pasted log whether the APK that produced it actually carries the current fix,
+// which has cost several rounds of inference on data from an older build.
+static const char* kBuildId = MCNPU_BUILD_ID;
+
 std::string runPerlinCap(){
     if(!g.ready || !g.api) return "ERR PERLIN_CAP NOT_READY";
     std::string present, missing;
@@ -1945,7 +1953,8 @@ std::string runPerlinCap(){
     return "OK PERLIN_CAP path=" + std::string(path)
          + " present=" + present
          + " missing=" + missing
-         + " ops_cached=" + std::to_string((unsigned)g_opsCache.size());
+         + " ops_cached=" + std::to_string((unsigned)g_opsCache.size())
+         + " build=" + kBuildId;
 }
 
 // ---------------------------------------------------------------------------
@@ -2389,7 +2398,7 @@ static std::string runPerlinDiag(uint32_t n){
     if(n == 0 || n > 1024) n = 64;
     const Qnn_DataType_t F = QNN_DATATYPE_FLOAT_32;
     const Qnn_DataType_t I = QNN_DATATYPE_INT_32;
-    std::string out;
+    std::string out = std::string("build=") + kBuildId;
     Qnn_GraphHandle_t gh = nullptr;
     int seq = 0;
     std::deque<std::vector<uint8_t>> keep;
@@ -2893,7 +2902,8 @@ std::string runPerlinBench(uint32_t n){
                 // answer instead of another hypothesis about which op is at
                 // fault.
                 const std::string d = runPerlinDiag(n);
-                return "ERR PERLIN BUILD A=[" + aFail + "] C=[" + cErr
+                return "ERR PERLIN BUILD build=" + std::string(kBuildId)
+                     + " A=[" + aFail + "] C=[" + cErr
                      + "] DIAG=[" + d + "]";
             }
             auto ins = g_perlinGraphs.emplace(n, std::move(cg));
@@ -3010,7 +3020,8 @@ std::string runPerlinBench(uint32_t n){
          + " bad=" + std::to_string((unsigned)bad) + "/" + std::to_string((unsigned)n)
          + " maxAbs=" + std::to_string(maxAbs)
          + " npu_us=" + std::to_string((long long)us)
-         + " cpu_ref_us=" + std::to_string((long long)cpuUs);
+         + " cpu_ref_us=" + std::to_string((long long)cpuUs)
+         + " build=" + kBuildId;
 }
 
 extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinCap(JNIEnv* e, jclass){
