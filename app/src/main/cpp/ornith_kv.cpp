@@ -126,7 +126,7 @@ static std::string probe(int requestedTokens, int mode) {
     if(mode==0) bytesPerToken=f16PerToken;
     else if(mode==1) bytesPerToken=f16PerToken/2 + 16;
     else if(mode==2) bytesPerToken=(f16PerToken*13)/32 + 16;
-    else bytesPerToken=(f16PerToken*3)/16 + 16;
+    else bytesPerToken=(f16PerToken*3)/8 + 16;
 
     const uint64_t pages=ceilDiv((uint64_t)requestedTokens,kPageTokens);
     const uint64_t storedTokens=pages*kPageTokens;
