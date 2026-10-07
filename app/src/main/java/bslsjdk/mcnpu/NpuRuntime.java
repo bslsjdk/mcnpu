@@ -346,6 +346,16 @@ public final class NpuRuntime {
      * it tells the external runtime which MCNPU transport is available without
      * loading or copying the 27B model into this process.
      */
+    /** Synthetic page-codec probe. Does not allocate the requested full KV cache. */
+    public static String ornith15KvProbe(int tokens, int mode) {
+        return Ornith15KvProbe.probe(tokens, mode);
+    }
+
+    /** Runs F16/Q8Q8/Q8Q5/Q8Q4 probes for one requested context size. */
+    public static String ornith15KvProbeAll(int tokens) {
+        return Ornith15KvProbe.probeAll(tokens);
+    }
+
     public static String bonsai2Capabilities() {
         return "OK BONSAI2_NPU/1 mode=KERNEL_BASELINE backend=HTP_V73 "
                 + "matmul=int8 binary=SUBMITBIN_MATMUL8 pq2=NOT_INTEGRATED "
