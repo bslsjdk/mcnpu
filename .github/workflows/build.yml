@@ -167,7 +167,7 @@ jobs:
           test -x "$ZIPALIGN"
           test -x "$APKSIGNER"
           if [ -n "${MCNPU_NEXT_KEYSTORE_B64:-}" ]; then
-            echo "$MCNPU_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-next-release.jks
+            echo "$MCNPU_NEXT_KEYSTORE_B64" | base64 -d > build/signing/mcnpu-next-release.jks
             KEY_PASS="$MCNPU_NEXT_KEYSTORE_PASSWORD"
             echo "keystore: fixed key from repository secrets (signature stable across builds)"
           else
@@ -175,10 +175,10 @@ jobs:
             # from every earlier build, Android then refuses to install over the previous
             # APK, and the only way through is uninstalling - which also wipes app data.
             # Say so loudly rather than ship an APK that looks fine and cannot upgrade.
-            echo "::warning::MCNPU_KEYSTORE_B64 is not set - generating a throwaway key; this build will NOT install over the previous one."
-            keytool -genkeypair -v -keystore build/signing/mcnpu-release.jks -storepass changeit -keypass changeit -alias mcnpu-next -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=MCNPU Next,O=bslsjdk"
+            echo "::warning::MCNPU_NEXT_KEYSTORE_B64 is not set - generating a throwaway key; this build will NOT install over the previous one."
+            keytool -genkeypair -v -keystore build/signing/mcnpu-next-release.jks -storepass changeit -keypass changeit -alias mcnpu-next -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=MCNPU Next,O=bslsjdk"
             KEY_PASS=changeit
-            echo "keystore: THROWAWAY key - signature differs from every earlier build"
+            echo "keystore: THROWAWAY key - signature is intentionally changed from the previous build"
           fi
           "$ZIPALIGN" -f 4             app/build/outputs/apk/release/app-release-unsigned.apk             build/signing/mcnpu-aligned.apk
           "$APKSIGNER" sign             --ks build/signing/mcnpu-release.jks             --ks-key-alias mcnpu-next             --ks-pass pass:"$KEY_PASS"             --key-pass pass:"$KEY_PASS"             --out app/build/outputs/apk/release/MCNPU-arm64-signed.apk             build/signing/mcnpu-aligned.apk
