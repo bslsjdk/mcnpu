@@ -1,8 +1,0 @@
-name: ci-smoke2
-on:
-  workflow_dispatch:
-jobs:
-  smoke:
-    runs-on: ubuntu-22.04
-    steps:
-      - run: echo "smoke2 ok"
