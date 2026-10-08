@@ -742,24 +742,14 @@ static uint32_t probeAddPass(bool fp16, std::string& lines, long long& budgetUs)
 // Both helpers assume gRuntimeMutex is held: they read Runtime state.
 static const char* LADDER_CACHE_FILE = "mcnpu_add_ladder.cache";
 
-#ifndef MCNPU_BUILD_ID
-#define MCNPU_BUILD_ID "unknown"
-#endif
-
 static std::string deviceCapKeyLocked(){
     char plat[PROP_VALUE_MAX]={0}, soc[PROP_VALUE_MAX]={0};
     __system_property_get("ro.board.platform", plat);
     __system_property_get("ro.soc.model", soc);
-    // The build id belongs in the key: a new APK can change the graph, and a
-    // ceiling measured by the previous build is then a guess about a program
-    // that no longer exists. Without it the entry survives every update and is
-    // trusted forever - visible in the log as CACHE HIT and CACHE WROTE in the
-    // same run, the hit coming from a binary that has since been replaced.
-    return std::string("v2|plat=")+plat
+    return std::string("v1|plat=")+plat
          + "|soc="  + soc
          + "|lib="  + g.libDir
-         + "|be="   + std::to_string(g.selectedBackend)
-         + "|build=" + MCNPU_BUILD_ID;
+         + "|be="   + std::to_string(g.selectedBackend);
 }
 
 static bool ladderCacheReadLocked(uint32_t& out){
@@ -3560,12 +3550,10 @@ std::string runPerlinBench(uint32_t n){
     if(n == 0 || n > 16384) n = 4096;
     // Adopt last boot's measured ceiling before touching the device, so the
     // first thing we build is a size we already know finalizes.
-    bool adoptedN = false;
     if(g_perlinMaxN == 0){
         uint32_t cachedN = 0;
         if(perlinNCacheReadLocked(cachedN)){
             g_perlinMaxN = cachedN;
-            adoptedN = true;
             I("PERLIN CACHE HIT maxN=%u (4096/2048 builds skipped)",(unsigned)cachedN);
         }
     }
@@ -3644,9 +3632,7 @@ std::string runPerlinBench(uint32_t n){
                 G = &ins.first->second;
                 G->aFail = aFail;
             }
-            if(G){ g_perlinMaxN = s; n = s;
-                   if(adoptedN) I("PERLIN N CACHE SKIP reason=hit n=%u",s);
-                   else         perlinNCacheWriteLocked(s); }
+            if(G){ g_perlinMaxN = s; n = s; perlinNCacheWriteLocked(s); }
         }
         if(!G){
             // Nothing built at any size. Run the diagnostic rather than report
@@ -3746,14 +3732,13 @@ std::string runPerlinBench(uint32_t n){
     }
     auto tSetupEnd = std::chrono::steady_clock::now();
     auto setupUs = std::chrono::duration_cast<std::chrono::microseconds>(tSetupEnd - t0).count();
-    // Three back-to-back executes on identical buffers. If the first is slow and
-    // the rest are fast the cost is one-time (cold context / first DMA), not the
-    // kernel - and batching or warming it is the fix rather than rewriting ops.
-    // 16 reps replaces 3: three reps totalled about 60 ms of device load, while
-    // the historical 8.3 ms run had roughly 380 ms of ADD ladder work in front
-    // of it. 16 x 20 ms is about 320 ms, the first rep count that can reach the
-    // load the old path had. Pure measurement - the graph, the buffers and the
-    // graphExecute call are untouched.
+    // Two series of 16 back-to-back executes on identical buffers, A then D with
+    // no gap between them. A flat A followed by a converging D would mean the
+    // device ramps under sustained load; A converging on its own would mean a
+    // one-time cold cost. 16 reps is the count whose total load (about 320 ms)
+    // reaches the ADD ladder work that preceded the historical 8.3 ms run.
+    // Pure measurement - the graph, the buffers and the graphExecute call are
+    // untouched.
     static const int REPS = 16;
     auto runSeries = [&](long long* times, long long* gaps)->Qnn_ErrorHandle_t{
         Qnn_ErrorHandle_t r = QNN_SUCCESS;
@@ -3799,17 +3784,11 @@ std::string runPerlinBench(uint32_t n){
             I("EXPERIMENT D exec16=[%s] gaps=[%s]",
               joinSeries(tD, REPS).c_str(), joinSeries(gD, REPS-1).c_str());
 
-            // C: five seconds of true idle, then the same series again. This is
-            // the reversibility check - if the clock really is the variable, an
-            // idle period must walk the time back up. If C stays fast, the
-            // difference was a one-time cold state, not the clock.
-            // Plain sleep: no native call, no JNI call, no HTP work in between.
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            long long tC[REPS] = {0}, gC[REPS-1] = {0};
-            Qnn_ErrorHandle_t rC = runSeries(tC, gC);
-            I("EXPERIMENT C exec16=[%s] gaps=[%s] sleep_us=5000000",
-              joinSeries(tC, REPS).c_str(), joinSeries(gC, REPS-1).c_str());
-            if(rC != QNN_SUCCESS) rc = rC;
+            // C is gone. It slept five seconds and ran a third series to tell a
+            // reversible clock ramp from a one-time cold state. Measured flat
+            // across A, D and C with every gap at zero, so neither applies and
+            // the five second stall on each startup bought nothing. A and D
+            // remain as the regression pair.
         }
     }
     auto us = setupUs + execUs[0];
