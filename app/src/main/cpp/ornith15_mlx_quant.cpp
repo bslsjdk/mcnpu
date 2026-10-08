@@ -1,5 +1,4 @@
 #include "ornith15_mlx_quant.h"
-#include <limits>
 
 namespace ornith15 {
 bool MlxDequantizeRow(const uint32_t* packed, const float* scales,
@@ -8,8 +7,10 @@ bool MlxDequantizeRow(const uint32_t* packed, const float* scales,
                       std::string* e) {
     if (!packed || !scales || !out || s.bits <= 0 || s.bits > 8 ||
         (32 % s.bits) != 0 || s.group_size <= 0 ||
-        (s.group_size % s.bits) != 0 || n % (32 / s.bits) != 0 ||
-        n % static_cast<size_t>(s.group_size) != 0) {
+        (s.group_size % s.bits) != 0 ||
+        n % static_cast<size_t>(32 / s.bits) != 0 ||
+        n % static_cast<size_t>(s.group_size) != 0 ||
+        (s.affine && !biases)) {
         if (e) *e = "invalid MLX quant row";
         return false;
     }
@@ -20,7 +21,7 @@ bool MlxDequantizeRow(const uint32_t* packed, const float* scales,
     for (size_t i = 0; i < n; ++i) {
         const uint32_t q = (packed[i / per_word] >> ((i % per_word) * s.bits)) & mask;
         const size_t g = i / static_cast<size_t>(s.group_size);
-        const float b = s.affine && biases ? biases[g] : 0.0f;
+        const float b = s.affine ? biases[g] : 0.0f;
         (*out)[i] = static_cast<float>(q) * scales[g] + b;
     }
     return true;
