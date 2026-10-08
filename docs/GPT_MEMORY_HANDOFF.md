@@ -779,3 +779,37 @@ MLX affine quant CPU golden path：
 - CMake 保留旧 llama.cpp/GGUF baseline；
 - MLX native path 与 GGUF path 继续分离。
 
+
+
+# 33. 2026-10-08 deterministic MLX quant regression
+
+继续推进后新增：
+- app/src/main/cpp/ornith15_mlx_quant_selftest.cpp
+- CMake 已加入 selftest source
+- ornith15_mlx_quant.h 暴露 MlxQuantSelfTest()
+- mcnpu.cpp 增加 JNI nativeMlxQuantSelfTest()
+- NpuRuntime.java 增加 mlxQuantSelfTest() 公共诊断入口。
+
+Selftest 是 CPU-only、零模型数据读取的确定性回归：
+- 4-bit affine；
+- group_size=8 的小向量；
+- 验证 uint32 LSB-first nibble packing；
+- 验证 dequant = q * scale + bias；
+- 验证 null scales / null biases / 非法 group_size 会被拒绝；
+- 不接 QNN，不占用模型内存。
+
+官方 MLX 文档明确说明 affine quant 的每个元素按 bits 打包进 unsigned 32-bit integer，4-bit 时每个 uint32 包含 8 个元素，第一元素占最低 4 bit；dequant 使用 scale*q+bias。citeturn0search1turn0search4
+
+最新 GitHub Actions：
+- run #451：expose quant decoder selftest，当前 queued；
+- run #450：compile quant decoder selftest，当前 in_progress；
+- 更早的 native quant runs 也在排队/构建。
+- 因为 Actions 还没完成，当前不宣称 APK/native 编译通过。
+
+下一步：
+1. 检查 run #451，确认 C++/JNI/Java 编译；
+2. 如失败，立即修复；
+3. 若通过，继续 Safetensors tensor metadata/layout 诊断；
+4. 不依赖猜测，拿真实 tensor shape 后实现 companion tensor 映射；
+5. 再做 layer streaming；
+6. 再接 HTP quantized GEMM。
