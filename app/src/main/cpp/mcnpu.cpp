@@ -3574,11 +3574,17 @@ std::string runPerlinBench(uint32_t n){
         // limit is the batch size. Walk it down and keep the first that builds.
         const uint32_t cand[8] = {4096, 2048, 1024, 512, 256, 128, 64, 32};
         std::string lastErr;
+        // A refused finalize leaves the context unable to accept the next graph,
+        // so a failed attempt has to be followed by a rebuild. A context with
+        // nothing cached in it does not: tearing it down there destroys a
+        // perfectly good context and pays a full device round trip for nothing.
+        bool dirty = false;
         for(int ci = 0; ci < 8 && !G; ci++){
             uint32_t s = cand[ci];
             if(s > n) continue;
             std::string aFail;
-            if(!resetContextLocked()){ lastErr = "ERR PERLIN CONTEXT_RESET"; break; }
+            const bool mustReset = (g.graphCount > 0) || dirty;
+            if(mustReset && !resetContextLocked()){ lastErr = "ERR PERLIN CONTEXT_RESET"; break; }
             // STATIC constants first, then constants-as-graph-inputs.
             const int modes[2] = {0, 1};
             if(useFull){
@@ -3594,19 +3600,22 @@ std::string runPerlinBench(uint32_t n){
                         G = &ins.first->second;
                         G->aFail = aFail;
                     } else {
+                        dirty = true;
                         if(!aFail.empty()) aFail += " | ";
                         aFail += "cm" + std::to_string(modes[m]) + "=" + e;
                     }
                 }
             }
             if(!G){
-                if(!resetContextLocked()){
+                const bool mustResetC = (g.graphCount > 0) || dirty;
+                if(mustResetC && !resetContextLocked()){
                     lastErr = "ERR PERLIN CONTEXT_RESET_C A=[" + aFail + "]";
                     break;
                 }
                 PerlinGraph cg;
                 std::string cErr = buildPerlinHybrid(cg, s);
                 if(!cErr.empty()){
+                    dirty = true;
                     lastErr = "A=[" + aFail + "] C=[" + cErr + "]";
                     continue;
                 }
@@ -3641,14 +3650,20 @@ std::string runPerlinBench(uint32_t n){
     for(int i = 0; i < 512; i++) perm[i] = i & 255;
 
     Qnn_ErrorHandle_t rc = QNN_SUCCESS;
+    // Hoisted so the execute can be timed apart from input marshalling and
+    // repeated without rebuilding the tensor lists. npu_us used to bundle both,
+    // which made a 2.4x slowdown unattributable: it could have been host-side
+    // buffer setup, a cold first execute, or the execute itself.
+    std::vector<Qnn_Tensor_t> inList;
+    Qnn_Tensor_t in[11];
+    Qnn_Tensor_t eo;
     auto t0 = std::chrono::steady_clock::now();
     if(G->fullPath){
-        Qnn_Tensor_t ex = G->inX, ey = G->inY, ez = G->inZ, eo = G->out;
+        Qnn_Tensor_t ex = G->inX, ey = G->inY, ez = G->inZ; eo = G->out;
         ex.v1.clientBuf.data = xs.data(); ex.v1.clientBuf.dataSize = n*sizeof(float);
         ey.v1.clientBuf.data = ys.data(); ey.v1.clientBuf.dataSize = n*sizeof(float);
         ez.v1.clientBuf.data = zs.data(); ez.v1.clientBuf.dataSize = n*sizeof(float);
         eo.v1.clientBuf.data = out.data(); eo.v1.clientBuf.dataSize = n*sizeof(float);
-        std::vector<Qnn_Tensor_t> inList;
         inList.push_back(ex); inList.push_back(ey); inList.push_back(ez);
         // constMode 1: the constants are ordinary graph inputs, so one buffer
         // per constant has to be filled before every execute.
@@ -3667,8 +3682,6 @@ std::string runPerlinBench(uint32_t n){
             }
             inList.push_back(t);
         }
-        rc = f.graphExecute(G->graph, inList.data(), (uint32_t)inList.size(),
-                            &eo, 1, nullptr, nullptr);
     } else {
         // host side: perm chain, gradient table and dot products
         std::vector<float> d[8];
@@ -3697,7 +3710,6 @@ std::string runPerlinBench(uint32_t n){
                 d[c][i] = (float)(cgx*ox + cgy*oy + cgz*oz);
             }
         }
-        Qnn_Tensor_t in[11];
         for(int c = 0; c < 8; c++){
             in[c] = G->inD[c];
             in[c].v1.clientBuf.data = d[c].data();
@@ -3706,12 +3718,30 @@ std::string runPerlinBench(uint32_t n){
         in[8] = G->inU; in[8].v1.clientBuf.data = u.data(); in[8].v1.clientBuf.dataSize = n*sizeof(float);
         in[9] = G->inV; in[9].v1.clientBuf.data = v.data(); in[9].v1.clientBuf.dataSize = n*sizeof(float);
         in[10]= G->inW; in[10].v1.clientBuf.data = w.data(); in[10].v1.clientBuf.dataSize = n*sizeof(float);
-        Qnn_Tensor_t eo = G->out;
+        eo = G->out;
         eo.v1.clientBuf.data = out.data(); eo.v1.clientBuf.dataSize = n*sizeof(float);
-        rc = f.graphExecute(G->graph, in, 11, &eo, 1, nullptr, nullptr);
     }
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::steady_clock::now() - t0).count();
+    auto tSetupEnd = std::chrono::steady_clock::now();
+    auto setupUs = std::chrono::duration_cast<std::chrono::microseconds>(tSetupEnd - t0).count();
+    // Three back-to-back executes on identical buffers. If the first is slow and
+    // the rest are fast the cost is one-time (cold context / first DMA), not the
+    // kernel - and batching or warming it is the fix rather than rewriting ops.
+    long long execUs[3] = {0,0,0};
+    for(int rep = 0; rep < 3; rep++){
+        auto te = std::chrono::steady_clock::now();
+        if(G->fullPath)
+            rc = f.graphExecute(G->graph, inList.data(), (uint32_t)inList.size(),
+                                &eo, 1, nullptr, nullptr);
+        else
+            rc = f.graphExecute(G->graph, in, 11, &eo, 1, nullptr, nullptr);
+        execUs[rep] = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - te).count();
+        if(rc != QNN_SUCCESS) break;
+    }
+    auto us = setupUs + execUs[0];
+    I("PERLIN TIMING setup_us=%lld exec_us=%lld/%lld/%lld graphs=%d/%d",
+      (long long)setupUs, execUs[0], execUs[1], execUs[2],
+      g.graphCount, MAX_CACHED_GRAPHS);
     if(rc != QNN_SUCCESS)
         return "ERR PERLIN EXECUTE rc=" + std::to_string((int)rc) + " " + verbose(rc);
 
@@ -3790,6 +3820,9 @@ std::string runPerlinBench(uint32_t n){
          + " bad=" + std::to_string((unsigned)bad) + "/" + std::to_string((unsigned)n)
          + " maxAbs=" + std::to_string(maxAbs)
          + " npu_us=" + std::to_string((long long)us)
+         + " setup_us=" + std::to_string((long long)setupUs)
+         + " exec3=[" + std::to_string(execUs[0]) + "," + std::to_string(execUs[1]) + "," + std::to_string(execUs[2]) + "]"
+         + " graphs=" + std::to_string(g.graphCount) + "/" + std::to_string(MAX_CACHED_GRAPHS)
          + " cpu_ref_us=" + std::to_string((long long)cpuUs)
          + " got=[" + firstNpu + "] ref=[" + firstRef + "]"
          + " goodHead=" + std::to_string((unsigned)goodHead)
