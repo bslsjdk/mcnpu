@@ -19,6 +19,8 @@ public final class Ornith15Runtime {
     public static synchronized String load(String modelPath, long contextTokens) {
         if (modelPath == null || modelPath.isEmpty())
             return "ERR ORNITH15_RUNTIME null_model";
+        loaded = false;
+        mlxValidated = false;
         if (contextTokens <= 0 || contextTokens > 262144)
             return "ERR ORNITH15_RUNTIME context=" + contextTokens;
 
