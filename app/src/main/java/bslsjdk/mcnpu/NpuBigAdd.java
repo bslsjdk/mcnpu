@@ -1,4 +1,4 @@
-package bslsjdk.mcnpu;
+package com.bslsjdk.mcnpu.next;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
