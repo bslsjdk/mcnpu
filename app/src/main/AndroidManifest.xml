@@ -16,7 +16,7 @@
         <package android:name="com.aiunit.aon" />
         <intent><action android:name="oplus.intent.action.AIUNIT_SERVICE" /></intent>
     </queries>
-    <application android:allowBackup="false" android:label="MC NPU" android:supportsRtl="true">
+    <application android:allowBackup="false" android:label="MCNPU Next" android:supportsRtl="true">
         <meta-data android:name="com.oplus.aiunit.auth_style" android:value="0" />
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
         <uses-native-library android:name="libadsprpc.so" android:required="false" />
@@ -40,7 +40,7 @@
             android:windowSoftInputMode="adjustResize" />
         <receiver android:name=".NpuWakeReceiver" android:exported="true" android:enabled="true">
             <intent-filter>
-                <action android:name="bslsjdk.mcnpu.action.WAKE" />
+                <action android:name="com.bslsjdk.mcnpu.next.action.WAKE" />
             </intent-filter>
         </receiver>
         <provider
