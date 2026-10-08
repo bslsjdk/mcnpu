@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <cstdint>
 #include <cstdarg>
+#include <thread>
 #include <sched.h>
 #include <deque>
 #include <map>
@@ -3973,6 +3974,18 @@ struct NbOctave {
     unsigned char perm[256];
 };
 
+// One active octave, flattened. The evaluator used to walk all octaveCount slots on
+// every point, testing slot<0 and amp==0 each time and calling std::pow to rebuild a
+// frequency that depends only on the octave index. On a 19-octave channel that is 19
+// pow() calls per point - pow is ~50-100 ns, so the frequency arithmetic alone cost
+// more than the noise it fed. Flattening to the active set removes both the branches
+// and the pow from the inner loop.
+struct NbPlan {
+    int    octIndex = 0;   // index into NbChannel::oct
+    double amp      = 0.0;
+    double freq     = 1.0; // 2^(firstOctave + o), computed once per channel
+};
+
 struct NbChannel {
     int firstOctave = 0;
     int octaveCount = 0;
@@ -3981,7 +3994,26 @@ struct NbChannel {
     std::vector<double> amp;      // per octave, 0 means skipped
     std::vector<int>    slot;     // octave -> index into oct, or -1
     std::vector<NbOctave> oct;    // only the non-skipped octaves, in wire order
+    std::vector<NbPlan>  plan;    // flattened active octaves; empty until nbBuildPlan
 };
+
+// Fills plan[] from amp[]/slot[]. Called once per request, not once per point.
+static void nbBuildPlan(NbChannel& c) {
+    c.plan.clear();
+    c.plan.reserve((size_t)c.octaveCount);
+    const double nz = (c.normalization == 0.0) ? 1.0 : c.normalization;
+    for (int o = 0; o < c.octaveCount; o++) {
+        const int s = c.slot[(size_t)o];
+        if (s < 0) continue;
+        const double a = c.amp[(size_t)o];
+        if (a == 0.0) continue;
+        NbPlan p;
+        p.octIndex = s;
+        p.amp      = a / nz;      // fold the normalisation divide into the weight
+        p.freq     = std::pow(2.0, (double)(c.firstOctave + o));
+        c.plan.push_back(p);
+    }
+}
 
 // p[] in the reference is 512 entries where p[i] == p[i+256] == perm[i], so every read
 // is perm[idx & 255]. One helper keeps that from being re-derived at each of ten sites.
@@ -4038,17 +4070,31 @@ static double nbPerlin(const NbOctave& o, double x, double y, double z) {
 // the channel normalisation. Frequency is 2^(firstOctave + o), matching the reference.
 static double nbChannelEval(const NbChannel& c, double x, double y, double z) {
     const double px = x * c.xzScale, py = y * c.yScale, pz = z * c.xzScale;
-    double v = 0.0;
-    for (int o = 0; o < c.octaveCount; o++) {
-        const int s = c.slot[o];
-        if (s < 0) continue;
-        const double a = c.amp[o];
-        if (a == 0.0) continue;
-        const double freq = std::pow(2.0, (double)(c.firstOctave + o));
-        v += nbPerlin(c.oct[(size_t)s], px * freq, py * freq, pz * freq) * a;
+
+    // Fallback only for a channel that skipped nbBuildPlan (a hand-built test channel).
+    // Requests always go through nbBuildPlan, and the self test calls it explicitly.
+    if (c.plan.empty() && c.octaveCount > 0) {
+        double v = 0.0;
+        for (int o = 0; o < c.octaveCount; o++) {
+            const int s = c.slot[(size_t)o];
+            if (s < 0) continue;
+            const double a = c.amp[(size_t)o];
+            if (a == 0.0) continue;
+            const double freq = std::pow(2.0, (double)(c.firstOctave + o));
+            v += nbPerlin(c.oct[(size_t)s], px * freq, py * freq, pz * freq) * a;
+        }
+        const double nz = (c.normalization == 0.0) ? 1.0 : c.normalization;
+        return v / nz;
     }
-    const double nz = (c.normalization == 0.0) ? 1.0 : c.normalization;
-    return v / nz;
+
+    double v = 0.0;
+    const NbPlan* pl = c.plan.data();
+    const int np = (int)c.plan.size();
+    for (int k = 0; k < np; k++) {
+        const NbPlan& p = pl[k];
+        v += nbPerlin(c.oct[(size_t)p.octIndex], px * p.freq, py * p.freq, pz * p.freq) * p.amp;
+    }
+    return v;
 }
 
 struct NbRequest {
@@ -4220,6 +4266,7 @@ static void nbEncodeInt8(const std::vector<std::vector<double>>& vals, int chann
 static std::atomic<long long> g_noiseBatchUs{0};
 static std::atomic<long long> g_noiseBatchPoints{0};
 static std::atomic<long long> g_noiseBatchCalls{0};
+static std::atomic<int>       g_noiseBatchThreads{0};
 
 static std::vector<unsigned char> runNoiseBatch(const unsigned char* body, size_t len,
                                                 int declaredPoints, int declaredChannels,
@@ -4235,16 +4282,54 @@ static std::vector<unsigned char> runNoiseBatch(const unsigned char* body, size_
 
     const int points = (int)px.size();
     const int channels = r.channels;
+    for (int c = 0; c < channels; c++) nbBuildPlan(r.ch[(size_t)c]);
+
     std::vector<std::vector<double>> vals((size_t)channels);
     for (int c = 0; c < channels; c++) vals[(size_t)c].resize((size_t)points);
+
+    // Parallelism is the only lever this kernel has. There is no HTP path: the measured
+    // HTP figure for a perlin-shaped graph is ~8 ms for 1024 points against 141 us on
+    // the CPU, so the device loses by ~60x on this shape and shipping points to it
+    // would be slower than staying here. What is available instead is the other seven
+    // cores - AFFINITY pins this process to cpu0-6 and leaves the prime core alone, so
+    // the usable count is hardware_concurrency()-1, and only when the batch is big
+    // enough that a thread is cheaper than the work it takes on.
+    int nthreads = 1;
+    {
+        const unsigned hw = std::thread::hardware_concurrency();
+        const int avail = (hw > 1) ? (int)(hw - 1) : 1;
+        // 512 points per thread floor: below that, thread creation and the join cost
+        // more than the noise, and a small batch is already sub-millisecond serially.
+        const int worth = points / 512;
+        nthreads = std::max(1, std::min(avail, worth));
+        // Cap: past 6 the remaining cores are the ones MC's own render/generation
+        // threads are competing for, and stealing them shows up as frame time.
+        nthreads = std::min(nthreads, 6);
+    }
 
     const long long tc = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
     for (int c = 0; c < channels; c++) {
         const NbChannel& ch = r.ch[(size_t)c];
         std::vector<double>& row = vals[(size_t)c];
-        for (int p = 0; p < points; p++)
-            row[(size_t)p] = nbChannelEval(ch, px[(size_t)p], py[(size_t)p], pz[(size_t)p]);
+        if (nthreads <= 1) {
+            for (int p = 0; p < points; p++)
+                row[(size_t)p] = nbChannelEval(ch, px[(size_t)p], py[(size_t)p], pz[(size_t)p]);
+        } else {
+            const int chunk = (points + nthreads - 1) / nthreads;
+            std::vector<std::thread> th;
+            th.reserve((size_t)nthreads);
+            for (int t = 0; t < nthreads; t++) {
+                const int from = t * chunk;
+                const int to = std::min(points, from + chunk);
+                if (from >= to) break;
+                th.emplace_back([&ch, &row, &px, &py, &pz, from, to]() {
+                    for (int p = from; p < to; p++)
+                        row[(size_t)p] = nbChannelEval(ch, px[(size_t)p], py[(size_t)p], pz[(size_t)p]);
+                });
+            }
+            for (std::thread& t : th) t.join();
+        }
     }
     const long long t1 = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -4252,9 +4337,19 @@ static std::vector<unsigned char> runNoiseBatch(const unsigned char* body, size_
     std::vector<unsigned char> out;
     nbEncodeInt8(vals, channels, points, out);
 
-    g_noiseBatchUs.store(t1 - tc);
+    const long long evalUs = t1 - tc;
+    g_noiseBatchUs.store(evalUs);
     g_noiseBatchPoints.store(points);
     g_noiseBatchCalls.fetch_add(1);
+    g_noiseBatchThreads.store(nthreads);
+
+    // Throughput, not just elapsed: elapsed alone cannot tell a 12k-point batch from a
+    // 1k one, and the whole question is whether per-point cost clears the IPC round trip
+    // it is shipped over.
+    if (points > 0) {
+        I("NOISEBATCH PERF points=%d channels=%d eval_us=%lld us_per_point=%.4f threads=%d",
+          points, channels, evalUs, (double)evalUs / (double)points, nthreads);
+    }
     err.clear();
     return out;
 }
@@ -4279,6 +4374,11 @@ static std::string runNoiseBatchSelfTest() {
         // stable expected value, and a random table would make a regression invisible.
         for (int i = 0; i < 256; i++) oc.perm[i] = (unsigned char)((i * 97 + o * 31) & 255);
     }
+    // Build the plan explicitly so the test exercises the same path a request takes.
+    // Leaving it empty would fall through to the legacy walk and validate code that
+    // no longer runs in production.
+    nbBuildPlan(c);
+
     double worst = 0.0;
     double first = 0.0, firstRef = 0.0;
     for (int t = 0; t < 8; t++) {
