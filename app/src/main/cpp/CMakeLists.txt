@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(mcnpu)
-add_library(mcnpu SHARED mcnpu.cpp bonsai_pq2.cpp ornith_kv.cpp ornith_runtime.cpp)
+add_library(mcnpu SHARED mcnpu.cpp bonsai_pq2.cpp ornith_kv.cpp ornith_runtime.cpp ornith15_safetensors.cpp ornith15_mlx_quant.cpp)
 set(QNN_INC "" CACHE PATH "QNN headers")
 set(LLAMA_CPP_SRC "" CACHE PATH "Optional llama.cpp source tree for real Ornith inference")
 if(LLAMA_CPP_SRC)
@@ -29,10 +29,6 @@ target_compile_features(mcnpu PRIVATE cxx_std_17)
 target_compile_options(mcnpu PRIVATE -fvisibility=hidden -ffunction-sections -fdata-sections -Wall -Wextra)
 target_link_options(mcnpu PRIVATE -Wl,--gc-sections)
 
-# Stamp the commit this binary was built from into the diagnostic output. The
-# diag is read out of logs pasted into a chat, and more than one round has been
-# spent reasoning about output that came from an APK older than the fix under
-# discussion. Anything that cannot identify itself is not diagnosable.
 set(MCNPU_BUILD_ID "unknown")
 find_package(Git QUIET)
 if(GIT_FOUND)
