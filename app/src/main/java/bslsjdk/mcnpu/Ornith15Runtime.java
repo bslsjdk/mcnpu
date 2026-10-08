@@ -11,6 +11,7 @@ import java.io.File;
  */
 public final class Ornith15Runtime {
     private static volatile boolean loaded;
+    private static volatile boolean mlxValidated;
     private static volatile String lastInfo = "NOT_LOADED";
 
     private Ornith15Runtime() {}
@@ -24,6 +25,22 @@ public final class Ornith15Runtime {
         File f = new File(modelPath);
         if (!f.isFile() || f.length() <= 0)
             return "ERR ORNITH15_RUNTIME model_missing=" + modelPath;
+
+        // The native llama.cpp bridge is retained as the GGUF regression
+        // baseline. Never pass the actual MLX Safetensors target into it.
+        if (modelPath.toLowerCase(java.util.Locale.ROOT).endsWith(".safetensors")) {
+            String probe = Ornith15MlxProbe.inspect(modelPath, contextTokens);
+            if (!probe.startsWith("OK ORNITH15_MLX_PROBE/1")) {
+                loaded = false;
+                mlxValidated = false;
+                lastInfo = probe;
+                return probe;
+            }
+            loaded = false;
+            mlxValidated = true;
+            lastInfo = probe + " executor=NOT_YET_ATTACHED";
+            return lastInfo;
+        }
 
         try {
             System.loadLibrary("mcnpu");
@@ -44,6 +61,8 @@ public final class Ornith15Runtime {
      * synchronous correctness path before MCNPU acceleration is inserted.
      */
     public static synchronized String generate(String prompt, int maxTokens) {
+        if (mlxValidated)
+            return "ERR ORNITH15_RUNTIME mlx_safetensors_executor_not_attached";
         if (!loaded) return "ERR ORNITH15_RUNTIME not_loaded";
         if (prompt == null || prompt.isEmpty()) return "ERR ORNITH15_RUNTIME empty_prompt";
         try {
@@ -66,11 +85,17 @@ public final class Ornith15Runtime {
     public static synchronized void unload() {
         try { nativeUnload(); } catch (Throwable ignored) {}
         loaded = false;
+        mlxValidated = false;
         lastInfo = "NOT_LOADED";
     }
 
     public static boolean isLoaded() {
         return loaded;
+    }
+
+    /** True when the target MLX Safetensors file passed structural validation. */
+    public static boolean isMlxValidated() {
+        return mlxValidated;
     }
 
     private static native String nativeLoad(String modelPath, long contextTokens);
