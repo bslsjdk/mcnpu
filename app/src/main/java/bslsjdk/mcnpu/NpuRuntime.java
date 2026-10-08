@@ -126,6 +126,12 @@ public final class NpuRuntime {
     }
     public static synchronized boolean smoke() { return ready && nativeTest(); }
 
+    /** CPU-only deterministic MLX 4-bit decoder regression. Does not load model weights. */
+    public static synchronized String mlxQuantSelfTest() {
+        try { String r = nativeMlxQuantSelfTest(); return r == null ? "ERR MLX_QUANT_SELFTEST_NULL" : r; }
+        catch (Throwable t) { return "ERR MLX_QUANT_SELFTEST_EXCEPTION " + t.getClass().getSimpleName(); }
+    }
+
     /**
      * Drains - and therefore empties - the native diagnostic ring.
      *
@@ -491,6 +497,7 @@ public final class NpuRuntime {
     private static native String nativeGetDeviceInfo();
     private static native boolean nativeTest();
     private static native String nativeTestDetail();
+    private static native String nativeMlxQuantSelfTest();
     private static native String nativeAdd(float[] a, float[] b);
     private static native String nativeAddInto(float[] a, float[] b, float[] out, boolean verify);
     /** Deterministic matmul on HTP with CPU reference; data is generated in-service. */
