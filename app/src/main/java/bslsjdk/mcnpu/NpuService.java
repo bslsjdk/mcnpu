@@ -406,6 +406,7 @@ public final class NpuService extends Service {
     private static boolean holdsDeviceLock(String cmd) {
         if (cmd.startsWith("BINADD ")) return true;
         if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) return true;
+        if (cmd.startsWith("SUBMITBIN_NOISEBATCH ")) return true;
         if (cmd.startsWith("PREWARM8 ")) return true;
         if (cmd.equals("SMOKE")) return true;
         if (cmd.startsWith("EXEC_")) return true;
@@ -478,6 +479,15 @@ public final class NpuService extends Service {
                     }
                     continue;
                 }
+                if (cmd.startsWith("SUBMITBIN_NOISEBATCH ")) {
+                    try {
+                        handleNoiseBatch(in, out, cmd.substring(21), connQueueUs, readUs);
+                    } catch (Throwable t) {
+                        log("NOISEBATCH exception=" + t);
+                        writeLineUtf8(out, "ERR NOISEBATCH_EXCEPTION " + t.getClass().getSimpleName());
+                    }
+                    continue;
+                }
                 if (cmd.startsWith("SUBMITBIN_MATMUL8 ")) {
                     try {
                         handleSubmitBinMatMul8(in, out, cmd.substring(18), connQueueUs, readUs);
@@ -508,8 +518,14 @@ public final class NpuService extends Service {
                     // failure it now says why instead of a constant.
                     reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
+                } else if (cmd.startsWith("NOISEBATCH ")) {
+                    String v = cmd.substring(11).trim();
+                    noiseBatchEnabled = v.equalsIgnoreCase("on") || v.equalsIgnoreCase("1")
+                            || v.equalsIgnoreCase("true");
+                    reply = "OK NOISEBATCH_ENABLED " + noiseBatchEnabled;
+                    log("NOISEBATCH switch=" + noiseBatchEnabled);
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT_MATMUL8,SUBMITBIN_MATMUL8,PREWARM8,ADDPROBE,XFORM,PERLIN,BINADD max_elements=" + NpuRuntime.maxAddElements();
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE" + (noiseBatchEnabled ? ",NOISE_BATCH" : "") + " max_elements=" + NpuRuntime.maxAddElements();
                 } else if (cmd.equals("PERLIN_CAP")) {
                     reply = NpuRuntime.perlinCap();
                     log("EXEC PERLIN_CAP " + reply);
@@ -634,6 +650,67 @@ public final class NpuService extends Service {
      * readUs is how long we blocked waiting for this command's bytes. Both belong to
      * the caller's frame, so they are passed in rather than re-derived here.
      */
+
+    /**
+     * The noise kernel the mod asks for. On by default: it is a CPU evaluator today, so
+     * there is no device risk in leaving it enabled, and the assist path being live is
+     * what makes the protocol, the batching and the parity checks get exercised at all.
+     * The switch exists because the moment this becomes a real HTP kernel there has to
+     * be a way to turn it off without a rebuild.
+     */
+    private static volatile boolean noiseBatchEnabled = true;
+
+    private void handleNoiseBatch(InputStream in, OutputStream out, String payload,
+                                  long connQueueUs, long readUs) throws IOException {
+        if (!noiseBatchEnabled) {
+            writeLineUtf8(out, "ERR NOISEBATCH_DISABLED");
+            return;
+        }
+        // chunks=<c> channels=<k> points=<p> bytes=<n>
+        int chunks = 0, channels = 0, points = 0, bytes = 0;
+        for (String tok : payload.trim().split(" ")) {
+            int eq = tok.indexOf('=');
+            if (eq < 0) continue;
+            String k = tok.substring(0, eq), v = tok.substring(eq + 1);
+            try {
+                if (k.equals("chunks")) chunks = Integer.parseInt(v);
+                else if (k.equals("channels")) channels = Integer.parseInt(v);
+                else if (k.equals("points")) points = Integer.parseInt(v);
+                else if (k.equals("bytes")) bytes = Integer.parseInt(v);
+            } catch (Throwable ignored) { }
+        }
+        if (channels <= 0 || points <= 0 || bytes <= 0) {
+            writeLineUtf8(out, "ERR NOISEBATCH_FORMAT use: SUBMITBIN_NOISEBATCH chunks=c channels=k points=p bytes=n");
+            return;
+        }
+        if (bytes > MAX_NOISEBATCH_BYTES) {
+            writeLineUtf8(out, "ERR NOISEBATCH_TOO_LARGE bytes=" + bytes + " max=" + MAX_NOISEBATCH_BYTES);
+            return;
+        }
+        byte[] req = new byte[bytes];
+        readFully(in, req, bytes);
+        long t0 = System.nanoTime();
+        byte[] res = NpuRuntime.noiseBatch(req, points, channels);
+        long us = (System.nanoTime() - t0) / 1000;
+        if (res == null || res.length == 0) {
+            writeLineUtf8(out, "ERR NOISEBATCH_FAILED " + NpuRuntime.getLastNativeError());
+            return;
+        }
+        log("SUBMITBIN_NOISEBATCH chunks=" + chunks + " channels=" + channels
+                + " points=" + points + " bytes=" + bytes
+                + " conn_queue_us=" + connQueueUs + " read_us=" + readUs
+                + " service_us=" + us);
+        out.write(("OK NOISEBATCH channels=" + channels + " points=" + points
+                + " cbytes=" + res.length + " us=" + us
+                + " conn_queue_us=" + connQueueUs + " read_us=" + readUs + " binary=1\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        out.write(res, 0, res.length);
+        out.flush();
+    }
+
+    /** Body ceiling. A 16-chunk lattice is ~20 KB; this leaves headroom and still bounds it. */
+    private static final int MAX_NOISEBATCH_BYTES = 2 * 1024 * 1024;
+
     private void handleSubmitBinMatMul8(InputStream in, OutputStream out, String payload,
                                         long connQueueUs, long readUs) throws IOException {
         String[] p = payload.trim().split(" ");
