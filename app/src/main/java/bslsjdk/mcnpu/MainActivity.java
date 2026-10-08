@@ -15,6 +15,7 @@ import org.json.JSONObject;
 import android.widget.*;
 import android.text.method.ScrollingMovementMethod;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -78,6 +79,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
         findViewById(R.id.shareLog).setOnClickListener(v -> shareLog());
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshServiceLogIncremental());
+        findViewById(R.id.clearLog).setOnClickListener(v -> confirmClearLog());
         refreshLogOnly();
 
         ensureLocalNetworkPermission();
@@ -364,6 +366,53 @@ public final class MainActivity extends Activity {
             lastServiceLog = current;
             runOnUiThread(() -> { log.append(delta); trimVisibleLog(); scrollLogToBottom(); });
         }).start();
+    }
+
+    /**
+     * Confirm before wiping. Clearing is not undoable, and the button sits right
+     * below copy/share, so a mis-tap would throw away the very paste the user was
+     * about to make.
+     */
+    private void confirmClearLog() {
+        new AlertDialog.Builder(this)
+                .setTitle("清理日志")
+                .setMessage("仅清空界面与持久日志（UI SESSION LOG + PERSISTENT SERVICE LOG）。\n\n不会动 NPU 缓存（ADD LADDER / PERLIN N CACHE），清缓存是另一个独立动作。\n\n此操作不可撤销，确定继续？")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("清理", (d, which) -> clearLog())
+                .show();
+    }
+
+    /**
+     * Clears the display layer only: this session's UI buffer, the persistent
+     * mcnpu.log, and the TextView. Deliberately leaves files/qnnwork alone - the
+     * QNN ladder/perlin caches live there, and clearing them in the same action
+     * would make "was it the cache or the code?" impossible to answer later.
+     *
+     * The service writes mcnpu.log with openFileOutput(MODE_APPEND) per line, so
+     * truncating here is safe: its next write opens the file again from position 0.
+     *
+     * Known limit: the native ring buffer lives in the service process. It is
+     * drained into mcnpu.log periodically, so anything already flushed is cleared
+     * here, but a few lines still parked in that buffer can reappear on the next
+     * drain. Clearing those would need an IPC command to the service, which this
+     * change does not add.
+     */
+    private void clearLog() {
+        synchronized (sessionLog) {
+            sessionLog.setLength(0);
+        }
+        try (FileOutputStream out = openFileOutput("mcnpu.log", MODE_PRIVATE)) {
+            out.write(new byte[0]);
+        } catch (Throwable ignored) {
+            // A read-only or already-closed file just means the persistent part stays;
+            // the in-memory session log and the view are still cleared.
+        }
+        lastServiceLog = "";
+        if (log != null) {
+            log.setText("日志已清理。\n");
+            scrollLogToBottom();
+        }
+        Toast.makeText(this, "日志已清理（NPU 缓存未动）", Toast.LENGTH_SHORT).show();
     }
 
     private String readLocalLog() {

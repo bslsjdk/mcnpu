@@ -208,5 +208,13 @@
                 android:textSize="14sp" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/clearLog"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="清理日志"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+
     </LinearLayout>
 </ScrollView>
