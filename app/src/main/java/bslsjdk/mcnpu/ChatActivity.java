@@ -1,4 +1,4 @@
-package bslsjdk.mcnpu;
+package com.bslsjdk.mcnpu.next;
 
 import android.app.Activity;
 import android.os.Bundle;
