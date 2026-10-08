@@ -228,6 +228,60 @@ public final class NpuRuntime {
     private static native String nativePerlinBench(int n);
     private static native String nativeAddMax();
 
+    // ---- MC noise batch ----------------------------------------------------
+
+    /**
+     * Evaluates one batched noise request and returns the encoded reply body, or null
+     * on any failure (the reason is then in {@link #getLastNativeError}).
+     *
+     * The evaluator behind this is a CPU implementation of Minecraft's NormalNoise,
+     * written to match the mod's reference in NpuNoise.java. That is not the dream
+     * answer - the dream answer is the HTP doing it - but it is an answer that is
+     * correct by construction, and correctness is what the terrain gate actually
+     * gates on. Shipping it also finally gives the mod's assist path something to
+     * talk to, so the protocol, the batching and the parity checking all get exercised
+     * end to end before any of it depends on device maths.
+     */
+    public static synchronized byte[] noiseBatch(byte[] req, int points, int channels) {
+        if (!ready) return null;
+        try {
+            return nativeNoiseBatch(req, points, channels);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+    private static native byte[] nativeNoiseBatch(byte[] req, int points, int channels);
+
+    /** Whether the kernel exists at all, plus the cost of the last batch. */
+    public static String noiseBatchCap() {
+        if (!ready) return "ERR NOISE_BATCH NPU_NOT_READY";
+        try {
+            String r = nativeNoiseBatchCap();
+            return r == null ? "ERR NOISE_BATCH_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR NOISE_BATCH_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativeNoiseBatchCap();
+
+    /**
+     * Diffs the evaluator against an independently written derivation of the same
+     * channel. It cannot catch a constant both paths share, but it does catch the
+     * ordering and indexing mistakes - which is the failure class that shows up as
+     * plausible terrain rather than a crash.
+     */
+    public static String noiseBatchSelfTest() {
+        if (!ready) return "ERR NOISE_BATCH_SELFTEST NPU_NOT_READY";
+        try {
+            String r = nativeNoiseBatchSelfTest();
+            return r == null ? "ERR NOISE_BATCH_SELFTEST_NULL" : r;
+        } catch (Throwable t) {
+            return "ERR NOISE_BATCH_SELFTEST_EXCEPTION " + t.getClass().getSimpleName();
+        }
+    }
+    private static native String nativeNoiseBatchSelfTest();
+
+
     // ---- PERLIN regression gate -------------------------------------------
     // The noise graph is the only end-to-end case we have: it builds a real
     // graph, runs it on the HTP and diffs every point against an independent CPU
