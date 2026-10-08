@@ -1,4 +1,4 @@
-package bslsjdk.mcnpu;
+package com.bslsjdk.mcnpu.next;
 
 import android.app.AppOpsManager;
 import android.content.Context;
@@ -40,7 +40,7 @@ import java.util.ArrayList;
  */
 public final class NpuKeepAlive {
     private static final String TAG = "MCNPU";
-    private static final String PKG = "bslsjdk.mcnpu";
+    private static final String PKG = "com.bslsjdk.mcnpu.next";
     /** ROMs reset the standby bucket and appops on their own schedule; re-apply. */
     private static final long REAPPLY_MS = 10 * 60 * 1000L;
     /** Poll interval while waiting for the Shizuku permission to be granted. */
