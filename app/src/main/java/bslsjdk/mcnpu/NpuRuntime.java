@@ -127,6 +127,20 @@ public final class NpuRuntime {
     public static synchronized boolean smoke() { return ready && nativeTest(); }
 
     /**
+     * Drains - and therefore empties - the native diagnostic ring.
+     *
+     * The service normally drains it into the persistent log. The UI only calls
+     * this to drop anything still buffered, so "clear log" really does leave the
+     * native side empty instead of letting the next drain re-print stale lines.
+     */
+    public static synchronized String drainDiag() {
+        if (!ready) return "";
+        try { String s = nativeDrainDiag(); return s == null ? "" : s; }
+        catch (Throwable t) { return ""; }
+    }
+    private static native String nativeDrainDiag();
+
+    /**
      * Largest ADD length this device accepted.
      *
      * The 16384 default is not a device limit - it is only the largest size we had
