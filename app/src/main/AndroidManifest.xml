@@ -27,18 +27,16 @@
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <uses-native-library android:name="libdmabufheap.so" android:required="false" />
         <meta-data android:name="moe.shizuku.client.V3_SUPPORT" android:value="true" />
-        <activity android:name=".MainActivity" android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- AI chat prototype. Kept out of the launcher: MainActivity is the
-             diagnostic UI used to read and copy NPU logs. Enable it by adding
-             the MAIN/LAUNCHER intent-filter back to this activity. -->
+        <!-- AI chat prototype (ChatActivity): code kept, but NOT declared as
+             the launcher. MainActivity is the diagnostic UI used to read and
+             copy NPU logs, so it must be what the launcher opens. -->
         <activity android:name=".ChatActivity" android:exported="false"
-            android:enabled="false"
             android:windowSoftInputMode="adjustResize" />
         <receiver android:name=".NpuWakeReceiver" android:exported="true" android:enabled="true">
             <intent-filter>
