@@ -36,6 +36,7 @@
 #include "QnnTensor.h"
 #include "QnnTypes.h"
 #include "QnnOpDef.h"
+#include "ornith15_mlx_quant.h"
 
 #define TAG "MCNPU"
 #define HTP_ID 6
@@ -3985,5 +3986,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeXform(J
     if(n<=0) return e->NewStringUTF("ERR SIZE");
     if(n>65536) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=65536");
     return e->NewStringUTF(runBatchXform((uint32_t)n,(int)op).c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMlxQuantSelfTest(JNIEnv* e,jclass){
+    std::string r;
+    ornith15::MlxQuantSelfTest(&r);
+    return e->NewStringUTF(r.c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
