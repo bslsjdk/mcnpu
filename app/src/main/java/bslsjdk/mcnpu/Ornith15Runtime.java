@@ -74,6 +74,7 @@ public final class Ornith15Runtime {
     }
 
     private static native String nativeLoad(String modelPath, long contextTokens);
-    private static native String nativeGenerate(String prompt, int maxTokens);\n    private static native String nativeInfo();
+    private static native String nativeGenerate(String prompt, int maxTokens);
+    private static native String nativeInfo();
     private static native void nativeUnload();
 }
