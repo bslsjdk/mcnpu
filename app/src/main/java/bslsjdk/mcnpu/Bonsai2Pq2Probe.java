@@ -1,4 +1,4 @@
-package bslsjdk.mcnpu;
+package com.bslsjdk.mcnpu.next;
 
 /**
  * Minimal PQ2_0 format probe. This does not load model weights or allocate a
