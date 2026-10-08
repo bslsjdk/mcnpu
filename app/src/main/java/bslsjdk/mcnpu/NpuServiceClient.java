@@ -1,4 +1,4 @@
-package com.bslsjdk.mcnpu.next;
+package bslsjdk.mcnpu;
 
 import java.io.*;
 import java.net.InetAddress;

@@ -36,7 +36,6 @@
 #include "QnnTensor.h"
 #include "QnnTypes.h"
 #include "QnnOpDef.h"
-#include "ornith15_mlx_quant.h"
 
 #define TAG "MCNPU"
 #define HTP_ID 6
@@ -1703,7 +1702,7 @@ void shutdownRuntime(){
 
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring jq,jstring jw){
+extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeInit(JNIEnv* e,jclass,jstring jq,jstring jw){
     if(!jq || !jw) return JNI_FALSE;
     const char* p=e->GetStringUTFChars(jq,nullptr);
     const char* w=e->GetStringUTFChars(jw,nullptr);
@@ -1716,7 +1715,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nat
 // Drains the native diagnostic ring. Everything logged with I() since the last
 // drain comes back as one block, so the app log shows what the native side
 // actually did instead of only what the Java wrapper asked it to do.
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeDrainDiag(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeDrainDiag(JNIEnv* e,jclass){
     std::string out;
     {
         std::lock_guard<std::mutex> lk(gDiagMutex);
@@ -1725,10 +1724,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nati
     }
     return e->NewStringUTF(out.c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetDeviceInfo(JNIEnv* e,jclass){
     return e->NewStringUTF((g.ready?g.info:deepReport()).c_str());
 }
-extern "C" JNIEXPORT jboolean JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeTest(JNIEnv*,jclass){
+extern "C" JNIEXPORT jboolean JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTest(JNIEnv*,jclass){
     float a[16],b[16];
     for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
     return runAdd(a,b,16).rfind("OK ",0)==0?JNI_TRUE:JNI_FALSE;
@@ -1737,14 +1736,14 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nat
 // The boolean version threw away the reason: every failure became the same
 // "ERR HTP_GRAPH_EXECUTE" at the client, which is why a service that connects
 // fine could still fail its smoke test with nothing to go on.
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeTestDetail(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeTestDetail(JNIEnv* e,jclass){
     float a[16],b[16];
     for(int i=0;i<16;i++){a[i]=(float)i;b[i]=2.f;}
     std::string r=runAdd(a,b,16);
     I("SMOKE DETAIL %s",r.c_str());
     return e->NewStringUTF(r.c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeAdd(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAdd(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb){
     if(!ja||!jb)return e->NewStringUTF("ERR NULL");
     jsize n=e->GetArrayLength(ja);
     if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
@@ -1762,7 +1761,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nati
     }
     return e->NewStringUTF(r.c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeAddInto(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb,jfloatArray jo,jboolean verify){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddInto(JNIEnv* e,jclass,jfloatArray ja,jfloatArray jb,jfloatArray jo,jboolean verify){
     if(!ja||!jb||!jo)return e->NewStringUTF("ERR NULL");
     jsize n=e->GetArrayLength(ja);
     if(n<=0||n!=e->GetArrayLength(jb))return e->NewStringUTF("ERR SIZE");
@@ -1782,7 +1781,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nati
     }
     return e->NewStringUTF(r.c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeAddProbe(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddProbe(JNIEnv* e,jclass){
     if(!g.ready || !g.api || !g.context) return e->NewStringUTF("ERR NPU_NOT_READY");
     return e->NewStringUTF(probeAddLadder().c_str());
 }
@@ -1790,7 +1789,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nati
 // Set by the service as soon as a real request arrives. The probe yields the
 // device between candidates, so an in-flight probe stops at the next one instead
 // of making the request wait for a diagnostic.
-extern "C" JNIEXPORT void JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeAbortProbe(JNIEnv*,jclass){
+extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAbortProbe(JNIEnv*,jclass){
     g_probeAbort.store(true);
 }
 // Drop every cached graph and rebuild the context.
@@ -1801,7 +1800,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeA
 // that pays a full context teardown - every cached graph, including the warmup
 // graph the hot path depends on, is destroyed underneath it. Flushing when the
 // diagnostic ends hands production a clean cache instead of a landmine.
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeFlushGraphs(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeFlushGraphs(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     if(!g.api) return e->NewStringUTF("ERR not initialised");
     const int before=g.graphCount;
@@ -1903,7 +1902,7 @@ std::string runOpProbe(){
          +"\nOPPROBE_ALL "+all;
 }
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeOpProbe(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeOpProbe(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     std::string r=runOpProbe();
     I("OPPROBE %s",r.c_str());
@@ -3907,50 +3906,50 @@ std::string runPerlinBench(uint32_t n){
          + " build=" + kBuildId;
 }
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativePerlinCap(JNIEnv* e, jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinCap(JNIEnv* e, jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     std::string r = runPerlinCap();
     I("PERLIN_CAP %s", r.c_str());
     return e->NewStringUTF(r.c_str());
 }
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativePerlinBench(JNIEnv* e, jclass, jint n){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativePerlinBench(JNIEnv* e, jclass, jint n){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     std::string r = runPerlinBench((uint32_t)n);
     I("PERLIN %s", r.c_str());
     return e->NewStringUTF(r.c_str());
 }
 
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeAddMax(JNIEnv* e,jclass){
     std::lock_guard<std::mutex> lock(gRuntimeMutex);
     return e->NewStringUTF(std::to_string(g_addLadderMax).c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMul(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
                 + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,false).c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeMatMulFp16(JNIEnv* e,jclass,jint m,jint k,jint n){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulFp16(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
                 + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMul((uint32_t)m,(uint32_t)k,(uint32_t)n,true).c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeMatMulInt8(JNIEnv* e,jclass,jint m,jint k,jint n){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8(JNIEnv* e,jclass,jint m,jint k,jint n){
     if(m<=0||k<=0||n<=0) return e->NewStringUTF("ERR SIZE");
     if(!mmSizeAllowed((uint32_t)m)||!mmSizeAllowed((uint32_t)k)||!mmSizeAllowed((uint32_t)n))
         return e->NewStringUTF((std::string("ERR SIZE_UNSUPPORTED allowed=1..")
                 + std::to_string((unsigned)MM_BUCKET_MAX)).c_str());
     return e->NewStringUTF(runMatMulInt8((uint32_t)m,(uint32_t)k,(uint32_t)n).c_str());
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeGetLastError(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeGetLastError(JNIEnv* e,jclass){
     return e->NewStringUTF(g_lastNativeError.c_str());
 }
 
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
+extern "C" JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeMatMulInt8Buf(JNIEnv* e,jclass,jbyteArray ja,jbyteArray jb,jint m,jint k,jint n){
     // Every rejection below must set g_lastNativeError. These paths used to return
     // nullptr silently, so the service replied "ERR BIN_SUBMIT_FAILED " with an empty
     // reason and Minecraft could only print "see logcat". That is why 47 consecutive
@@ -3982,15 +3981,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_n
     e->SetByteArrayRegion(out,0,total,tmp.data());
     return out;
 }
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeXform(JNIEnv* e,jclass,jint op,jint n){
+extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeXform(JNIEnv* e,jclass,jint op,jint n){
     if(n<=0) return e->NewStringUTF("ERR SIZE");
     if(n>65536) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=65536");
     return e->NewStringUTF(runBatchXform((uint32_t)n,(int)op).c_str());
 }
-
-extern "C" JNIEXPORT jstring JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeMlxQuantSelfTest(JNIEnv* e,jclass){
-    std::string r;
-    ornith15::MlxQuantSelfTest(&r);
-    return e->NewStringUTF(r.c_str());
-}
-extern "C" JNIEXPORT void JNICALL Java_com_bslsjdk_mcnpu_next_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
+extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}

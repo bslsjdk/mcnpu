@@ -1,4 +1,4 @@
-package com.bslsjdk.mcnpu.next;
+package bslsjdk.mcnpu;
 
 import android.app.AlertDialog;
 import android.app.Activity;
@@ -15,7 +15,6 @@ import org.json.JSONObject;
 import android.widget.*;
 import android.text.method.ScrollingMovementMethod;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -79,7 +78,6 @@ public final class MainActivity extends Activity {
         findViewById(R.id.copyLog).setOnClickListener(v -> copyLog());
         findViewById(R.id.shareLog).setOnClickListener(v -> shareLog());
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshServiceLogIncremental());
-        findViewById(R.id.clearLog).setOnClickListener(v -> confirmClearLog());
         refreshLogOnly();
 
         ensureLocalNetworkPermission();
@@ -450,76 +448,6 @@ public final class MainActivity extends Activity {
                 runOnUiThread(() -> Toast.makeText(this, "分享日志失败: " + t.getClass().getSimpleName(), Toast.LENGTH_SHORT).show());
             }
         }).start();
-    }
-
-    /**
-     * Asks before wiping, because the log is the only record of a run and there is
-     * no undo. A misplaced tap here would otherwise delete the evidence for
-     * whatever the user was about to paste.
-     */
-    private void confirmClearLog() {
-        new AlertDialog.Builder(this)
-                .setTitle("清理日志")
-                .setMessage("清空屏幕日志与 UI 会话日志，并清空 mcnpu.log。\n\n不会动 files/qnnwork 下的 QNN 缓存（ADD LADDER / PERLIN N），清缓存是另一个独立动作。\n\n确定继续？")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("清理", (d, w) -> clearLog())
-                .show();
-    }
-
-    /**
-     * Clears what the screen shows, and only that.
-     *
-     * Deliberately does not touch files/qnnwork. The ADD ladder and Perlin size
-     * caches live there; dropping them would turn the next startup back into a
-     * full re-measure, which is the thing the cache was added to avoid and would
-     * also make the 8ms/20ms question impossible to reproduce. Clearing the cache
-     * is a separate action that needs its own evidence.
-     */
-    private void clearLog() {
-        final String buildTag = lastBuildTag();
-        synchronized (sessionLog) {
-            sessionLog.setLength(0);
-        }
-        boolean fileCleared;
-        try (FileOutputStream out = openFileOutput("mcnpu.log", MODE_PRIVATE)) {
-            fileCleared = true;
-        } catch (Throwable t) {
-            fileCleared = false;
-        }
-        // Drop whatever is still buffered native-side, so the next drain cannot
-        // re-add lines the user just asked to remove.
-        try { NpuRuntime.drainDiag(); } catch (Throwable ignored) { }
-        lastServiceLog = "";
-        if (log != null) log.setText("");
-        appendLog("日志已清理：UI 会话日志 + mcnpu.log"
-                + (fileCleared ? "" : "（mcnpu.log 清空失败）")
-                + "；files/qnnwork 的 QNN 缓存未改动");
-        // The persistent header lines are not decoration - build/STATUS/AUTH are
-        // what every pasted report starts with, so put them straight back.
-        if (!buildTag.isEmpty()) appendRawLogDelta("\nbuild=" + buildTag + "\n");
-        appendRawLogDelta("\nSTATUS: " + NpuServiceClient.request("STATUS")
-                + "\nAUTH: " + ShizukuHelper.result() + "\n");
-        refreshStatus();
-    }
-
-    /**
-     * The build tag of the package that produced the log, read before it is wiped.
-     *
-     * It is parsed out of the log rather than compiled in, so this cannot drift
-     * from what the running binary actually reports.
-     */
-    private String lastBuildTag() {
-        String found = "";
-        for (String line : readLocalLog().split("\n")) {
-            int i = line.indexOf("build=");
-            if (i >= 0) {
-                String v = line.substring(i + 6).trim();
-                int sp = v.indexOf(' ');
-                if (sp > 0) v = v.substring(0, sp);
-                if (!v.isEmpty()) found = v;
-            }
-        }
-        return found;
     }
 
     private void appendRawLogDelta(String delta) {

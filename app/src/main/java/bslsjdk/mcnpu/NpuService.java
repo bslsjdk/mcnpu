@@ -1,4 +1,4 @@
-package com.bslsjdk.mcnpu.next;
+package bslsjdk.mcnpu;
 
 import android.app.*;
 import android.content.Intent;

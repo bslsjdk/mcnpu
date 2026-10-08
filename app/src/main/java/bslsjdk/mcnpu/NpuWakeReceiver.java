@@ -1,4 +1,4 @@
-package com.bslsjdk.mcnpu.next;
+package bslsjdk.mcnpu;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -13,10 +13,10 @@ import android.os.Build;
  * this path is a normal app start.
  *
  * Trigger it manually with:
- *   adb shell am broadcast -a com.bslsjdk.mcnpu.next.action.WAKE -n com.bslsjdk.mcnpu.next/.NpuWakeReceiver
+ *   adb shell am broadcast -a bslsjdk.mcnpu.action.WAKE -n bslsjdk.mcnpu/.NpuWakeReceiver
  */
 public final class NpuWakeReceiver extends BroadcastReceiver {
-    public static final String ACTION_WAKE = "com.bslsjdk.mcnpu.next.action.WAKE";
+    public static final String ACTION_WAKE = "bslsjdk.mcnpu.action.WAKE";
 
     @Override public void onReceive(Context ctx, Intent intent) {
         if (intent == null || !ACTION_WAKE.equals(intent.getAction())) return;
