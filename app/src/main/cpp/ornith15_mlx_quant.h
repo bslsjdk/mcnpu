@@ -22,4 +22,7 @@ bool MlxDequantizeRow(const uint32_t* packed, const float* scales,
                       const MlxQuantSpec& spec, std::vector<float>* out,
                       std::string* error);
 
+// Deterministic CPU-only regression for the MLX affine decoder. No model data is read.
+bool MlxQuantSelfTest(std::string* report);
+
 } // namespace ornith15
