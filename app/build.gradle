@@ -17,7 +17,7 @@ android {
         //
         // applicationId and namespace are allowed to differ - one is the install
         // identity, the other the code identity - so this change is self-contained.
-        applicationId "bslsjdk.mcnpu.dev"
+        applicationId "com.bslsjdk.mcnpu.next"
         minSdk 30
         targetSdk 35
         // Bumped every CI build so the APK always installs as an upgrade instead of
@@ -25,8 +25,8 @@ android {
         // monotonic per repo, so it is strictly increasing already: no need to keep a
         // counter anywhere in the tree. Local builds (no env) fall back to the same
         // values as before so nothing else has to know about this.
-        versionCode ((System.getenv("GITHUB_RUN_NUMBER") ?: "3") as Integer)
-        versionName "0.2.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
+        versionCode (1000 + ((System.getenv("GITHUB_RUN_NUMBER") ?: "1") as Integer))
+        versionName "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "1"}"
         externalNativeBuild {
             cmake {
                 arguments "-DQNN_INC=${System.getenv("QNN_INC") ?: "${rootDir}/qnn_inc"}", "-DANDROID_PLATFORM=android-35"
