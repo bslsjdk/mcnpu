@@ -508,11 +508,8 @@ public final class NpuService extends Service {
                     // failure it now says why instead of a constant.
                     reply = NpuRuntime.smokeDetail();
                     log("EXEC SMOKE result=" + reply + " elapsed_ms=" + ((System.nanoTime() - t) / 1_000_000.0));
-                } else if (cmd.equals("BONSAI2_CAPS")) {
-                    // Kernel-level capability only. This deliberately does not claim PQ2 model support.
-                    reply = "OK BONSAI2_NPU/1 mode=KERNEL_BASELINE backend=HTP_V73 matmul=int8 binary=SUBMITBIN_MATMUL8 pq2=NOT_INTEGRATED max_matrix_bytes=67108864 memory_ceiling_bytes=4294967296";
                 } else if (cmd.equals("CAPABILITIES")) {
-                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT8,SUBMITBIN8,PREWARM8,ADDPROBE,BONSAI2_CAPS max_elements=" + NpuRuntime.maxAddElements();
+                    reply = "OK MCNPU/1 backend=HTP_V73 ops=ADD,MATMUL,MATMUL16,MATMUL8,SUBMIT_MATMUL8,SUBMITBIN_MATMUL8,PREWARM8,ADDPROBE,XFORM,PERLIN,BINADD max_elements=" + NpuRuntime.maxAddElements();
                 } else if (cmd.equals("PERLIN_CAP")) {
                     reply = NpuRuntime.perlinCap();
                     log("EXEC PERLIN_CAP " + reply);

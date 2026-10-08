@@ -426,26 +426,6 @@ public final class NpuRuntime {
         return nativeMatMulInt8Buf(a, b, m, k, n);
     }
 
-    /**
-     * Bonsai 2 kernel-baseline descriptor. This is deliberately metadata-only:
-     * it tells the external runtime which MCNPU transport is available without
-     * loading or copying the 27B model into this process.
-     */
-    /** Synthetic page-codec probe. Does not allocate the requested full KV cache. */
-    public static String ornith15KvProbe(int tokens, int mode) {
-        return Ornith15KvProbe.probe(tokens, mode);
-    }
-
-    /** Runs F16/Q8Q8/Q8Q5/Q8Q4 probes for one requested context size. */
-    public static String ornith15KvProbeAll(int tokens) {
-        return Ornith15KvProbe.probeAll(tokens);
-    }
-
-    public static String bonsai2Capabilities() {
-        return "OK BONSAI2_NPU/1 mode=KERNEL_BASELINE backend=HTP_V73 "
-                + "matmul=int8 binary=SUBMITBIN_MATMUL8 pq2=NOT_INTEGRATED "
-                + "memory_ceiling_bytes=4294967296";
-    }
     public static synchronized void shutdown() {
         if (!ready) return;
         nativeShutdown();
@@ -485,7 +465,5 @@ public final class NpuRuntime {
     private static native String nativeMatMulInt8(int m, int k, int n);
     /** Returns [4-byte LE scaleC][m*n int8 result], or null on failure. */
     private static native byte[] nativeMatMulInt8Buf(byte[] a, byte[] b, int m, int k, int n);
-    private static native String nativeBonsai2Pq2DecodeProbe();
-    private static native String nativeBonsai2Pq2HadamardProbe();
     private static native void nativeShutdown();
 }
