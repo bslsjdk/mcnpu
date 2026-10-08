@@ -2,6 +2,7 @@
 #include <dlfcn.h>
 #include <android/log.h>
 #include <chrono>
+#include <thread>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -3534,6 +3535,14 @@ static double perlinRef(double x, double y, double z, const int* perm){
                            lerp(u, grad(perm[AB+1],x,y-1,z-1), grad(perm[BB+1],x-1,y-1,z-1))));
 }
 
+// Formats a long long series for the log. exec16 and gaps are read as a
+// curve, not as one number, so they need to be printable in one line.
+static std::string joinSeries(const long long* v, int n){
+    std::string s; char b[32];
+    for(int i=0;i<n;i++){ if(i) s+=","; snprintf(b,sizeof b,"%lld",(long long)v[i]); s+=b; }
+    return s;
+}
+
 // Build, run, and compare against the reference. n is capped by the element
 // budget: path A writes 3 inputs plus one output per point.
 std::string runPerlinBench(uint32_t n){
@@ -3726,17 +3735,68 @@ std::string runPerlinBench(uint32_t n){
     // Three back-to-back executes on identical buffers. If the first is slow and
     // the rest are fast the cost is one-time (cold context / first DMA), not the
     // kernel - and batching or warming it is the fix rather than rewriting ops.
+    // 16 reps replaces 3: three reps totalled about 60 ms of device load, while
+    // the historical 8.3 ms run had roughly 380 ms of ADD ladder work in front
+    // of it. 16 x 20 ms is about 320 ms, the first rep count that can reach the
+    // load the old path had. Pure measurement - the graph, the buffers and the
+    // graphExecute call are untouched.
+    static const int REPS = 16;
+    auto runSeries = [&](long long* times, long long* gaps)->Qnn_ErrorHandle_t{
+        Qnn_ErrorHandle_t r = QNN_SUCCESS;
+        auto prevEnd = std::chrono::steady_clock::now();
+        for(int rep = 0; rep < REPS; rep++){
+            auto st = std::chrono::steady_clock::now();
+            // gap = idle time between the end of one execute and the start of the
+            // next. Large gaps give the DSP time to clock down, so a rising curve
+            // alongside large gaps means the clock is dropping between calls.
+            if(rep > 0 && gaps)
+                gaps[rep-1] = std::chrono::duration_cast<std::chrono::microseconds>(st - prevEnd).count();
+            if(G->fullPath)
+                r = f.graphExecute(G->graph, inList.data(), (uint32_t)inList.size(),
+                                   &eo, 1, nullptr, nullptr);
+            else
+                r = f.graphExecute(G->graph, in, 11, &eo, 1, nullptr, nullptr);
+            times[rep] = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - st).count();
+            prevEnd = std::chrono::steady_clock::now();
+            if(r != QNN_SUCCESS) break;
+        }
+        return r;
+    };
+
     long long execUs[3] = {0,0,0};
-    for(int rep = 0; rep < 3; rep++){
-        auto te = std::chrono::steady_clock::now();
-        if(G->fullPath)
-            rc = f.graphExecute(G->graph, inList.data(), (uint32_t)inList.size(),
-                                &eo, 1, nullptr, nullptr);
-        else
-            rc = f.graphExecute(G->graph, in, 11, &eo, 1, nullptr, nullptr);
-        execUs[rep] = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now() - te).count();
-        if(rc != QNN_SUCCESS) break;
+    {
+        // A: cold, no warmup, straight into the series.
+        long long tA[REPS] = {0}, gA[REPS-1] = {0};
+        Qnn_ErrorHandle_t rA = runSeries(tA, gA);
+        execUs[0]=tA[0]; execUs[1]=tA[1]; execUs[2]=tA[2];
+        rc = rA;
+        I("EXPERIMENT A exec16=[%s] gaps=[%s]",
+          joinSeries(tA, REPS).c_str(), joinSeries(gA, REPS-1).c_str());
+
+        if(rA == QNN_SUCCESS){
+            // D: immediately after A, no sleep and no warmup. Distinguishes
+            // "one 320 ms burst already ramps the clock" from "an external
+            // warmup is required". A flat A plus a converging D means the load
+            // itself did it.
+            long long tD[REPS] = {0}, gD[REPS-1] = {0};
+            Qnn_ErrorHandle_t rD = runSeries(tD, gD);
+            if(rD != QNN_SUCCESS) rc = rD;
+            I("EXPERIMENT D exec16=[%s] gaps=[%s]",
+              joinSeries(tD, REPS).c_str(), joinSeries(gD, REPS-1).c_str());
+
+            // C: five seconds of true idle, then the same series again. This is
+            // the reversibility check - if the clock really is the variable, an
+            // idle period must walk the time back up. If C stays fast, the
+            // difference was a one-time cold state, not the clock.
+            // Plain sleep: no native call, no JNI call, no HTP work in between.
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            long long tC[REPS] = {0}, gC[REPS-1] = {0};
+            Qnn_ErrorHandle_t rC = runSeries(tC, gC);
+            I("EXPERIMENT C exec16=[%s] gaps=[%s] sleep_us=5000000",
+              joinSeries(tC, REPS).c_str(), joinSeries(gC, REPS-1).c_str());
+            if(rC != QNN_SUCCESS) rc = rC;
+        }
     }
     auto us = setupUs + execUs[0];
     I("PERLIN TIMING setup_us=%lld exec_us=%lld/%lld/%lld graphs=%d/%d",
