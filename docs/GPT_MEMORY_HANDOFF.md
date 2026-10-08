@@ -727,3 +727,55 @@ Ornith-1.5-9B-MLX-4bit/model.safetensors -> Android -> MLX 4-bit -> QNN HTP/NPU 
 ---
 *文件性质：GPT 长期接班记忆 / 项目状态快照*
 *最后更新：2026-10-08*
+
+# 32. 2026-10-08 MLX native runtime continuation
+
+本轮继续直接推进，不重新讨论方向。
+
+已实际落库：
+- app/src/main/cpp/ornith15_safetensors.cpp
+- app/src/main/cpp/ornith15_safetensors.h
+- app/src/main/cpp/ornith15_mlx_quant.cpp
+- app/src/main/cpp/ornith15_mlx_quant.h
+- CMakeLists.txt 已把两个 native source 加入 mcnpu target。
+
+Safetensors reader 当前采用 bounded header + O_RDONLY/O_CLOEXEC + pread：
+- header 最大 16 MiB；
+- 不整包 mmap/copy 4.69GB；
+- tensor data_offsets 转成绝对文件偏移；
+- 所有读取做 bounds check；
+- tensor 数量限制 20000；
+- 当前 reader 只保存 header 元数据和 tensor 索引，适合后续 layer streaming。
+
+MLX affine quant CPU golden path：
+- packed weight 为 uint32；
+- 4-bit 时每个 uint32 packed 8 个 logical values；
+- 低位到高位解包；
+- 每 group 使用 scale + bias；
+- dequant = q * scale + bias；
+- 当前默认 group_size=64、bits=4；
+- affine 模式现在强制要求 biases 非空，避免把缺失 bias 静默当成合法模型。
+
+依据官方 MLX 文档，quantized_matmul 使用 uint32 packed quantized matrix，并按 group_size 使用 scale/bias；affine 4-bit 默认 group size 为 64。citeturn0search0turn0search1
+
+重要验证状态：
+- CMake 此前一次修改因为 JS 字符串插值错误失败，已经重新修正，${LLAMA_CPP_SRC} 等 CMake 变量已正确转义。
+- GitHub Actions 已针对最新提交自动启动 Android build，目前最新一次显示为 queued；上一轮 native quant build 显示 in_progress。不要在 Actions 完成前声称编译通过。
+- 当前仍然没有把 MLX executor 接到真实 generation，符合“probe/decoder 正确前不能冒充推理”的原则。
+
+下一步严格执行：
+1. 等并检查最新 Actions 编译结果；
+2. 修掉任何 C++ 编译问题；
+3. 增加 CPU golden 的确定性小向量测试；
+4. 增加真实 Safetensors tensor metadata/布局诊断入口；
+5. 根据真实 tensor shape 确认 weight/scales/biases companion tensor 的对应关系；
+6. 实现按 layer 的 streaming weight reader；
+7. 再接 HTP MATMUL，不允许跳过 CPU golden；
+8. 最后才进入完整 decoder / prefill / decode。
+
+本轮新增的硬性代码检查：
+- 不允许 affine quant 在 biases 缺失时继续运行；
+- 不允许为了方便而一次性加载完整模型；
+- CMake 保留旧 llama.cpp/GGUF baseline；
+- MLX native path 与 GGUF path 继续分离。
+
