@@ -425,6 +425,164 @@ Operit 是成熟的 Android AI Agent/AI chat 项目，公开仓库包含任务�
 https://github.com/AAswordman/Operit
 
 
+# 25. 论文研究与“提升性能/智商”长期路线
+
+本项目不只研究底层 NPU 性能，也要持续吸收公开论文中能在 Android 单模型运行时落地的推理、记忆、检索、验证和推测执行思想。
+
+原则：
+- 论文只作为研究依据，不把论文宣传数字直接当成 MCNPU 实测结果。
+- 优先选择无需重新训练 Ornith 模型、或者可以作为 runtime/orchestrator 加在模型外部的方法。
+- 所有新机制必须服从运行时 RAM <= 4 GiB。
+- 所有新机制必须有 A/B benchmark，不能因为“论文说有效”就直接加入主路径。
+- 优先保证模型正确性，再增加 test-time compute。
+- 论文方法与 Operit 的成熟 Agent 思路可以组合，但 MCNPU 仍保持自己的架构。
+
+## 第一优先级：长上下文与 KV
+
+### KVQuant
+https://proceedings.neurips.cc/paper_files/paper/2024/hash/028fcbcf85435d39a40c4d61b42c99a4-Abstract-Conference.html
+
+重点：低比特 KV cache、按通道 Key 量化、Pre-RoPE Key quantization、非均匀 KV datatype、稠密+稀疏 outlier 处理。论文报告 3-bit KV 在其测试模型上保持很小的困惑度损失。citeturn0search7
+
+对 MCNPU 的意义：针对我们 64K/128K/262K 的核心内存瓶颈。优先做成独立 KV codec，不和模型权重 decoder 耦合；先做 64K gate 上 FP16 vs INT8/INT4/3-bit A/B。
+
+### GEAR
+https://proceedings.mlr.press/v262/kang24a.html
+
+重点：量化 + 低秩误差 + 稀疏 outlier 误差补偿。论文报告在其测试环境下可显著降低 KV memory，并在 2-bit 下保持接近 FP16 的表现。citeturn0search1
+
+对 MCNPU 的意义：作为 KVQuant 之外的第二套实验 codec；如果普通低比特 KV 不够，再研究误差补偿。
+
+### RocketKV
+https://proceedings.mlr.press/v267/behnam25a.html
+
+重点：两阶段 KV 压缩，先粗粒度 eviction，再对保留内容做稀疏 top-k attention。论文报告最高可达到很高的压缩比，但实际效果依任务而异。citeturn0search4
+
+对 MCNPU 的意义：适合作为 128K/262K 实验路线；不能默认永久丢 KV，必须可回退。
+
+### SpeCache
+https://proceedings.mlr.press/v267/jie25a.html
+
+重点：完整 KV 可放在 CPU memory 中，再用低精度副本预测当前 decode 需要的 KV，并提前 prefetch。论文在 GPU 场景报告最高 10x KV compression 的实验结果。citeturn0search2
+
+对 Android 的改造方向：研究“低精度热 KV 索引 + 冷 KV 流式访问 + 异步预取”，但整个方案仍必须服从 RSS < 4 GiB。
+
+### FreeKV
+https://arxiv.org/abs/2505.13109
+
+重点：speculative retrieval、混合 CPU/GPU layout、double-buffered streaming。论文报告其测试环境中最高 13x 相对 SOTA KV retrieval speedup。citeturn0academia15
+
+对 MCNPU 的意义：适合研究低精度热区 + 冷区流式访问 + 双缓冲；Android 版本需要改成 CPU/HTP 友好的 buffer pipeline。
+
+## 第二优先级：推测执行与解码加速
+
+### QuantSpec
+https://proceedings.mlr.press/v267/tiwari25b.html
+
+重点：自推测解码 + 分层 4-bit KV + 4-bit weights；论文报告 >90% acceptance 和最高约 2.5x end-to-end speedup。citeturn0search5
+
+对 MCNPU 的意义：适合单模型 + 4GB 约束，可研究低精度 draft -> 高精度 verify，避免常驻第二个完整 draft model。
+
+### QSpec
+https://aclanthology.org/2025.emnlp-main.240/
+
+重点：低精度联合量化做快速 drafting，高精度 weight-only quantization 做 verification，论文报告最高约 1.64x speedup 且质量不降。citeturn0search3
+
+对 MCNPU 的意义：可与 MLX 4-bit 权重流式解码结合研究，重点避免额外完整 draft model。
+
+### RAPID
+https://proceedings.mlr.press/v267/chen25s.html
+
+重点：RAG + speculative decoding，用缩短后的检索上下文做 draft；论文在其 LLaMA/Qwen 实验中报告长上下文质量提升和超过 2x speedup。citeturn0search0
+
+对 MCNPU 的意义：与 Operit 的记忆/工具/检索思路天然兼容，可把“长上下文全部塞进模型”变成“检索相关片段 + 小上下文 draft + target verify”。
+
+### KV-Runahead
+https://proceedings.mlr.press/v235/cho24e.html
+
+重点：并行填充 KV cache，以降低 prefill/TTFT。citeturn0search8
+
+对 MCNPU 的意义：研究 Android CPU + HTP 的 prefill pipeline。
+
+## 第三优先级：提高“智商”的 test-time reasoning
+
+### ReAct
+https://arxiv.org/abs/2210.03629
+
+重点：把 reasoning 与 action 交错，让模型在需要时调用外部信息/工具。论文报告在 QA、事实验证和交互任务上的收益。citeturn1academia24
+
+对 MCNPU 的意义：与 Operit Agent 思路高度互补。可以做轻量任务状态机：reason -> tool/retrieval -> observe -> reason -> answer，不需要修改 Ornith 权重。
+
+### Self-RAG
+https://arxiv.org/abs/2310.11511
+
+重点：让模型自适应决定是否检索，并对检索内容和自身生成进行反思。论文在 7B/13B 模型上报告了 QA、推理和事实性收益。citeturn1academia26
+
+对 MCNPU 的意义：可以把检索从每次强制执行改成按需执行。若 Ornith 没有经过 Self-RAG 专门训练，第一版应采用外部 controller，而不是假设它理解特殊 reflection tokens。
+
+### Process Reward / Verifier
+相关研究：Rewarding Progress、test-time scaling verifier survey、Hybrid Test-Time Scaling。citeturn1search6turn1search1turn1search27
+
+核心思路：生成多个候选，对中间步骤或最终答案评分，根据 verifier 选择、继续或停止，对难题增加 compute，对简单题少花 compute。
+
+对 MCNPU 的意义：这是“智商提升”最现实的 runtime 路线之一，因为不必重新训练 9B 主模型。但不要无限 Best-of-N。研究表明，不可靠的 reward/verifier 在 N 增大时可能出现 reward hacking，性能甚至下降。citeturn1search0
+
+因此采用自适应 compute budget + verifier + early stop，而不是固定暴力采样。
+
+### SSR / Step-level speculative reasoning
+https://arxiv.org/abs/2505.15340
+
+重点：选择少量有希望的 reasoning strategy，并用 step-level speculative decoding 加速；其论文在数学基准上报告同时改善准确率与计算量。citeturn0academia14
+
+对 MCNPU 的意义：作为未来困难问题模式的实验控制器，不默认开启，避免多分支搜索把 RAM 和延迟炸掉。
+
+## 第四优先级：自适应而不是无脑堆算力
+
+研究表明 test-time scaling 并不保证跨任务/跨语言稳定收益；在受限 FLOPs 下，一些方法与普通 Best-of-N 的差距会明显缩小。citeturn1academia28
+
+因此最终采用：
+- easy task -> normal decode
+- medium task -> retrieval/tool check
+- hard task -> limited multi-path reasoning + verifier
+- very hard task -> larger budget only when justified
+
+而不是每条消息都启动昂贵的多分支思考。
+
+# 26. 论文落地优先级
+
+当前不直接把所有论文塞进 runtime。推荐实施顺序：
+
+1. CPU golden model 正确
+2. MLX 4-bit layer streaming
+3. HTP MATMUL
+4. KV codec abstraction
+5. INT8/INT4 KV A/B
+6. KVQuant/GEAR 风格实验
+7. adaptive retrieval + local memory
+8. ReAct/Self-RAG 风格外部 controller
+9. 轻量 verifier
+10. adaptive test-time compute
+11. QuantSpec/QSpec speculative decode
+12. RAPID/FreeKV/SpeCache 类长上下文优化
+13. 最终 64K -> 128K -> 262144 压测
+
+任何论文机制进入主线前必须有：正确性 A/B、RAM A/B、TTFT A/B、tokens/s A/B、长上下文任务 A/B、fallback、可关闭开关。
+
+# 27. 本轮研究结论
+
+本轮通过公开论文检索确认：
+
+- 真正值得加入 MCNPU 的不是单纯“让 9B 参数变聪明”的魔法，而是让有限模型在推理时获得更多有效计算、外部知识和验证能力。
+- 对当前 4 GiB Android 目标，KV compression / retrieval / speculative decoding 的优先级高于直接增加模型规模。
+- 对“智商”提升，ReAct、Self-RAG、verifier、adaptive test-time compute 比盲目 Best-of-N 更适合做 runtime controller。
+- 对长上下文，KVQuant、GEAR、RocketKV、SpeCache、FreeKV 是值得建立实验接口的主要方向。
+- 对速度，QuantSpec、QSpec、RAPID、KV-Runahead 是值得研究的主要方向。
+- 所有论文结果都是论文环境下的结果，不能直接当成 MCNPU/Android/QNN 实测数据。
+- 新机制必须保持可插拔、可关闭、可回退，并纳入 4 GiB RSS/PSS 预算。
+
+本轮新增长期规则：以后每次重要论文研究结束，都必须把“论文 -> 可借鉴机制 -> MCNPU 落地方式 -> 风险 -> benchmark”写回本文件并提交。
+
+
 # 24. 禁止再次出现的错误
 
 1. 把 model.safetensors 当 GGUF。
