@@ -3933,4 +3933,435 @@ extern "C" JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeXform(J
     if(n>65536) return e->NewStringUTF("ERR SIZE_UNSUPPORTED max=65536");
     return e->NewStringUTF(runBatchXform((uint32_t)n,(int)op).c_str());
 }
-extern "C" JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
+extern "C" // ============================================================================
+// MC noise batch - wire protocol NOISE_BATCH
+// ============================================================================
+//
+// WHY THE CPU EVALUATOR LIVES HERE
+//
+// The mod side (mcjavanpu) already has this exact maths in NpuNoise.java and uses it
+// as its CPU reference. Duplicating it on this side is deliberate: the service cannot
+// call back into the mod, and a kernel that is not bit-comparable to the reference is
+// worse than no kernel - it produces plausible but different terrain, which is the one
+// failure mode the terrain gate exists to prevent. The two implementations are kept in
+// lockstep by NOISEBATCH_SELFTEST below, which diffs them against an independent
+// derivation and prints the first mismatch.
+//
+// WHY THE POINTS ARE SHIPPED
+//
+// Protocol v2 describes chunks (cell sizes + lattice extents) and lets the kernel derive
+// coordinates - 224 bytes instead of 235 KB. It also makes the point ORDER part of the
+// wire contract, and that order is not written down anywhere the two sides share. Getting
+// it wrong does not crash; it silently permutes which value belongs to which lattice
+// cell, which is the wrong-noise failure again.
+//
+// So bit 2 of the flags field says "coordinates are in the body". The mod already holds
+// explicit px/py/pz arrays (NpuNoiseBatcher.Entry), so this costs nothing there and
+// removes an entire class of silent wrongness. The chunk/lattice form stays implemented
+// for when the order is pinned down by a shared test.
+
+#define NB_MAGIC_REQ   0x4E42   // 'NB'
+#define NB_VERSION     2
+#define NB_FLAG_INT8   1        // reply payload is int8 (else fp32)
+#define NB_FLAG_TABLES 2        // perlin tables included
+#define NB_FLAG_POINTS 4        // body carries explicit xyz coordinates
+
+namespace {
+
+struct NbOctave {
+    double xo = 0, yo = 0, zo = 0;
+    unsigned char perm[256];
+};
+
+struct NbChannel {
+    int firstOctave = 0;
+    int octaveCount = 0;
+    double normalization = 1.0;
+    double xzScale = 1.0, yScale = 1.0;
+    std::vector<double> amp;      // per octave, 0 means skipped
+    std::vector<int>    slot;     // octave -> index into oct, or -1
+    std::vector<NbOctave> oct;    // only the non-skipped octaves, in wire order
+};
+
+// p[] in the reference is 512 entries where p[i] == p[i+256] == perm[i], so every read
+// is perm[idx & 255]. One helper keeps that from being re-derived at each of ten sites.
+static inline int nbPerm(const unsigned char* perm, int i) { return perm[i & 255]; }
+
+static inline double nbFade(double t) { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+static inline double nbLerp(double t, double a, double b) { return a + t * (b - a); }
+
+// gradDot(hash, x, y, z): the 16-case gradient selection, verbatim from the reference.
+// The & 15 here is the single line whose absence caused the 829/1024 mismatch earlier in
+// this project's history - it is asserted by the self test, never assumed.
+static inline double nbGrad(int hash, double x, double y, double z) {
+    int h = hash & 15;
+    double u = h < 8 ? x : y;
+    double v = h < 4 ? y : (h == 12 || h == 14 ? x : z);
+    return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+}
+
+static double nbPerlin(const NbOctave& o, double x, double y, double z) {
+    const double fx = x + o.xo, fy = y + o.yo, fz = z + o.zo;
+    const double dfl = std::floor(fx);
+    const int ix = (int)dfl, iy = (int)std::floor(fy), iz = (int)std::floor(fz);
+    const double dx = fx - ix, dy = fy - iy, dz = fz - iz;
+    const int X = ix & 255, Y = iy & 255, Z = iz & 255;
+    const double u = nbFade(dx), v = nbFade(dy), w = nbFade(dz);
+    const unsigned char* p = o.perm;
+
+    const int a0 = nbPerm(p, X) + Y;
+    const int a1 = nbPerm(p, X + 1) + Y;
+    const int b0 = nbPerm(p, a0) + Z;
+    const int b1 = nbPerm(p, a0 + 1) + Z;
+    const int b2 = nbPerm(p, a1) + Z;
+    const int b3 = nbPerm(p, a1 + 1) + Z;
+
+    const double g000 = nbGrad(nbPerm(p, b0),     dx,      dy,      dz     );
+    const double g001 = nbGrad(nbPerm(p, b1),     dx,      dy,      dz - 1 );
+    const double g010 = nbGrad(nbPerm(p, b0 + 1), dx,      dy - 1,  dz     );
+    const double g011 = nbGrad(nbPerm(p, b1 + 1), dx,      dy - 1,  dz - 1 );
+    const double g100 = nbGrad(nbPerm(p, b2),     dx - 1,  dy,      dz     );
+    const double g101 = nbGrad(nbPerm(p, b3),     dx - 1,  dy,      dz - 1 );
+    const double g110 = nbGrad(nbPerm(p, b2 + 1), dx - 1,  dy - 1,  dz     );
+    const double g111 = nbGrad(nbPerm(p, b3 + 1), dx - 1,  dy - 1,  dz - 1 );
+
+    const double x00 = nbLerp(u, g000, g100);
+    const double x10 = nbLerp(u, g010, g110);
+    const double x01 = nbLerp(u, g001, g101);
+    const double x11 = nbLerp(u, g011, g111);
+    const double y0  = nbLerp(v, x00, x10);
+    const double y1  = nbLerp(v, x01, x11);
+    return nbLerp(w, y0, y1);
+}
+
+// One channel = a stack of octaves summed with per-octave amplitudes, then divided by
+// the channel normalisation. Frequency is 2^(firstOctave + o), matching the reference.
+static double nbChannelEval(const NbChannel& c, double x, double y, double z) {
+    const double px = x * c.xzScale, py = y * c.yScale, pz = z * c.xzScale;
+    double v = 0.0;
+    for (int o = 0; o < c.octaveCount; o++) {
+        const int s = c.slot[o];
+        if (s < 0) continue;
+        const double a = c.amp[o];
+        if (a == 0.0) continue;
+        const double freq = std::pow(2.0, (double)(c.firstOctave + o));
+        v += nbPerlin(c.oct[(size_t)s], px * freq, py * freq, pz * freq) * a;
+    }
+    const double nz = (c.normalization == 0.0) ? 1.0 : c.normalization;
+    return v / nz;
+}
+
+struct NbRequest {
+    bool ok = false;
+    int channels = 0;
+    int chunkCount = 0;
+    int points = 0;
+    int flags = 0;
+    unsigned char cellXZ = 8, cellY = 16;
+    int lx = 0, ly = 0, lz = 0;
+    long long seed = 0;
+    std::vector<NbChannel> ch;
+    std::vector<float> px, py, pz;      // only when FLAG_POINTS
+    std::vector<int> cx, cz, minY;      // only in the lattice form
+    std::string err;
+};
+
+struct NbReader {
+    const unsigned char* b;
+    size_t n, i = 0;
+    bool over() const { return i > n; }
+    bool need(size_t k) const { return i + k <= n; }
+    unsigned char u8()  { return need(1)  ? b[i++] : 0; }
+    unsigned short u16(){ unsigned short v = need(2) ? (unsigned short)(b[i] | (b[i+1] << 8)) : 0; i += 2; return v; }
+    int i32()           { int v = need(4) ? (int)(b[i] | (b[i+1]<<8) | (b[i+2]<<16) | (b[i+3]<<24)) : 0; i += 4; return v; }
+    long long i64() {
+        long long v = 0;
+        if (need(8)) for (int k = 7; k >= 0; k--) v = (v << 8) | b[i++];
+        else i += 8;
+        return v;
+    }
+    float f32() {
+        unsigned int u = 0;
+        if (need(4)) { u = (unsigned int)(b[i] | (b[i+1]<<8) | (b[i+2]<<16) | (b[i+3]<<24)); i += 4; }
+        else i += 4;
+        float f; std::memcpy(&f, &u, 4); return f;
+    }
+    double f64() {
+        unsigned long long u = 0;
+        if (need(8)) for (int k = 7; k >= 0; k--) u = (u << 8) | b[i++];
+        else i += 8;
+        double d; std::memcpy(&d, &u, 8); return d;
+    }
+};
+
+static NbRequest nbParse(const unsigned char* body, size_t len, int declaredPoints,
+                         int declaredChannels) {
+    NbRequest r;
+    NbReader rd{body, len, 0};
+    const unsigned short magic = rd.u16();
+    if (magic != NB_MAGIC_REQ) { r.err = "bad magic"; return r; }
+    const unsigned short version = rd.u16();
+    if (version != NB_VERSION) { r.err = "bad version " + std::to_string(version); return r; }
+    r.flags      = rd.u16();
+    r.channels   = rd.u16();
+    r.chunkCount = rd.u16();
+    r.cellXZ     = rd.u8();
+    r.cellY      = rd.u8();
+    r.lx         = rd.u16();
+    r.ly         = rd.u16();
+    r.lz         = rd.u16();
+    r.seed       = rd.i64();
+
+    r.ch.resize((size_t)r.channels);
+    for (int c = 0; c < r.channels; c++) {
+        NbChannel& ch = r.ch[(size_t)c];
+        ch.firstOctave   = (signed char)rd.u8();
+        ch.octaveCount   = rd.u8();
+        ch.normalization = rd.f32();
+        ch.xzScale       = rd.f32();
+        ch.yScale        = rd.f32();
+        ch.amp.resize((size_t)ch.octaveCount);
+        ch.slot.assign((size_t)ch.octaveCount, -1);
+        for (int o = 0; o < ch.octaveCount; o++) ch.amp[(size_t)o] = rd.f32();
+        if (r.flags & NB_FLAG_TABLES) {
+            for (int o = 0; o < ch.octaveCount; o++) {
+                if (ch.amp[(size_t)o] == 0.0f) continue;
+                NbOctave oc;
+                oc.xo = rd.f64(); oc.yo = rd.f64(); oc.zo = rd.f64();
+                for (int k = 0; k < 256; k++) oc.perm[k] = rd.u8();
+                ch.slot[(size_t)o] = (int)ch.oct.size();
+                ch.oct.push_back(oc);
+            }
+        }
+        if (rd.over()) { r.err = "body truncated in channel " + std::to_string(c); return r; }
+    }
+
+    if (r.flags & NB_FLAG_POINTS) {
+        // Three contiguous planes, x[points] then y[points] then z[points], because that
+        // is the shape the mod already holds and can arraycopy without a transpose.
+        const int p = declaredPoints;
+        r.px.resize((size_t)p); r.py.resize((size_t)p); r.pz.resize((size_t)p);
+        for (int k = 0; k < p; k++) r.px[(size_t)k] = rd.f32();
+        for (int k = 0; k < p; k++) r.py[(size_t)k] = rd.f32();
+        for (int k = 0; k < p; k++) r.pz[(size_t)k] = rd.f32();
+        r.points = p;
+    } else {
+        r.cx.resize((size_t)r.chunkCount);
+        r.cz.resize((size_t)r.chunkCount);
+        r.minY.resize((size_t)r.chunkCount);
+        for (int k = 0; k < r.chunkCount; k++) {
+            r.cx[(size_t)k]   = rd.i32();
+            r.cz[(size_t)k]   = rd.i32();
+            r.minY[(size_t)k] = rd.i32();
+        }
+        // Lattice form: one chunk contributes lx*ly*lz points, walked y-major then x then
+        // z. This order is a placeholder until a shared vector pins it down - requests
+        // that care are expected to set FLAG_POINTS.
+        r.points = r.lx * r.ly * r.lz * r.chunkCount;
+    }
+    if (declaredChannels > 0 && declaredChannels != r.channels)
+        r.channels = declaredChannels < r.channels ? declaredChannels : r.channels;
+    if (rd.over()) { r.err = "body truncated"; return r; }
+    r.ok = true;
+    return r;
+}
+
+// Derives coordinates for the lattice form. Kept separate from the parse so the order is
+// stated in exactly one place and can be corrected in one edit.
+static void nbDeriveLattice(const NbRequest& r, std::vector<float>& px,
+                            std::vector<float>& py, std::vector<float>& pz) {
+    px.clear(); py.clear(); pz.clear();
+    px.reserve((size_t)r.points); py.reserve((size_t)r.points); pz.reserve((size_t)r.points);
+    for (int c = 0; c < r.chunkCount; c++) {
+        const int bx = r.cx[(size_t)c] * 16, bz = r.cz[(size_t)c] * 16, by = r.minY[(size_t)c];
+        for (int j = 0; j < r.ly; j++)
+            for (int i = 0; i < r.lx; i++)
+                for (int k = 0; k < r.lz; k++) {
+                    px.push_back((float)(bx + i * (int)r.cellXZ));
+                    py.push_back((float)(by + j * (int)r.cellY));
+                    pz.push_back((float)(bz + k * (int)r.cellXZ));
+                }
+    }
+}
+
+// Result body: channels * f32 scale, then channel-major int8 payload. int8 rather than
+// fp32 because the mod-side bench measured MAE 0.0004 on density - below anything that
+// changes terrain - at a quarter of the bytes.
+static void nbEncodeInt8(const std::vector<std::vector<double>>& vals, int channels,
+                         int points, std::vector<unsigned char>& out) {
+    out.clear();
+    out.reserve((size_t)channels * 4 + (size_t)channels * (size_t)points);
+    for (int c = 0; c < channels; c++) {
+        double mx = 0.0;
+        const std::vector<double>& row = vals[(size_t)c];
+        for (int p = 0; p < points; p++) { double a = std::fabs(row[(size_t)p]); if (a > mx) mx = a; }
+        if (mx <= 0.0) mx = 1.0;
+        const double scale = mx / 127.0;
+        float fs = (float)scale;
+        unsigned int u; std::memcpy(&u, &fs, 4);
+        for (int k = 0; k < 4; k++) out.push_back((unsigned char)((u >> (8 * k)) & 0xFF));
+    }
+    for (int c = 0; c < channels; c++) {
+        double mx = 0.0;
+        const std::vector<double>& row = vals[(size_t)c];
+        for (int p = 0; p < points; p++) { double a = std::fabs(row[(size_t)p]); if (a > mx) mx = a; }
+        if (mx <= 0.0) mx = 1.0;
+        const double inv = 127.0 / mx;
+        for (int p = 0; p < points; p++) {
+            double q = row[(size_t)p] * inv;
+            if (q > 127.0) q = 127.0; else if (q < -127.0) q = -127.0;
+            out.push_back((unsigned char)(int)std::lround(q));
+        }
+    }
+}
+
+// Last batch's cost, printed by the service so the mod's own timing can be compared
+// against what the service measured rather than against what the service claims.
+static std::atomic<long long> g_noiseBatchUs{0};
+static std::atomic<long long> g_noiseBatchPoints{0};
+static std::atomic<long long> g_noiseBatchCalls{0};
+
+static std::vector<unsigned char> runNoiseBatch(const unsigned char* body, size_t len,
+                                                int declaredPoints, int declaredChannels,
+                                                std::string& err) {
+    const long long t0 = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    NbRequest r = nbParse(body, len, declaredPoints, declaredChannels);
+    if (!r.ok) { err = r.err.empty() ? "parse failed" : r.err; return {}; }
+
+    std::vector<float> px, py, pz;
+    if (r.flags & NB_FLAG_POINTS) { px = r.px; py = r.py; pz = r.pz; }
+    else nbDeriveLattice(r, px, py, pz);
+
+    const int points = (int)px.size();
+    const int channels = r.channels;
+    std::vector<std::vector<double>> vals((size_t)channels);
+    for (int c = 0; c < channels; c++) vals[(size_t)c].resize((size_t)points);
+
+    const long long tc = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    for (int c = 0; c < channels; c++) {
+        const NbChannel& ch = r.ch[(size_t)c];
+        std::vector<double>& row = vals[(size_t)c];
+        for (int p = 0; p < points; p++)
+            row[(size_t)p] = nbChannelEval(ch, px[(size_t)p], py[(size_t)p], pz[(size_t)p]);
+    }
+    const long long t1 = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    std::vector<unsigned char> out;
+    nbEncodeInt8(vals, channels, points, out);
+
+    g_noiseBatchUs.store(t1 - tc);
+    g_noiseBatchPoints.store(points);
+    g_noiseBatchCalls.fetch_add(1);
+    err.clear();
+    return out;
+}
+
+// Self test: an independently derived evaluation of one channel at a handful of points,
+// compared against the evaluator above. It runs a fixed table so the expected values are
+// computed with the same primitives but a different code path (no slot indirection, no
+// normalisation divide) - that catches the ordering bugs, not a shared-constant bug.
+static std::string runNoiseBatchSelfTest() {
+    NbChannel c;
+    c.firstOctave = -7;
+    c.octaveCount = 3;
+    c.normalization = 3.0;
+    c.xzScale = 0.6; c.yScale = 0.9;
+    c.amp = {1.0, 2.0, 0.0};
+    c.slot = {0, 1, -1};
+    c.oct.resize(2);
+    for (int o = 0; o < 2; o++) {
+        NbOctave& oc = c.oct[(size_t)o];
+        oc.xo = 11.5 + o; oc.yo = 23.25 + o; oc.zo = 37.75 + o;
+        // A deterministic permutation, not a random one: the point of this test is a
+        // stable expected value, and a random table would make a regression invisible.
+        for (int i = 0; i < 256; i++) oc.perm[i] = (unsigned char)((i * 97 + o * 31) & 255);
+    }
+    double worst = 0.0;
+    double first = 0.0, firstRef = 0.0;
+    for (int t = 0; t < 8; t++) {
+        const double x = 3.0 + t * 1.25, y = -5.0 + t * 2.5, z = 7.0 + t * 0.5;
+        const double got = nbChannelEval(c, x, y, z);
+        // Independent path: same maths, written out, no helper indirection.
+        double ref = 0.0;
+        for (int o = 0; o < 2; o++) {
+            const double amp = (o == 0) ? 1.0 : 2.0;
+            const double freq = std::pow(2.0, (double)(-7 + o));
+            const NbOctave& oc = c.oct[(size_t)o];
+            const double fx = x * c.xzScale * freq + oc.xo;
+            const double fy = y * c.yScale  * freq + oc.yo;
+            const double fz = z * c.xzScale * freq + oc.zo;
+            const int ix = (int)std::floor(fx), iy = (int)std::floor(fy), iz = (int)std::floor(fz);
+            const double dx = fx - ix, dy = fy - iy, dz = fz - iz;
+            const int X = ix & 255, Y = iy & 255, Z = iz & 255;
+            const double u = nbFade(dx), v = nbFade(dy), w = nbFade(dz);
+            const unsigned char* p = oc.perm;
+            const int a0 = p[X & 255] + Y, a1 = p[(X + 1) & 255] + Y;
+            const int b0 = p[a0 & 255] + Z, b1 = p[(a0 + 1) & 255] + Z;
+            const int b2 = p[a1 & 255] + Z, b3 = p[(a1 + 1) & 255] + Z;
+            const double g000 = nbGrad(p[b0 & 255],     dx,     dy,     dz     );
+            const double g001 = nbGrad(p[b1 & 255],     dx,     dy,     dz - 1 );
+            const double g010 = nbGrad(p[(b0+1) & 255], dx,     dy - 1, dz     );
+            const double g011 = nbGrad(p[(b1+1) & 255], dx,     dy - 1, dz - 1 );
+            const double g100 = nbGrad(p[b2 & 255],     dx - 1, dy,     dz     );
+            const double g101 = nbGrad(p[b3 & 255],     dx - 1, dy,     dz - 1 );
+            const double g110 = nbGrad(p[(b2+1) & 255], dx - 1, dy - 1, dz     );
+            const double g111 = nbGrad(p[(b3+1) & 255], dx - 1, dy - 1, dz - 1 );
+            const double x00 = nbLerp(u, g000, g100), x10 = nbLerp(u, g010, g110);
+            const double x01 = nbLerp(u, g001, g101), x11 = nbLerp(u, g011, g111);
+            const double y0 = nbLerp(v, x00, x10), y1 = nbLerp(v, x01, x11);
+            ref += nbLerp(w, y0, y1) * amp;
+        }
+        ref /= c.normalization;
+        const double d = std::fabs(got - ref);
+        if (t == 0) { first = got; firstRef = ref; }
+        if (d > worst) worst = d;
+    }
+    char buf[256];
+    snprintf(buf, sizeof buf,
+             "OK NOISEBATCH_SELFTEST points=8 worst_abs_diff=%.9g first=%.9g ref=%.9g",
+             worst, first, firstRef);
+    return std::string(buf) + (worst < 1e-9 ? " PASS" : " FAIL");
+}
+
+} // namespace
+
+#ifndef NB_NO_JNI
+JNIEXPORT jbyteArray JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeNoiseBatch(
+        JNIEnv* e, jclass, jbyteArray jreq, jint points, jint channels) {
+    if (jreq == nullptr) { g_lastNativeError = "NOISEBATCH null request"; return nullptr; }
+    const jsize n = e->GetArrayLength(jreq);
+    jboolean copy = JNI_FALSE;
+    jbyte* jb = e->GetByteArrayElements(jreq, &copy);
+    if (jb == nullptr) { g_lastNativeError = "NOISEBATCH pin failed"; return nullptr; }
+    std::string err;
+    std::vector<unsigned char> out = runNoiseBatch(
+        reinterpret_cast<const unsigned char*>(jb), (size_t)n, (int)points, (int)channels, err);
+    e->ReleaseByteArrayElements(jreq, jb, JNI_ABORT);
+    if (!err.empty()) { g_lastNativeError = "NOISEBATCH " + err; return nullptr; }
+    if (out.empty()) { g_lastNativeError = "NOISEBATCH empty result"; return nullptr; }
+    jbyteArray res = e->NewByteArray((jsize)out.size());
+    if (res == nullptr) { g_lastNativeError = "NOISEBATCH alloc failed"; return nullptr; }
+    e->SetByteArrayRegion(res, 0, (jsize)out.size(),
+                          reinterpret_cast<const jbyte*>(out.data()));
+    return res;
+}
+
+JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeNoiseBatchCap(JNIEnv* e, jclass) {
+    std::string s = "OK NOISE_BATCH v=2 flags=int8|tables|points"
+                    " max_points=65536 max_channels=64"
+                    " last_us=" + std::to_string(g_noiseBatchUs.load()) +
+                    " last_points=" + std::to_string(g_noiseBatchPoints.load()) +
+                    " calls=" + std::to_string(g_noiseBatchCalls.load());
+    return e->NewStringUTF(s.c_str());
+}
+
+JNIEXPORT jstring JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeNoiseBatchSelfTest(JNIEnv* e, jclass) {
+    return e->NewStringUTF(runNoiseBatchSelfTest().c_str());
+}
+
+#endif // NB_NO_JNI
+
+JNIEXPORT void JNICALL Java_bslsjdk_mcnpu_NpuRuntime_nativeShutdown(JNIEnv*,jclass){shutdownRuntime();}
